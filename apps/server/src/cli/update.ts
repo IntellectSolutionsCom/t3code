@@ -63,14 +63,21 @@ const decodeReleaseIndex = Schema.decodeUnknownEffect(Schema.fromJsonString(Rele
 const RELEASE_INDEX_TIMEOUT = Duration.seconds(30);
 const RELEASE_INDEX_MAX_PAGES = 10;
 
+declare const __T3CODE_BUILD_RELEASE_REPOSITORY__: string | undefined;
+
 const RELEASE_REPOSITORY_ENV = "T3CODE_RELEASE_REPOSITORY";
+const BUILD_RELEASE_REPOSITORY =
+  typeof __T3CODE_BUILD_RELEASE_REPOSITORY__ === "undefined"
+    ? undefined
+    : __T3CODE_BUILD_RELEASE_REPOSITORY__ || undefined;
 // Exactly one <owner>/<repo> with no dot segments, so the value cannot change the API path.
 const RELEASE_REPOSITORY_SEGMENT = /^[A-Za-z0-9._-]+$/u;
 
 /** The `<owner>/<repo>` whose releases `t3 update` follows; `undefined` means the upstream project. */
 export const resolveReleaseRepository = Effect.fn("cli.update.resolve_release_repository")(
   function* () {
-    const repository = (yield* HostProcess.Environment)[RELEASE_REPOSITORY_ENV]?.trim() || undefined;
+    const repository =
+      (yield* HostProcess.Environment)[RELEASE_REPOSITORY_ENV]?.trim() || BUILD_RELEASE_REPOSITORY;
     if (repository === undefined) return undefined;
     const segments = repository.split("/");
     const valid =
