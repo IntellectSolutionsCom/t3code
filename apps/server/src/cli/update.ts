@@ -4,6 +4,7 @@ import {
   CLI_RELEASE_CHANNELS,
   cliReleaseIndexPageUrl,
   cliReleaseChannelOf,
+  cliReleaseRepositoryBaseUrl,
   newestCliReleaseVersion,
   releaseAssetUrl,
   updateFeedFileName,
@@ -62,14 +63,40 @@ const decodeReleaseIndex = Schema.decodeUnknownEffect(Schema.fromJsonString(Rele
 const RELEASE_INDEX_TIMEOUT = Duration.seconds(30);
 const RELEASE_INDEX_MAX_PAGES = 10;
 
+const RELEASE_REPOSITORY_ENV = "T3CODE_RELEASE_REPOSITORY";
+// Exactly one <owner>/<repo> with no dot segments, so the value cannot change the API path.
+const RELEASE_REPOSITORY_SEGMENT = /^[A-Za-z0-9._-]+$/u;
+
+/** The `<owner>/<repo>` whose releases `t3 update` follows; `undefined` means the upstream project. */
+export const resolveReleaseRepository = Effect.fn("cli.update.resolve_release_repository")(
+  function* () {
+    const repository = (yield* HostProcess.Environment)[RELEASE_REPOSITORY_ENV]?.trim() || undefined;
+    if (repository === undefined) return undefined;
+    const segments = repository.split("/");
+    const valid =
+      segments.length === 2 &&
+      segments.every(
+        (segment) =>
+          segment !== "." && segment !== ".." && RELEASE_REPOSITORY_SEGMENT.test(segment),
+      );
+    if (!valid) {
+      return yield* new CliUpdateError({
+        reason: `${RELEASE_REPOSITORY_ENV} must be <owner>/<repo>, got '${repository}'.`,
+      });
+    }
+    return repository;
+  },
+);
+
 export const resolveNewestVersion = Effect.fn("cli.update.resolve_newest")(function* (
   channel: CliReleaseChannel,
+  repository: string | undefined,
 ) {
   const httpClient = yield* HttpClient.HttpClient;
   const environment = yield* HostProcess.Environment;
   const githubToken = environment.GH_TOKEN?.trim() || environment.GITHUB_TOKEN?.trim() || undefined;
   for (let page = 1; page <= RELEASE_INDEX_MAX_PAGES; page += 1) {
-    const request = HttpClientRequest.get(cliReleaseIndexPageUrl(page)).pipe(
+    const request = HttpClientRequest.get(cliReleaseIndexPageUrl(page, repository)).pipe(
       HttpClientRequest.setHeader("Accept", "application/vnd.github+json"),
     );
     const authenticatedRequest =
@@ -380,13 +407,14 @@ export const runUpdate = Effect.fn("cli.update.run")(function* (input: {
       reason: `'${input.requestedVersion}' is not an exact t3 version.`,
     });
   }
+  const repository = mirror === undefined ? yield* resolveReleaseRepository() : undefined;
   const progress = createUpdateProgress();
   progress.status("Checking for updates...");
   const targetVersion = yield* (
     input.requestedVersion !== undefined
       ? Effect.succeed(input.requestedVersion)
       : mirror === undefined
-        ? resolveNewestVersion(channel)
+        ? resolveNewestVersion(channel, repository)
         : resolveMirrorVersion(mirror, channel)
   ).pipe(Effect.ensuring(Effect.sync(progress.finish)));
   const targetChannel = cliReleaseChannelOf(targetVersion);
@@ -502,7 +530,9 @@ export const runUpdate = Effect.fn("cli.update.run")(function* (input: {
     httpClient,
     platform,
     arch,
-    releaseBaseUrl: mirror?.feedUrl ?? (environment[CLI_RELEASE_BASE_URL_ENV]?.trim() || undefined),
+    releaseBaseUrl:
+      mirror?.feedUrl ??
+      (environment[CLI_RELEASE_BASE_URL_ENV]?.trim() || cliReleaseRepositoryBaseUrl(repository)),
     requirePublishedRelease: mirror !== undefined,
     validate: (paths) =>
       runner
