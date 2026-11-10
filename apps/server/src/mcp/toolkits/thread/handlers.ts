@@ -6,9 +6,11 @@ import {
   type RunId,
   OrchestratorMcpFailure,
   type OrchestrationV2Command,
+  orchestrationV2WorktreePending,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import { modelSelectionCommandType } from "@t3tools/shared/model";
+import { latestExecutedRun } from "@t3tools/shared/orchestrationV2ThreadError";
 
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import * as McpToolAccess from "../../McpToolAccess.ts";
@@ -37,6 +39,7 @@ function queueEntry(
     queuedRunId: run.id,
     text: characters.slice(0, limit).join(""),
     truncated: characters.length > limit,
+    held: run.queueHeld === true,
   };
 }
 const dispatch = Effect.fn("mcp.dispatchThreadCommand")(function* (
@@ -48,6 +51,34 @@ const dispatch = Effect.fn("mcp.dispatchThreadCommand")(function* (
     .dispatch(command({ commandId: yield* newCommandId(), threadId: projection.thread.id }))
     .pipe(Effect.mapError(dispatchFailure));
   return { sequence: result.sequence };
+});
+/** Agents lift only provider-failure and restart holds: not a person's, a Stop's or a worktree's. */
+const resumeQueue = Effect.fn("mcp.resumeQueue")(function* (threadId: ThreadId | undefined) {
+  const { threads, projection } = yield* readThread(threadId, ["runs", "messages"]);
+  const { runs, thread } = projection;
+  const latest = latestExecutedRun(runs);
+  const stopped =
+    latest !== null &&
+    (yield* threads
+      .getProjectThreadRecords(
+        { projectId: thread.projectId, threadId: thread.id },
+        ["turnItems"],
+        { turnItemTypes: ["run_interrupt_request"], turnItemRunIds: [latest.id] },
+      )
+      .pipe(Effect.mapError(unavailable))).turnItems.length > 0;
+  const personHeld = runs.some(
+    (run) =>
+      run.status === "queued" &&
+      run.queueHeld === true &&
+      (projection.messages.find((message) => message.id === run.userMessageId)?.createdBy ??
+        "user") === "user",
+  );
+  if (stopped || personHeld || orchestrationV2WorktreePending(thread.worktreePath, runs))
+    return yield* new OrchestratorMcpFailure({
+      code: "invalid_request",
+      message: "This held queue waits for the user. Tell the user.",
+    });
+  return yield* dispatch(thread.id, (common) => ({ ...common, type: "queue.resume" }));
 });
 
 const readQuestion = Effect.fn("mcp.readQuestion")(function* (input: {
@@ -274,6 +305,7 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
           const cursor = input.cursor ?? 0;
           const end = cursor + (input.limit ?? 20);
           return {
+            held: runs.some((run) => run.queueHeld === true),
             items: runs.slice(cursor, end).flatMap((run) => {
               const entry = queueEntry(projection, run.id, 1000);
               return entry === undefined ? [] : [entry];
@@ -293,6 +325,7 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
     ),
     writesThread((input) =>
       Effect.gen(function* () {
+        if (input.action === "resume") return yield* resumeQueue(input.threadId);
         const runId = yield* required(input.queuedRunId, "queuedRunId");
         switch (input.action) {
           case "edit": {
