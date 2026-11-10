@@ -1,7 +1,9 @@
 import { makeAssistantStreamingFilter } from "./assistantStreaming.ts";
+import { withProviderMessageOrigin } from "./providerMessageOrigin.ts";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import {
   isOrchestrationV2WorkActive,
+  parseGoalCommand,
   CommandId,
   type EventId,
   type ModelSelection,
@@ -2245,6 +2247,9 @@ export const layer: Layer.Layer<
         const compact =
           input.message.attachments.length === 0 &&
           input.message.text.trim().toLowerCase() === "/compact";
+        const goalCommand =
+          (input.session.driver === "codex" || input.session.driver === "claudeAgent") &&
+          parseGoalCommand(input.message) !== null;
         const { message: _message, ...resumeInput } = turnInput;
         const startTurn =
           input.resume === true
@@ -2275,7 +2280,19 @@ export const layer: Layer.Layer<
                     }),
                   }),
                 ))
-              : input.session.startTurn(turnInput);
+              : input.session.startTurn({
+                  ...turnInput,
+                  message: {
+                    ...turnInput.message,
+                    text: goalCommand
+                      ? turnInput.message.text
+                      : withProviderMessageOrigin(
+                          turnInput.message,
+                          turnInput.message.text,
+                          input.session.driver,
+                        ),
+                  },
+                });
         yield* Effect.andThen(shouldStart, startTurn).pipe(
           // Wait for acceptance so abandoned startup cannot leave a refresher
           // on the already-detached ingestion fiber.

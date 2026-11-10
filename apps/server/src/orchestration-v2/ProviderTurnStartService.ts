@@ -1749,7 +1749,16 @@ export const layer: Layer.Layer<
             .filter((part) => part !== "")
             .join("\n\n");
           const { restartContinuationOfRunId: _resumedRunId, ...promptedInput } = turnInput;
-          const text = goalCommand ? userText : withInlineContext(context, userText);
+          const messageHeading =
+            turnInput.message.createdBy === "agent" &&
+            turnInput.message.senderThreadId !== undefined
+              ? "Agent message:"
+              : "User message:";
+          // The turn's own text, which carries the sender line, not the closure's userText.
+          const messageText = turnInput.message.text;
+          const text = goalCommand
+            ? messageText
+            : withInlineContext(context, messageText, messageHeading);
           const startInput = noteContinuation ? promptedInput : turnInput;
           const { resume: _resume, ...contextInput } = startInput;
           const { message: resumeMessage, resume: _resumeIntent, ...resumeInput } = startInput;
@@ -1762,9 +1771,9 @@ export const layer: Layer.Layer<
                     ...turnInput.message,
                     text,
                   },
-                  ...(text === userText
+                  ...(text === messageText
                     ? {}
-                    : { inlineContextLength: text.length - userText.length }),
+                    : { inlineContextLength: text.length - messageText.length }),
                 });
           yield* operation.pipe(
             // Clear pending handoff markers for refused prompts so the next turn retains the native session.
