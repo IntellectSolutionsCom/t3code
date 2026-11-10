@@ -441,7 +441,8 @@ detail also exposes an in-flight title regeneration.
 Sends a message to any ordinary or delegated thread in the environment:
 
 - `auto` starts an idle thread, steers a fully active turn, or queues behind a
-  turn that is not yet steerable;
+  turn that is not yet steerable. An agent's `auto` also queues when the target's
+  declared steering would cancel tool calls or restart the turn;
 - `queue` creates a separate follow-up run after active work;
 - `steer` requires a steerable active provider turn; and
 - `restart` requires an active provider turn and uses the orchestrator's
