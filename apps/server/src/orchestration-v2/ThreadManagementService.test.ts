@@ -1,9 +1,11 @@
 import { expect, it } from "@effect/vitest";
 import {
+  ChatAttachmentId,
   CommandId,
   EnvironmentId,
   MessageId,
   type OrchestrationV2Command,
+  type OrchestrationV2ProviderCapabilities,
   type OrchestrationV2Run,
   type OrchestrationV2ProviderThread,
   ProviderThreadId,
@@ -13,6 +15,7 @@ import {
   type OrchestrationV2ThreadProjection,
   ProjectId,
   ProviderInstanceId,
+  RunAttemptId,
   RunId,
   ThreadId,
 } from "@t3tools/contracts";
@@ -27,10 +30,13 @@ import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 
+import { AcpProviderCapabilitiesV2 } from "@t3tools/provider-acp/server/adapter";
 import { AgentScope } from "@t3tools/shared/AgentScope";
 
 import * as ServerSettings from "../serverSettings.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
+import { ClaudeProviderCapabilitiesV2 } from "./Adapters/ClaudeAdapterV2.ts";
+import { CodexProviderCapabilitiesV2 } from "./Adapters/CodexAdapterV2.ts";
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
 import * as Orchestrator from "./Orchestrator.ts";
 import * as ProviderSessionManager from "./ProviderSessionManager.ts";
@@ -197,6 +203,93 @@ it.effect(
     }).pipe(Effect.provide(layerTest));
   },
 );
+
+const kiro: OrchestrationV2ProviderCapabilities = {
+  ...AcpProviderCapabilitiesV2,
+  turns: {
+    ...AcpProviderCapabilitiesV2.turns,
+    supportsActiveSteering: true,
+    activeSteeringInterruptsTools: false,
+    activeSteeringAcceptsAttachments: false,
+  },
+};
+const image = {
+  type: "image",
+  id: ChatAttachmentId.make("thread-management-send-image"),
+  name: "screen.png",
+  mimeType: "image/png",
+  sizeBytes: 1,
+} as const;
+const agentAuto = { createdBy: "agent", mode: "auto", attachments: [] } as const;
+const agentAutoImage = { createdBy: "agent", mode: "auto", attachments: [image] } as const;
+const agentSteer = { createdBy: "agent", mode: "steer", attachments: [] } as const;
+const userAuto = { createdBy: "user", mode: "auto", attachments: [] } as const;
+
+it.effect.each([
+  ["agent auto queues: Claude steer cancels tools", ClaudeProviderCapabilitiesV2, agentAuto, true],
+  ["agent auto queues: ACP steers by restart", AcpProviderCapabilitiesV2, agentAuto, true],
+  ["agent auto queues: Kiro steer takes no images", kiro, agentAutoImage, true],
+  ["agent auto steers: Codex steer cancels nothing", CodexProviderCapabilitiesV2, agentAuto, false],
+  ["user auto steers Claude", ClaudeProviderCapabilitiesV2, userAuto, false],
+  ["agent auto steers: capabilities unknown", undefined, agentAuto, false],
+  ["agent steer steers Claude", ClaudeProviderCapabilitiesV2, agentSteer, false],
+  ["agent auto steers: Kiro, text only", kiro, agentAuto, false],
+] as const)("sendToThread: %s", ([, capabilities, send, queues]) => {
+  const projectId = ProjectId.make("project:thread-management:send");
+  const threadId = ThreadId.make("thread:thread-management:send");
+  const attemptId = RunAttemptId.make("attempt:thread-management:send");
+  const queuedRunId = RunId.make("run:thread-management:send-queued");
+  const messageId = MessageId.make("message:thread-management:send");
+  const providerThreadId = ProviderThreadId.make("provider-thread:thread-management:send");
+  const providerSessionId = ProviderSessionId.make("provider-session:thread-management:send");
+  const projection = {
+    thread: {
+      projectId,
+      deletedAt: null,
+      archivedAt: null,
+      modelSelection: { instanceId: "codex" },
+    },
+    runs: [
+      { id: "active", ordinal: 1, status: "running", activeAttemptId: attemptId, providerThreadId },
+      { id: queuedRunId, ordinal: 2, status: "queued", activeAttemptId: null },
+    ],
+    providerTurns: [{ runAttemptId: attemptId, status: "running" }],
+    providerThreads: [{ id: providerThreadId, providerSessionId }],
+    providerSessions: capabilities === undefined ? [] : [{ id: providerSessionId, capabilities }],
+    messages: [{ id: messageId, runId: queuedRunId }],
+    turnItems: [],
+  } as unknown as OrchestrationV2ThreadProjection;
+  let dispatchMode: string | undefined;
+  const layerTest = ThreadManagementService.layer.pipe(
+    Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
+    Layer.provide(
+      Layer.mock(Orchestrator.OrchestratorV2)({
+        getThreadRecords: () => Effect.succeed(projection),
+        dispatch: (command) =>
+          Effect.sync(() => {
+            if (command.type === "message.dispatch") dispatchMode = command.dispatchMode.type;
+            return { sequence: 1, storedEvents: [] } as never;
+          }),
+      }),
+    ),
+    Layer.provide(ServerSettings.layerTest()),
+    Layer.provide(layerReceiptsTest),
+  );
+
+  return Effect.gen(function* () {
+    const threads = yield* ThreadManagementService.ThreadManagementService;
+    yield* threads.sendToThread({
+      ...send,
+      projectId,
+      commandId: CommandId.make("command:thread-management:send"),
+      threadId,
+      messageId,
+      text: "Status update.",
+      creationSource: "mcp",
+    });
+    expect(dispatchMode).toBe(queues ? "queue_after_active" : "steer_active");
+  }).pipe(Effect.provide(layerTest));
+});
 
 it.effect("waitForThread follows a restart continuation instead of the cut run", () =>
   Effect.gen(function* () {

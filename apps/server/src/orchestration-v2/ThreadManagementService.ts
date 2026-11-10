@@ -56,6 +56,7 @@ import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
+import * as CommandPolicy from "./CommandPolicy.ts";
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
 import * as Orchestrator from "./Orchestrator.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
@@ -816,7 +817,12 @@ const make = Effect.gen(function* () {
   const sendToThread: ThreadManagementServiceShape["sendToThread"] = Effect.fn(
     "ThreadManagementService.sendToThread",
   )(function* (input) {
-    const target = yield* getProjectThreadRecords(input, ["runs", "providerTurns"]);
+    const target = yield* getProjectThreadRecords(input, [
+      "runs",
+      "providerTurns",
+      "providerThreads",
+      "providerSessions",
+    ]);
     if (target.thread.archivedAt !== null) {
       return yield* new ThreadManagementThreadArchivedError({
         threadId: input.threadId,
@@ -844,7 +850,11 @@ const make = Effect.gen(function* () {
         targetRunId: steerableRun.id,
       };
     } else if (mode === "auto" && steerableRun !== undefined) {
-      dispatchMode = { type: "steer_active", targetRunId: steerableRun.id };
+      dispatchMode =
+        input.createdBy === "agent" &&
+        CommandPolicy.steerWouldCancelWork(target, steerableRun, input.attachments.length > 0)
+          ? { type: "queue_after_active" }
+          : { type: "steer_active", targetRunId: steerableRun.id };
     } else {
       dispatchMode = {
         type: mode === "queue" ? "queue_after_active" : "start_immediately",

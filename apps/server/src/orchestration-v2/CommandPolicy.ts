@@ -125,8 +125,23 @@ export function isActiveRun(run: OrchestrationV2Run): boolean {
   );
 }
 
+/** Whether a steer into this run would cancel its tool calls or restart its turn. */
+export function steerWouldCancelWork(
+  projection: Pick<OrchestrationV2ThreadProjection, "providerThreads" | "providerSessions">,
+  run: OrchestrationV2Run,
+  hasAttachments: boolean,
+): boolean {
+  const turns = providerTurnCapabilities(projection, run);
+  return (
+    turns !== undefined &&
+    (!turns.supportsActiveSteering ||
+      turns.activeSteeringInterruptsTools === true ||
+      (hasAttachments && turns.activeSteeringAcceptsAttachments === false))
+  );
+}
+
 function providerTurnCapabilities(
-  projection: OrchestrationV2ThreadProjection,
+  projection: Pick<OrchestrationV2ThreadProjection, "providerThreads" | "providerSessions">,
   run: OrchestrationV2Run,
 ) {
   const providerThread = projection.providerThreads.find(
