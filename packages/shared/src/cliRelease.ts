@@ -42,7 +42,12 @@ export function cliArchiveFileName(version: string, platformKey: CliArchivePlatf
   return `t3-${version}-${platformKey}.${platformKey.startsWith("win32") ? "zip" : "tar.gz"}`;
 }
 
-const CLI_RELEASE_DEFAULT_BASE_URL = `https://github.com/${CLI_RELEASE_REPOSITORY}/releases/download`;
+/** Where `repository`'s release files download from, one `v<version>` directory per release. */
+export function cliReleaseRepositoryBaseUrl(repository = CLI_RELEASE_REPOSITORY): string {
+  return `https://github.com/${repository}/releases/download`;
+}
+
+const CLI_RELEASE_DEFAULT_BASE_URL = cliReleaseRepositoryBaseUrl();
 
 export function cliReleaseDownloadBaseUrl(
   version: string,
@@ -132,8 +137,8 @@ export function acceptsTrackSwitchRelease(
 }
 
 /** Page until the channel matches; nightlies can push preview/stable releases past the first page. */
-export function cliReleaseIndexPageUrl(page: number): string {
-  return `https://api.github.com/repos/${CLI_RELEASE_REPOSITORY}/releases?per_page=100&page=${page}`;
+export function cliReleaseIndexPageUrl(page: number, repository = CLI_RELEASE_REPOSITORY): string {
+  return `https://api.github.com/repos/${repository}/releases?per_page=100&page=${page}`;
 }
 
 /** Draft assets are not downloadable. */
