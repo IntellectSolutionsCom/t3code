@@ -25,6 +25,7 @@ import {
   resolveLauncherPath,
   resolveMirrorVersion,
   resolveNewestVersion,
+  resolveReleaseRepository,
   runUpdate,
 } from "./update.ts";
 
@@ -51,20 +52,34 @@ it.effect("authenticates each release page until the requested channel is found"
     const httpClient = HttpClient.make((request) => {
       const url = new URL(request.url);
       assert.equal(url.origin, "https://api.github.com");
-      assert.equal(url.pathname, "/repos/pingdotgg/t3code/releases");
       assert.equal(request.headers.accept, "application/vnd.github+json");
       assert.equal(request.headers.authorization, "Bearer gh-token");
       const page = url.searchParams.get("page") ?? "";
-      pages.push(page);
+      pages.push(`${url.pathname}?page=${page}`);
       const tag_name = page === "1" ? "v1.2.4-preview.20260101.1" : "v1.2.3";
       return Effect.succeed(HttpClientResponse.fromWeb(request, Response.json([{ tag_name }])));
     });
-    const version = yield* resolveNewestVersion("stable").pipe(
-      Effect.provideService(HostProcess.Environment, { GH_TOKEN: "gh-token" }),
-      Effect.provideService(HttpClient.HttpClient, httpClient),
-    );
-    assert.equal(version, "1.2.3");
-    assert.deepStrictEqual(pages, ["1", "2"]);
+    const resolve = (repository?: string) =>
+      resolveReleaseRepository().pipe(
+        Effect.flatMap((resolved) => resolveNewestVersion("stable", resolved)),
+        Effect.provideService(HostProcess.Environment, {
+          GH_TOKEN: "gh-token",
+          T3CODE_RELEASE_REPOSITORY: repository,
+        }),
+        Effect.provideService(HttpClient.HttpClient, httpClient),
+      );
+    assert.equal(yield* resolve(), "1.2.3");
+    assert.equal(yield* resolve(" example/t3code-fork "), "1.2.3");
+    assert.deepStrictEqual(pages, [
+      "/repos/pingdotgg/t3code/releases?page=1",
+      "/repos/pingdotgg/t3code/releases?page=2",
+      "/repos/example/t3code-fork/releases?page=1",
+      "/repos/example/t3code-fork/releases?page=2",
+    ]);
+    // Never falls back to upstream, which would install another project's release.
+    const malformed = yield* Effect.flip(resolve("example/x/../../user"));
+    assert.include(malformed.message, "T3CODE_RELEASE_REPOSITORY must be <owner>/<repo>");
+    assert.equal(pages.length, 4);
   }),
 );
 
@@ -185,6 +200,9 @@ it.layer(NodeServices.layer)("t3 update under a managed policy", (it) => {
             HttpClientResponse.fromWeb(request, new Response("", { status: 404 })),
           );
         }),
+      ).pipe(
+        // The mirror decides where releases come from, so the repository is never read.
+        Effect.provideService(HostProcess.Environment, { T3CODE_RELEASE_REPOSITORY: "not a repo" }),
       );
       assert.include(error.message, "from Example Corp's update mirror");
       assert.deepStrictEqual(requested, ["https://updates.example.com"]);
@@ -527,6 +545,68 @@ it.layer(NodeServices.layer)("t3 update with a background service", (it) => {
       Effect.scoped,
       Effect.provideService(HostProcess.Platform, "linux"),
       Effect.provideService(HostProcess.Environment, { PATH: "" }),
+    ),
+  );
+
+  it.effect("lists and downloads releases from the configured repository", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-update-" });
+      const requested: string[] = [];
+      const httpClient = HttpClient.make((request) => {
+        requested.push(request.url);
+        return Effect.succeed(
+          HttpClientResponse.fromWeb(
+            request,
+            request.url.startsWith("https://api.github.com/")
+              ? Response.json([{ tag_name: "v99.0.0" }])
+              : new Response("", { status: 404 }),
+          ),
+        );
+      });
+
+      const error = yield* runUpdate({
+        baseDir,
+        logsDir: baseDir,
+        serverRuntimeStatePath: path.join(baseDir, "server-runtime.json"),
+        channel: "stable",
+        requestedVersion: undefined,
+        allowDowngrade: false,
+        assumeYes: false,
+      }).pipe(
+        Effect.flip,
+        Effect.provide(
+          Layer.mergeAll(
+            Layer.mock(BootService.BootService, {
+              status: Effect.succeed<BootService.BootServiceStatus>({
+                supported: false,
+                installed: false,
+                current: true,
+                unitPath: path.join(baseDir, "t3code.service"),
+                logPath: path.join(baseDir, "boot-service.log"),
+              }),
+            }),
+            Layer.mock(ProcessRunner.ProcessRunner, {}),
+            ManagedPolicy.layerTest(),
+            Layer.succeed(HttpClient.HttpClient, httpClient),
+          ),
+        ),
+      );
+
+      assert.equal(error.message, "No release archive was published for t3@99.0.0.");
+      assert.deepStrictEqual(requested, [
+        "https://api.github.com/repos/example/t3code-fork/releases?per_page=100&page=1",
+        "https://github.com/example/t3code-fork/releases/download/v99.0.0/SHA256SUMS",
+      ]);
+    }).pipe(
+      Effect.scoped,
+      Effect.provideService(HostProcess.Platform, "linux"),
+      Effect.provideService(HostProcess.Architecture, "x64"),
+      Effect.provideService(HostProcess.Environment, {
+        PATH: "",
+        T3CODE_RELEASE_REPOSITORY: "example/t3code-fork",
+      }),
     ),
   );
 });
