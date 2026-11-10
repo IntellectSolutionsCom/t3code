@@ -127,6 +127,7 @@ const result = (uuid: string, aborted: boolean) =>
 const deliveries = [
   "child completion",
   "scheduled message",
+  "agent message",
   "user steering",
   "promoted queued message",
 ] as const;
@@ -357,6 +358,32 @@ it.effect.each(deliveries)(
                 ),
               ),
             );
+          } else if (delivery === "agent message") {
+            const sent = yield* Effect.gen(function* () {
+              const threads = yield* ThreadManagementService.ThreadManagementService;
+              return yield* threads.sendToThread({
+                projectId,
+                commandId: CommandId.make("agent-send"),
+                threadId,
+                messageId,
+                text: "Status from another thread.",
+                attachments: [],
+                mode: "auto",
+                createdBy: "agent",
+                creationSource: "mcp",
+              });
+            }).pipe(
+              Effect.provide(
+                ThreadManagementService.layer.pipe(
+                  Layer.provide(ServerSettings.layerTest()),
+                  Layer.provide(
+                    CommandReceiptStore.layer.pipe(Layer.provide(SqlitePersistence.layerMemory)),
+                  ),
+                ),
+              ),
+            );
+            assert.equal(sent.delivery, "queued");
+            assert.equal(sent.run.status, "queued");
           } else if (delivery === "user steering") {
             yield* orchestrator.dispatch({
               type: "message.dispatch",
@@ -419,6 +446,10 @@ it.effect.each(deliveries)(
           yield* Queue.offer(sdkMessages, result("completed", false));
           yield* Fiber.join(finished);
           yield* worker.drain();
+          if (delivery === "agent message") {
+            const next = (yield* orchestrator.getThreadProjection(threadId)).runs[1]!;
+            assert.notEqual(next.status, "queued");
+          }
           yield* orchestrator.resumeQueuedRuns;
           yield* worker.drain();
           if (!explicitSteer) {
@@ -462,6 +493,8 @@ it.effect.each(deliveries)(
             if (delivery === "child completion") {
               assert.equal(after.messages.filter((message) => message.id === messageId).length, 1);
               assert.equal(after.subagents[0]?.completionDelivery?.state, "delivered");
+            } else if (delivery === "agent message") {
+              assert.equal(after.messages.filter((message) => message.id === messageId).length, 1);
             } else {
               assert.equal(
                 after.messages.filter((message) => message.scheduledTaskId !== undefined).length,

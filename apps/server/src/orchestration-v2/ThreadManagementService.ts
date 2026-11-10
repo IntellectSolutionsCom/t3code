@@ -31,6 +31,7 @@ import {
   type OrchestrationV2ThreadTranscript,
   type OrchestrationV2ThreadShell,
   type OrchestrationV2TurnItem,
+  parseGoalCommand,
   ProjectId,
   PROVIDER_SEND_TURN_MAX_FILE_BYTES,
   ProviderInstanceId,
@@ -56,6 +57,7 @@ import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
+import * as CommandPolicy from "./CommandPolicy.ts";
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
 import * as Orchestrator from "./Orchestrator.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
@@ -818,7 +820,12 @@ const make = Effect.gen(function* () {
   const sendToThread: ThreadManagementServiceShape["sendToThread"] = Effect.fn(
     "ThreadManagementService.sendToThread",
   )(function* (input) {
-    const target = yield* getProjectThreadRecords(input, ["runs", "providerTurns"]);
+    const target = yield* getProjectThreadRecords(input, [
+      "runs",
+      "providerTurns",
+      "providerThreads",
+      "providerSessions",
+    ]);
     if (target.thread.archivedAt !== null) {
       return yield* new ThreadManagementThreadArchivedError({
         threadId: input.threadId,
@@ -846,7 +853,13 @@ const make = Effect.gen(function* () {
         targetRunId: steerableRun.id,
       };
     } else if (mode === "auto" && steerableRun !== undefined) {
-      dispatchMode = { type: "steer_active", targetRunId: steerableRun.id };
+      dispatchMode =
+        input.createdBy === "agent" &&
+        // The orchestrator routes goal commands itself, and they never steer.
+        parseGoalCommand(input) === null &&
+        CommandPolicy.steerWouldCancelWork(target, steerableRun, input.attachments.length > 0)
+          ? { type: "queue_after_active" }
+          : { type: "steer_active", targetRunId: steerableRun.id };
     } else {
       dispatchMode = {
         type: mode === "queue" ? "queue_after_active" : "start_immediately",
@@ -865,7 +878,10 @@ const make = Effect.gen(function* () {
       ...(input.modelSelection === undefined ? {} : { modelSelection: input.modelSelection }),
       ...(input.freshContext ? { freshContext: true } : {}),
       dispatchMode,
-      ...(mode === "auto" ? { deliveryIntent: "auto" } : {}),
+      // An `auto` intent is re-resolved from provider capabilities and would steer past this queue.
+      ...(mode === "auto" && dispatchMode.type !== "queue_after_active"
+        ? { deliveryIntent: "auto" }
+        : {}),
       createdBy: input.createdBy,
       creationSource: input.creationSource,
     });
