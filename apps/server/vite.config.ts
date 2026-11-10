@@ -29,6 +29,21 @@ if (!TELEMETRY_CHANNELS.includes(telemetryChannel)) {
     `T3CODE_TELEMETRY_CHANNEL must be one of ${TELEMETRY_CHANNELS.join(", ")}, got "${telemetryChannel}".`,
   );
 }
+const releaseRepositoryEnv = process.env.T3CODE_DESKTOP_UPDATE_REPOSITORY?.trim()
+  ? "T3CODE_DESKTOP_UPDATE_REPOSITORY"
+  : "GITHUB_REPOSITORY";
+const releaseRepository = process.env[releaseRepositoryEnv]?.trim() || "";
+const releaseRepositorySegments = releaseRepository.split("/");
+// Exactly one <owner>/<repo> with no dot segments, so the value cannot change the API path.
+if (
+  releaseRepository &&
+  (releaseRepositorySegments.length !== 2 ||
+    !releaseRepositorySegments.every(
+      (segment) => segment !== "." && segment !== ".." && /^[A-Za-z0-9._-]+$/u.test(segment),
+    ))
+) {
+  throw new Error(`${releaseRepositoryEnv} must be <owner>/<repo>, got "${releaseRepository}".`);
+}
 
 // tsdown SEA needs one chunk (sourcemaps count) and Node >=25.7, so package separately.
 // "bundle" emits the embedded CLI. "1" builds dist-exe/t3 from the bootstrap.
@@ -128,6 +143,7 @@ export default mergeConfig(
       define: {
         __T3CODE_BUILD_CHANNEL__: JSON.stringify(cliBuildChannel),
         __T3CODE_TELEMETRY_CHANNEL__: JSON.stringify(telemetryChannel),
+        __T3CODE_BUILD_RELEASE_REPOSITORY__: JSON.stringify(releaseRepository),
         __T3CODE_BUILD_RELAY_URL__: JSON.stringify(repoEnv.T3CODE_RELAY_URL?.trim() ?? ""),
         __T3CODE_BUILD_CLERK_PUBLISHABLE_KEY__: JSON.stringify(
           repoEnv.T3CODE_CLERK_PUBLISHABLE_KEY?.trim() ?? "",
