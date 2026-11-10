@@ -1,0 +1,326 @@
+name: Fork Release
+
+on:
+  push:
+    # Coarse filters only; the preflight's version regex is the guard.
+    tags: ["v[0-9]*.[0-9]*.1[0-9][0-9][0-9][0-9]"]
+    branches: ["dry-run/*"]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # The only branch whose tip or ancestors may be published.
+  RELEASE_BRANCH: intellect/main
+
+jobs:
+  build:
+    name: Build Linux x64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      T3CODE_TELEMETRY_CHANNEL: dev
+      T3CODE_DESKTOP_UPDATE_REPOSITORY: ${{ github.repository }}
+    steps:
+      - name: Preflight
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF_TYPE:$GITHUB_REF_NAME" in
+            tag:v*) raw="${GITHUB_REF_NAME#v}" ;;
+            branch:dry-run/*) raw="${GITHUB_REF_NAME#dry-run/}" ;;
+            *) echo "::error::Not a release tag or dry-run branch."; exit 1 ;;
+          esac
+          if [[ ! "$raw" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.1[0-9]{4}$ ]]; then
+            echo "::error::The ref name does not match the version scheme X.Y.1PPNN."; exit 1
+          fi
+          V="$raw"
+          echo "ok: version $V matches the scheme"
+          patch="${V##*.}"
+          if (( 10#$patch % 100 == 0 )); then echo "::error::Build number of $V is 00."; exit 1; fi
+          echo "ok: build number $(( 10#$patch % 100 )) is not 0"
+          api="repos/$GITHUB_REPOSITORY"
+          if [[ "$GITHUB_REF_TYPE" == branch ]]; then
+            found="$(gh api "$api/git/matching-refs/tags/v$V" --jq "[.[] | select(.ref == \"refs/tags/v$V\")] | length")"
+            if [[ "$found" != 0 ]]; then echo "::error::Tag v$V already exists."; exit 1; fi
+            echo "ok: tag v$V does not exist (dry run)"
+          else
+            object="$(gh api "$api/git/ref/tags/v$V" --jq '"\(.object.type) \(.object.sha)"')"
+            read -r type sha <<<"$object"
+            while [[ "$type" == tag ]]; do
+              object="$(gh api "$api/git/tags/$sha" --jq '"\(.object.type) \(.object.sha)"')"
+              read -r type sha <<<"$object"
+            done
+            if [[ "$sha" != "$GITHUB_SHA" ]]; then echo "::error::Tag v$V is $sha, not $GITHUB_SHA."; exit 1; fi
+            echo "ok: tag v$V resolves to $GITHUB_SHA"
+            tip="$(gh api "$api/git/ref/heads/$RELEASE_BRANCH" --jq .object.sha)"
+            status="$(gh api "$api/compare/$tip...$GITHUB_SHA" --jq .status)"
+            if [[ "$status" != identical && "$status" != behind ]]; then
+              echo "::error::$GITHUB_SHA is not $RELEASE_BRANCH ($tip) or an ancestor of it ($status)."; exit 1
+            fi
+            echo "ok: $GITHUB_SHA is on $RELEASE_BRANCH ($status against $tip)"
+          fi
+          tags="$(gh api --paginate "$api/releases?per_page=100" --jq '.[].tag_name')"
+          released=()
+          if [[ -n "$tags" ]]; then mapfile -t released <<<"$tags"; fi
+          scheme=()
+          for tag in "${released[@]}"; do
+            if [[ "$tag" == "v$V" ]]; then echo "::error::Release v$V already exists."; exit 1; fi
+            if [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.1[0-9]{4}$ ]]; then scheme+=("${tag#v}"); fi
+          done
+          top="$(printf '%s\n' "${scheme[@]}" "$V" | sort -V | tail -n 1)"
+          if [[ "$top" != "$V" ]]; then echo "::error::$V is not above every release (highest: $top)."; exit 1; fi
+          echo "ok: $V is above all ${#scheme[@]} scheme releases compared (${#released[@]} published releases)"
+          echo "V=$V" >> "$GITHUB_ENV"
+
+      # checkout's credential cleanup fails on the orphaned gitlinks in .repos.
+      - name: Checkout
+        env:
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git -c checkout.workers=0 checkout --detach FETCH_HEAD
+
+      # >>> T3 Connect: delete this step to build with T3 Connect off. Nothing else depends on it.
+      - name: T3 Connect public config from .env.example
+        run: |
+          set -euo pipefail
+          for name in CLERK_PUBLISHABLE_KEY CLERK_JWT_TEMPLATE CLERK_CLI_OAUTH_CLIENT_ID RELAY_URL; do
+            value="$(sed -n "s|^T3CODE_${name}=||p" .env.example)"
+            if [[ -z "$value" ]]; then echo "::error::.env.example has no T3CODE_${name}."; exit 1; fi
+            echo "T3CODE_${name}=$value" | tee -a "$GITHUB_ENV"
+          done
+      # <<< T3 Connect
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1
+        env:
+          VP_DOWNLOAD_TIMEOUT: "120"
+        with:
+          node-version-file: package.json
+          cache: false
+          run-install: false
+
+      - name: Install dependencies
+        run: vp install --filter=t3... --filter=@t3tools/web... --filter=@t3tools/desktop... --filter=@t3tools/scripts...
+
+      - name: Install Linux build libraries
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y libsecret-1-dev pkg-config imagemagick patchelf libgtk-3-0t64 libnss3 libasound2t64 libgbm1 xvfb
+
+      - name: Update Rust
+        run: |
+          set -euo pipefail
+          rustup update stable
+          rustc --version
+
+      - name: Align package versions to release version
+        run: node scripts/update-release-package-versions.ts "$V"
+
+      - name: Build JS bundle
+        run: vp run build:desktop:bundle
+
+      - name: Build resource monitor
+        run: cargo build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target x86_64-unknown-linux-gnu
+
+      - name: Apply web client branding
+        run: node scripts/apply-web-brand-assets.ts production apps/server/dist/client
+
+      - name: Build CLI single-executable
+        run: node apps/server/scripts/cli.ts build-exe --verbose
+
+      - name: Build CLI archive
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cli-resource-monitor/linux-x64"
+          cp native/resource-monitor/target/x86_64-unknown-linux-gnu/release/t3-resource-monitor "$RUNNER_TEMP/cli-resource-monitor/linux-x64/"
+          node scripts/build-cli-archive.ts --platform linux --arch x64 --version "$V" \
+            --resource-monitor-dir "$RUNNER_TEMP/cli-resource-monitor" --output-dir release-cli
+
+      - name: Smoke-test CLI archive
+        run: node scripts/smoke-cli-archive.ts --archive release-cli/* --expect-version "$V"
+
+      - name: Build desktop artifact
+        env:
+          T3CODE_DESKTOP_REUSE_RESOURCE_MONITOR: true
+        run: vp run dist:desktop:artifact --platform linux --target deb --arch x64 --build-version "$V" --skip-build --verbose
+
+      - name: Collect release assets
+        run: |
+          set -euo pipefail
+          mkdir -p release-publish
+          cp "release/T3-Code-$V-amd64.deb" release/latest-linux.yml "release-cli/t3-$V-linux-x64.tar.gz" release-publish/
+          cd release-publish
+          sha256sum "t3-$V-linux-x64.tar.gz" "T3-Code-$V-amd64.deb" > SHA256SUMS
+          cat SHA256SUMS
+          ls -l
+
+      - name: Verify release assets
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+          owner="${GITHUB_REPOSITORY%%/*}" repo="${GITHUB_REPOSITORY#*/}"
+          deb="release-publish/T3-Code-$V-amd64.deb" archive="release-publish/t3-$V-linux-x64.tar.gz"
+          for field in Package:t3code "Version:$V" Architecture:amd64; do
+            [[ "$(dpkg-deb -f "$deb" "${field%%:*}")" == "${field#*:}" ]] || fail "deb ${field%%:*} is not ${field#*:}"
+            echo "ok: deb ${field%%:*} = ${field#*:}"
+          done
+          root="$RUNNER_TEMP/deb-root"
+          mkdir -p "$root" && dpkg-deb -x "$deb" "$root"
+          update_yml="$(find "$root/opt" -path '*/resources/app-update.yml')"
+          for line in "owner: $owner" "repo: $repo" "provider: github"; do
+            grep -qxF "$line" "$update_yml" || fail "app-update.yml lacks '$line'"
+            echo "ok: app-update.yml has '$line'"
+          done
+          asar="$(find "$root/opt" -path '*/resources/app.asar')"
+          asar_version="$(node -e 'const b=require("fs").readFileSync(process.argv[1]),h=JSON.parse(b.subarray(16,16+b.readUInt32LE(12))).files["package.json"],o=8+b.readUInt32LE(4)+Number(h.offset);console.log(JSON.parse(b.subarray(o,o+h.size)).version)' "$asar")"
+          [[ "$asar_version" == "$V" ]] || fail "app.asar package.json version is $asar_version"
+          echo "ok: app.asar package.json version = $V"
+          feed=release-publish/latest-linux.yml
+          [[ "$(sed -n 's/^version: //p' "$feed")" == "$V" ]] || fail "latest-linux.yml version is not $V"
+          [[ "$(sed -n 's/^path: //p' "$feed")" == "T3-Code-$V-amd64.deb" ]] || fail "latest-linux.yml path is not the deb"
+          [[ "$(sed -n 's/^sha512: //p' "$feed")" == "$(openssl dgst -sha512 -binary "$deb" | base64 -w0)" ]] || fail "latest-linux.yml sha512 does not match the deb"
+          echo "ok: latest-linux.yml version, path and sha512 match the deb"
+          hits="$(grep -rlF --exclude-dir=client -- "\"$GITHUB_REPOSITORY\"" apps/server/dist | wc -l || true)"
+          (( hits > 0 )) || fail "\"$GITHUB_REPOSITORY\" not found in apps/server/dist outside client/"
+          echo "ok: \"$GITHUB_REPOSITORY\" in $hits server bundle files"
+          cli="$RUNNER_TEMP/cli-root"
+          mkdir -p "$cli" && tar -xzf "$archive" -C "$cli"
+          t3="$cli/t3-$V-linux-x64/t3"
+          grep -qaF -- "\"$GITHUB_REPOSITORY\"" "$t3" || fail "\"$GITHUB_REPOSITORY\" not found in the archive's t3"
+          echo "ok: \"$GITHUB_REPOSITORY\" in the archive's t3"
+          monitor="$(tar -tzf "$archive" | grep -F "t3-$V-linux-x64/resource-monitor/" | grep -v '/$' || true)"
+          [[ "$monitor" == "t3-$V-linux-x64/resource-monitor/linux-x64/t3-resource-monitor" ]] || fail "archive resource-monitor/ holds: $monitor"
+          echo "ok: archive resource-monitor/ holds only linux-x64/t3-resource-monitor"
+          version_out="$("$t3" --version)" || fail "t3 --version failed"
+          [[ "$version_out" =~ (^|[^[:alnum:]_])v([^[:space:]]+)[[:space:]]*$ && "${BASH_REMATCH[2]}" == "$V" ]] || fail "t3 --version printed: $version_out"
+          echo "ok: t3 --version ends with v$V"
+          (cd release-publish && sha256sum -c SHA256SUMS)
+          [[ "$(awk '{print $2}' release-publish/SHA256SUMS | LC_ALL=C sort | tr '\n' ' ')" == "T3-Code-$V-amd64.deb t3-$V-linux-x64.tar.gz " ]] || fail "SHA256SUMS lists other files"
+          echo "ok: SHA256SUMS passes and lists exactly the archive and the deb"
+          if [[ -n "${T3CODE_CLERK_PUBLISHABLE_KEY:-}" ]]; then
+            grep -rqF -- "$T3CODE_CLERK_PUBLISHABLE_KEY" apps/server/dist/client || fail "the Clerk publishable key is not in the web bundle"
+            echo "ok: T3 Connect on, the Clerk publishable key is in the web bundle"
+            [[ -n "${T3CODE_RELAY_URL:-}" ]] || fail "T3 Connect is on but no relay URL was set"
+            grep -rqF --exclude-dir=client -- "$T3CODE_RELAY_URL" apps/server/dist || fail "the relay URL is not in apps/server/dist outside client/"
+            echo "ok: T3 Connect on, the relay URL is in the server bundle"
+            grep -qaF -- "$T3CODE_RELAY_URL" "$t3" || fail "the relay URL is not in the archive's t3"
+            echo "ok: T3 Connect on, the relay URL is in the archive's t3"
+          else
+            echo "ok: T3 Connect off, no Clerk publishable key was set"
+          fi
+
+      - name: Launch check
+        run: |
+          set -euo pipefail
+          app="$(find "$RUNNER_TEMP/deb-root/opt" -mindepth 2 -maxdepth 2 -type f -name t3code)"
+          xvfb-run -a node scripts/smoke-desktop-app.ts --artifacts-dir "$RUNNER_TEMP/desktop-launch-check" --executable "$app"
+
+      - name: Upload launch check evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: desktop-launch-check
+          path: ${{ runner.temp }}/desktop-launch-check
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-assets
+          path: release-publish/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  publish:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: fork-release-publish
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      # The write token sees drafts, which the build job's read token could not.
+      - name: Recheck releases
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF_TYPE" == tag ]] || { echo "::error::Not a tag."; exit 1; }
+          raw="${GITHUB_REF_NAME#v}"
+          if [[ ! "$raw" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.1[0-9]{4}$ ]]; then
+            echo "::error::The ref name does not match the version scheme X.Y.1PPNN."; exit 1
+          fi
+          V="$raw"
+          api="repos/$GITHUB_REPOSITORY"
+          # The tag or the release branch may have moved during the build; same lines as the preflight.
+          object="$(gh api "$api/git/ref/tags/v$V" --jq '"\(.object.type) \(.object.sha)"')"
+          read -r type sha <<<"$object"
+          while [[ "$type" == tag ]]; do
+            object="$(gh api "$api/git/tags/$sha" --jq '"\(.object.type) \(.object.sha)"')"
+            read -r type sha <<<"$object"
+          done
+          if [[ "$sha" != "$GITHUB_SHA" ]]; then echo "::error::Tag v$V is $sha, not $GITHUB_SHA."; exit 1; fi
+          echo "ok: tag v$V resolves to $GITHUB_SHA"
+          tip="$(gh api "$api/git/ref/heads/$RELEASE_BRANCH" --jq .object.sha)"
+          status="$(gh api "$api/compare/$tip...$GITHUB_SHA" --jq .status)"
+          if [[ "$status" != identical && "$status" != behind ]]; then
+            echo "::error::$GITHUB_SHA is not $RELEASE_BRANCH ($tip) or an ancestor of it ($status)."; exit 1
+          fi
+          echo "ok: $GITHUB_SHA is on $RELEASE_BRANCH ($status against $tip)"
+          tags="$(gh api --paginate "$api/releases?per_page=100" --jq '.[].tag_name')"
+          released=()
+          if [[ -n "$tags" ]]; then mapfile -t released <<<"$tags"; fi
+          scheme=()
+          for tag in "${released[@]}"; do
+            if [[ "$tag" == "v$V" ]]; then echo "::error::Release v$V already exists, possibly as a draft."; exit 1; fi
+            if [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.1[0-9]{4}$ ]]; then scheme+=("${tag#v}"); fi
+          done
+          top="$(printf '%s\n' "${scheme[@]}" "$V" | sort -V | tail -n 1)"
+          if [[ "$top" != "$V" ]]; then echo "::error::$V is not above every release (highest: $top)."; exit 1; fi
+          echo "ok: no release v$V, including drafts, and $V is above all ${#scheme[@]} scheme releases compared (${#released[@]} releases)"
+          echo "V=$V" >> "$GITHUB_ENV"
+
+      - name: Download release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-assets
+          path: release-assets
+
+      - name: Publish
+        run: |
+          set -euo pipefail
+          cd release-assets
+          sha256sum -c SHA256SUMS
+          patch="${V##*.}"
+          base="v${V%.*}.$(( (10#$patch - 10000) / 100 ))"
+          {
+            echo "A fork build of T3 Code from $GITHUB_REPOSITORY. It is not an official T3 Code release."
+            echo
+            echo "- Upstream base: $base"
+            echo "- Commit: $GITHUB_SHA"
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+          gh release create "v$V" --verify-tag --draft \
+            --title "T3 Code $V (fork build, $GITHUB_REPOSITORY)" --notes-file "$RUNNER_TEMP/notes.md" \
+            "T3-Code-$V-amd64.deb" latest-linux.yml "t3-$V-linux-x64.tar.gz" SHA256SUMS
+          gh release edit "v$V" --draft=false --latest
+          echo "ok: published v$V"
