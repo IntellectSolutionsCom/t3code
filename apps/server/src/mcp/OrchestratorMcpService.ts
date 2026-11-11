@@ -123,6 +123,7 @@ import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import * as LinkMessageGrant from "../t3f/linkMessageGrant.ts";
 import {
   clientModeCeiling,
   type McpInvocationScope,
@@ -3815,9 +3816,12 @@ const make = Effect.gen(function* () {
     sendToThread: Effect.fn("OrchestratorMcpService.sendToThread")(function* (scope, input) {
       const { parent, limits, target } = yield* loadScopedThread(scope, input.threadId, ["runs"]);
       yield* assertLiveCallerForOtherThread(scope, parent, target);
-      yield* assertTargetWithinLimits(limits, target.thread);
+      const linkGranted = yield* LinkMessageGrant.LinkGrantedSend;
+      if (!linkGranted) yield* assertTargetWithinLimits(limits, target.thread);
 
-      const mode = input.mode ?? "auto";
+      const mode = linkGranted
+        ? yield* LinkMessageGrant.grantedSendMode(input)
+        : (input.mode ?? "auto");
       const key = yield* requestKey(input.clientRequestId);
       const messageId = stableOperationMessageId({
         scope,
