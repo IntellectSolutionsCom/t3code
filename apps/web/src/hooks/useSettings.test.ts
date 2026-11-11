@@ -1,4 +1,8 @@
-import { DEFAULT_SERVER_SETTINGS, ProviderInstanceId } from "@t3tools/contracts";
+import {
+  DEFAULT_SERVER_SETTINGS,
+  type DesktopBridge,
+  ProviderInstanceId,
+} from "@t3tools/contracts";
 import { DEFAULT_CLIENT_SETTINGS, type ClientSettings } from "@t3tools/contracts/settings";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -20,6 +24,7 @@ import {
   persistClientSettingsPatch,
   persistClientSettingsUpdate,
   prepareModelPreferencesPatch,
+  startDesktopClientSettingsSync,
 } from "./useSettings";
 import { applyServerSettingsPatch } from "@t3tools/shared/serverSettings";
 
@@ -194,6 +199,27 @@ describe("persistClientSettingsPatch", () => {
 
     expect(persistenceMocks.setClientSettings).toHaveBeenNthCalledWith(1, firstSettings);
     expect(persistenceMocks.setClientSettings).toHaveBeenNthCalledWith(2, secondSettings);
+  });
+
+  it("keeps a choice the desktop saved through a later save", async () => {
+    __setClientSettingsForTests(DEFAULT_CLIENT_SETTINGS);
+    let push!: Parameters<DesktopBridge["onClientSettingsChanged"]>[0];
+    const stop = startDesktopClientSettingsSync({
+      onClientSettingsChanged: (listener) => {
+        push = listener;
+        return () => undefined;
+      },
+    });
+
+    push({ closeButton: "keepRunning" });
+    await persistClientSettingsPatch({ wordWrap: false });
+    stop();
+
+    expect(persistenceMocks.setClientSettings).toHaveBeenLastCalledWith({
+      ...DEFAULT_CLIENT_SETTINGS,
+      closeButton: "keepRunning",
+      wordWrap: false,
+    });
   });
 });
 

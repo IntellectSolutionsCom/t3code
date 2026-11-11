@@ -1,7 +1,11 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
-import { DesktopSnapShotId } from "@t3tools/contracts";
+import {
+  type CloseButtonAction,
+  DEFAULT_CLIENT_SETTINGS,
+  DesktopSnapShotId,
+} from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
@@ -40,12 +44,13 @@ import * as DesktopState from "../app/DesktopState.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopClientSettings from "../settings/DesktopClientSettings.ts";
 import * as ElectronApp from "../electron/ElectronApp.ts";
+import * as ElectronDialog from "../electron/ElectronDialog.ts";
 import * as DesktopRendererHistory from "../telemetry/DesktopRendererHistory.ts";
 import * as ElectronMenu from "../electron/ElectronMenu.ts";
 import * as ElectronShell from "../electron/ElectronShell.ts";
 import * as ElectronTheme from "../electron/ElectronTheme.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
-import { SNAP_SHOT_EVENT_CHANNEL } from "../ipc/channels.ts";
+import { CLIENT_SETTINGS_CHANGED_CHANNEL, SNAP_SHOT_EVENT_CHANNEL } from "../ipc/channels.ts";
 import * as DesktopServerExposure from "../backend/DesktopServerExposure.ts";
 import * as DesktopWindow from "./DesktopWindow.ts";
 import * as PreviewManager from "../preview/Manager.ts";
@@ -133,6 +138,7 @@ function makeFakeBrowserWindow() {
     window: window as unknown as Electron.BrowserWindow,
     getBounds: window.getBounds,
     getNormalBounds: window.getNormalBounds,
+    close: window.close,
     isDestroyed: window.isDestroyed,
     isFullScreen: window.isFullScreen,
     isMaximized: window.isMaximized,
@@ -160,6 +166,7 @@ function makeFakeBrowserWindow() {
 
 const layerDesktopClientSettings = Layer.mock(DesktopClientSettings.DesktopClientSettings)({
   get: Effect.succeedNone,
+  readForNewWindow: Effect.void,
 });
 
 const layerElectronApp = Layer.mock(ElectronApp.ElectronApp)({
@@ -202,17 +209,18 @@ const layerElectronTheme = Layer.succeed(ElectronTheme.ElectronTheme, {
   onUpdated: () => Effect.void,
 } satisfies ElectronTheme.ElectronTheme["Service"]);
 
-const layerDesktopEnvironment = DesktopEnvironment.layer(environmentInput).pipe(
-  Layer.provide(
-    Layer.mergeAll(
-      NodeServices.layer,
-      DesktopConfig.layerTest({
-        T3CODE_PORT: "3773",
-        VITE_DEV_SERVER_URL: "http://127.0.0.1:5733",
-      }),
+const layerDesktopEnvironment = (platform: NodeJS.Platform = environmentInput.platform) =>
+  DesktopEnvironment.layer({ ...environmentInput, platform }).pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        NodeServices.layer,
+        DesktopConfig.layerTest({
+          T3CODE_PORT: "3773",
+          VITE_DEV_SERVER_URL: "http://127.0.0.1:5733",
+        }),
+      ),
     ),
-  ),
-);
+  );
 
 const desktopWindowBoundsEquivalence = Schema.toEquivalence(
   DesktopAppSettings.DesktopWindowBoundsSchema,
@@ -238,8 +246,17 @@ function layerTest(input: {
   readonly previewZoomReapplies?: number[];
   readonly onReveal?: (window: Electron.BrowserWindow) => void;
   readonly focusedWindow?: Electron.BrowserWindow;
+  readonly leftoverWindow?: Electron.BrowserWindow;
+  readonly platform?: NodeJS.Platform;
+  readonly closeButton?: CloseButtonAction;
+  readonly onRememberCloseButton?: (closeButton: CloseButtonAction) => void;
+  readonly showMessageBox?: (
+    options: Electron.MessageBoxOptions,
+  ) => Effect.Effect<Electron.MessageBoxReturnValue>;
+  readonly onQuit?: () => void;
 }) {
   let desktopSettings = input.desktopSettings ?? DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS;
+  let closeButton = input.closeButton ?? DEFAULT_CLIENT_SETTINGS.closeButton;
   const layerDesktopAppSettings = Layer.succeed(DesktopAppSettings.DesktopAppSettings, {
     get: Effect.sync(() => desktopSettings),
     load: Effect.sync(() => desktopSettings),
@@ -284,7 +301,9 @@ function layerTest(input: {
         Effect.as(input.window),
       ),
     main: Ref.get(input.mainWindow),
-    currentMainOrFirst: Ref.get(input.mainWindow),
+    currentMainOrFirst: Ref.get(input.mainWindow).pipe(
+      Effect.map((main) => Option.orElse(main, () => Option.fromNullishOr(input.leftoverWindow))),
+    ),
     focusedMainOrFirst:
       input.focusedWindow === undefined
         ? Ref.get(input.mainWindow)
@@ -307,12 +326,27 @@ function layerTest(input: {
           recordMetrics: () => Effect.void,
           shutdown: Effect.void,
         }),
-        layerDesktopEnvironment,
+        layerDesktopEnvironment(input.platform),
         layerDesktopAppSettings,
-        layerDesktopClientSettings,
+        Layer.mock(DesktopClientSettings.DesktopClientSettings)({
+          get: Effect.succeedNone,
+          readForNewWindow: Effect.void,
+          closeButton: Effect.sync(() => closeButton),
+          setCloseButton: (value) =>
+            Effect.sync(() => {
+              closeButton = value;
+              input.onRememberCloseButton?.(value);
+            }),
+        }),
         layerDesktopServerExposure,
         DesktopState.layer,
-        layerElectronApp,
+        Layer.mock(ElectronApp.ElectronApp)({
+          quit: Effect.sync(() => input.onQuit?.()),
+        }),
+        Layer.mock(ElectronDialog.ElectronDialog)({
+          showMessageBox: (options) =>
+            input.showMessageBox?.(options) ?? Effect.die("unexpected message box"),
+        }),
         Layer.succeed(ElectronMenu.ElectronMenu, {
           setApplicationMenu: () => Effect.void,
           showContextMenu: () => Effect.succeedNone,
@@ -425,12 +459,13 @@ const makeSplashScenario = (createOutcomes: readonly (Electron.BrowserWindow | n
             recordMetrics: () => Effect.void,
             shutdown: Effect.void,
           }),
-          layerDesktopEnvironment,
+          layerDesktopEnvironment(),
           DesktopAppSettings.layerTest(),
           layerDesktopClientSettings,
           layerDesktopServerExposure,
           DesktopState.layer,
           layerElectronApp,
+          Layer.mock(ElectronDialog.ElectronDialog)({}),
           layerElectronMenu,
           Layer.succeed(ElectronShell.ElectronShell, {
             openExternal: () => Effect.succeed(true),
@@ -1013,6 +1048,196 @@ describe("DesktopWindow", () => {
         assert.deepEqual(mainWindowMaximizedUpdates, [true]);
         assert.equal(fakeWindow.getNormalBounds.mock.calls.length, 1);
         assert.equal(fakeWindow.getBounds.mock.calls.length, 0);
+      }).pipe(Effect.provide(layer));
+    }),
+  );
+
+  it.effect.each([
+    {
+      name: "a quit in progress closes",
+      closeButton: "ask",
+      quitting: true,
+      prevented: false,
+      events: [],
+    },
+    {
+      name: "a final Windows session end closes",
+      platform: "win32",
+      closeButton: "ask",
+      sessionEnd: true,
+      prevented: false,
+      events: [],
+    },
+    {
+      name: "the keep-running setting lets the window close",
+      closeButton: "keepRunning",
+      prevented: false,
+      events: [],
+      keepRunning: true,
+    },
+    {
+      name: "Cancel keeps the window and clears a stale keep running",
+      closeButton: "ask",
+      staleKeepRunning: true,
+      answer: { response: 0, checkboxChecked: true },
+      prevented: true,
+      events: ["ask"],
+    },
+    {
+      name: "Keep running closes the window once, without asking again",
+      platform: "win32",
+      closeButton: "ask",
+      answer: { response: 1, checkboxChecked: false },
+      prevented: true,
+      events: ["ask", "close"],
+      keepRunning: true,
+    },
+    {
+      name: "Quit quits",
+      closeButton: "ask",
+      answer: { response: 2, checkboxChecked: false },
+      prevented: true,
+      events: ["ask", "quit"],
+    },
+    {
+      name: "a remembered Keep running is saved and pushed before the window closes",
+      closeButton: "ask",
+      answer: { response: 1, checkboxChecked: true },
+      prevented: true,
+      events: ["ask", "save:keepRunning", "push:keepRunning", "close"],
+      keepRunning: true,
+    },
+    {
+      name: "a remembered Quit is saved before quitting",
+      platform: "win32",
+      closeButton: "ask",
+      answer: { response: 2, checkboxChecked: true },
+      prevented: true,
+      events: ["ask", "save:quit", "push:quit", "quit"],
+    },
+  ] as const)("window close: $name", (row) =>
+    Effect.gen(function* () {
+      const fakeWindow = makeFakeBrowserWindow();
+      const createCount = yield* Ref.make(0);
+      const mainWindow = yield* Ref.make<Option.Option<Electron.BrowserWindow>>(Option.none());
+      const events: string[] = [];
+      const lastEvent = yield* Deferred.make<void>();
+      const record = (event: string) => {
+        events.push(event);
+        if (events.length === row.events.length) Deferred.doneUnsafe(lastEvent, Effect.void);
+      };
+      if (row.events.length === 0) yield* Deferred.succeed(lastEvent, undefined);
+      const preventDefault = vi.fn();
+      // Electron emits close again for a programmatic close().
+      fakeWindow.close.mockImplementation(() => {
+        record("close");
+        fakeWindow.windowListeners.get("close")?.({ preventDefault });
+      });
+      fakeWindow.send.mockImplementation((channel: string, patch: { closeButton: string }) => {
+        if (channel === CLIENT_SETTINGS_CHANGED_CHANNEL) record(`push:${patch.closeButton}`);
+      });
+      const layer = layerTest({
+        window: fakeWindow.window,
+        createCount,
+        mainWindow,
+        platform: "platform" in row ? row.platform : "linux",
+        closeButton: row.closeButton,
+        onRememberCloseButton: (closeButton) => record(`save:${closeButton}`),
+        showMessageBox: () =>
+          Effect.sync(() => {
+            record("ask");
+            return "answer" in row ? row.answer : { response: 0, checkboxChecked: false };
+          }),
+        onQuit: () => record("quit"),
+      });
+
+      yield* Effect.gen(function* () {
+        const desktopWindow = yield* DesktopWindow.DesktopWindow;
+        const state = yield* DesktopState.DesktopState;
+        yield* desktopWindow.handleBackendReady(new URL("http://127.0.0.1:3773"));
+        if ("quitting" in row) yield* Ref.set(state.quitting, row.quitting);
+        if ("staleKeepRunning" in row) yield* Ref.set(state.keepRunningWithoutWindow, true);
+        if ("sessionEnd" in row) fakeWindow.windowListeners.get("session-end")?.();
+
+        fakeWindow.windowListeners.get("close")?.({ preventDefault });
+        yield* Deferred.await(lastEvent);
+
+        assert.equal(preventDefault.mock.calls.length, row.prevented ? 1 : 0);
+        assert.deepEqual(events, [...row.events]);
+        assert.equal(yield* Ref.get(state.keepRunningWithoutWindow), "keepRunning" in row);
+      }).pipe(Effect.provide(layer));
+    }),
+  );
+  it.effect("Keep running leaves a window destroyed while the question was open alone", () =>
+    Effect.gen(function* () {
+      const fake = makeFakeBrowserWindow();
+      const createCount = yield* Ref.make(0);
+      const mainWindow = yield* Ref.make<Option.Option<Electron.BrowserWindow>>(Option.none());
+      const destroyedSeen = yield* Deferred.make<void>();
+      const layer = layerTest({
+        window: fake.window,
+        createCount,
+        mainWindow,
+        platform: "linux",
+        closeButton: "ask",
+        showMessageBox: () =>
+          Effect.sync(() => {
+            fake.isDestroyed.mockImplementation(() => {
+              Deferred.doneUnsafe(destroyedSeen, Effect.void);
+              return true;
+            });
+            return { response: 1, checkboxChecked: false };
+          }),
+      });
+      yield* Effect.gen(function* () {
+        const desktopWindow = yield* DesktopWindow.DesktopWindow;
+        yield* desktopWindow.handleBackendReady(new URL("http://127.0.0.1:3773"));
+        fake.windowListeners.get("close")?.({ preventDefault: vi.fn() });
+        yield* Deferred.await(destroyedSeen);
+
+        assert.equal(fake.close.mock.calls.length, 0);
+      }).pipe(Effect.provide(layer));
+    }),
+  );
+
+  it.effect("a new main window clears keep running, so the next close asks again", () =>
+    Effect.gen(function* () {
+      const fake = makeFakeBrowserWindow();
+      const createCount = yield* Ref.make(0);
+      const mainWindow = yield* Ref.make<Option.Option<Electron.BrowserWindow>>(Option.none());
+      yield* Effect.gen(function* () {
+        const desktopWindow = yield* DesktopWindow.DesktopWindow;
+        const state = yield* DesktopState.DesktopState;
+        yield* Ref.set(state.keepRunningWithoutWindow, true);
+        yield* desktopWindow.ensureMain;
+        assert.isFalse(yield* Ref.get(state.keepRunningWithoutWindow));
+      }).pipe(Effect.provide(layerTest({ window: fake.window, createCount, mainWindow })));
+    }),
+  );
+
+  it.effect("activate opens the main window rather than revealing a leftover preview popup", () =>
+    Effect.gen(function* () {
+      const fake = makeFakeBrowserWindow();
+      const popup = makeFakeBrowserWindow();
+      const createCount = yield* Ref.make(0);
+      const mainWindow = yield* Ref.make<Option.Option<Electron.BrowserWindow>>(Option.none());
+      const revealed: Electron.BrowserWindow[] = [];
+      const layer = layerTest({
+        window: fake.window,
+        createCount,
+        mainWindow,
+        leftoverWindow: popup.window,
+        onReveal: (window) => void revealed.push(window),
+        desktopSettings: {
+          ...DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS,
+          localEnvironmentEnabled: false,
+        },
+      });
+      yield* Effect.gen(function* () {
+        const desktopWindow = yield* DesktopWindow.DesktopWindow;
+        yield* desktopWindow.activate;
+        assert.equal(yield* Ref.get(createCount), 1);
+        assert.notInclude(revealed, popup.window);
       }).pipe(Effect.provide(layer));
     }),
   );

@@ -209,3 +209,10 @@ keyboard repeat; if repeat is disabled, use two presses or the application menu.
 Change **Settings → General → Confirmations → Quit shortcut** to **Direct** for a
 single press or **Double press** for two presses only. Choosing **Quit** from the
 application menu always quits immediately.
+
+On Windows and Linux, the window's close button asks whether to quit or keep T3 Code
+running in the background. Keep running closes the window; open T3 Code again to
+bring it back. While the window is closed, thread notifications stop, and a backend
+restart opens the window again. To quit while the window is closed, open T3 Code again
+and use Ctrl+Q or **Quit**. Change the answer in
+**Settings → General → Confirmations → Close button**.

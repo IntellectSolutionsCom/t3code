@@ -139,6 +139,8 @@ describe("DesktopLifecycle", () => {
         Effect.gen(function* () {
           const lifecycle = yield* DesktopLifecycle.DesktopLifecycle;
           yield* lifecycle.register;
+          // Keep running closed the window; the update must still install.
+          yield* Ref.set((yield* DesktopState.DesktopState).keepRunningWithoutWindow, true);
 
           appListeners.get("before-quit-for-update")?.();
           yield* Effect.yieldNow;
@@ -211,6 +213,8 @@ describe("DesktopLifecycle", () => {
         Effect.gen(function* () {
           const lifecycle = yield* DesktopLifecycle.DesktopLifecycle;
           yield* lifecycle.register;
+          // Keep running closed the window; a quit must still quit.
+          yield* Ref.set((yield* DesktopState.DesktopState).keepRunningWithoutWindow, true);
 
           const event = { preventDefault: () => undefined } as Electron.Event;
           appListeners.get("before-quit")?.(event);
@@ -320,6 +324,54 @@ describe("DesktopLifecycle", () => {
 
           assert.deepEqual(exitCodes, [0]);
           assert.equal(prevented, 4);
+        }),
+      ).pipe(Effect.provide(layer));
+    }),
+  );
+
+  it.effect.each([
+    { name: "quits on Linux", platform: "linux", quits: true },
+    { name: "quits on Windows", platform: "win32", quits: true },
+    {
+      name: "keeps running after Keep running",
+      platform: "linux",
+      keepRunning: true,
+      quits: false,
+    },
+    { name: "leaves a quit in progress alone", platform: "win32", quitting: true, quits: false },
+    { name: "keeps the macOS app running", platform: "darwin", quits: false },
+  ] as const)("closing the last window $name", (row) =>
+    Effect.gen(function* () {
+      const appListeners = new Map<string, (...args: readonly unknown[]) => void>();
+      let quitCount = 0;
+      const quit = Effect.sync(() => {
+        quitCount += 1;
+      });
+      const layerEnvironment = Layer.succeed(DesktopEnvironment.DesktopEnvironment, {
+        platform: row.platform,
+        isDevelopment: false,
+      } as DesktopEnvironment.DesktopEnvironment["Service"]);
+      const layer = DesktopLifecycle.layer.pipe(
+        Layer.provideMerge(layerElectronApp(appListeners, quit)),
+        Layer.provideMerge(layerElectronTheme),
+        Layer.provideMerge(layerElectronWindow()),
+        Layer.provideMerge(layerDesktopWindow()),
+        Layer.provideMerge(layerEnvironment),
+        Layer.provideMerge(DesktopShutdown.layer),
+        Layer.provideMerge(DesktopState.layer),
+      );
+
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const lifecycle = yield* DesktopLifecycle.DesktopLifecycle;
+          const state = yield* DesktopState.DesktopState;
+          yield* lifecycle.register;
+          if ("keepRunning" in row) yield* Ref.set(state.keepRunningWithoutWindow, true);
+          if ("quitting" in row) yield* Ref.set(state.quitting, true);
+
+          appListeners.get("window-all-closed")?.();
+
+          assert.equal(quitCount, row.quits ? 1 : 0);
         }),
       ).pipe(Effect.provide(layer));
     }),

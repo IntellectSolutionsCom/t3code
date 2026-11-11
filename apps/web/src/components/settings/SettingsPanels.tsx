@@ -25,6 +25,7 @@ import {
   ToolCallVisibility,
 } from "@t3tools/contracts/settings";
 import { desktopUpdateChannelOf } from "@t3tools/shared/cliRelease";
+import { CLOSE_BUTTON_TEXT } from "@t3tools/shared/closeButtonText";
 import { createModelSelection } from "@t3tools/shared/model";
 import { resolvePastedPath } from "@t3tools/shared/path";
 import * as Equal from "effect/Equal";
@@ -573,6 +574,9 @@ export function useSettingsRestore(onRestored?: () => void) {
       ? ["Delete confirmation"]
       : []),
     ...(settings.confirmQuit !== DEFAULT_UNIFIED_SETTINGS.confirmQuit ? ["Quit shortcut"] : []),
+    ...(settings.closeButton !== DEFAULT_UNIFIED_SETTINGS.closeButton
+      ? [CLOSE_BUTTON_TEXT.setting.title]
+      : []),
     ...(isTextGenerationModelDirty ? ["Text generation model"] : []),
     ...(settings.threadTitleInstructions !== DEFAULT_UNIFIED_SETTINGS.threadTitleInstructions
       ? ["Thread title instructions"]
@@ -681,6 +685,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       confirmThreadDelete: DEFAULT_UNIFIED_SETTINGS.confirmThreadDelete,
       confirmThreadUnpin: DEFAULT_UNIFIED_SETTINGS.confirmThreadUnpin,
       confirmQuit: DEFAULT_UNIFIED_SETTINGS.confirmQuit,
+      closeButton: DEFAULT_UNIFIED_SETTINGS.closeButton,
       textGenerationModelSelection: DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,
       threadTitleInstructions: DEFAULT_UNIFIED_SETTINGS.threadTitleInstructions,
       fontFamilySans: DEFAULT_UNIFIED_SETTINGS.fontFamilySans,
@@ -990,6 +995,49 @@ export function GeneralSettingsPanel() {
                 </SelectTrigger>
                 <SelectPopup align="end" alignItemWithTrigger={false}>
                   {Object.entries(QUIT_CONFIRMATION_MODE_LABELS).map(([value, label]) => (
+                    <SelectItem hideIndicator key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
+            }
+          />
+        ) : null}
+        {isElectron && !isMacPlatform(navigator.platform) ? (
+          <SettingsRow
+            {...searchableSetting("close-button")}
+            description={CLOSE_BUTTON_TEXT.setting.description}
+            resetAction={
+              settings.closeButton !== DEFAULT_UNIFIED_SETTINGS.closeButton ? (
+                <SettingResetButton
+                  label="close button behavior"
+                  onClick={() =>
+                    updateSettings({ closeButton: DEFAULT_UNIFIED_SETTINGS.closeButton })
+                  }
+                />
+              ) : null
+            }
+            control={
+              <Select
+                value={settings.closeButton}
+                onValueChange={(value) => {
+                  if (value === "ask" || value === "quit" || value === "keepRunning") {
+                    updateSettings({ closeButton: value });
+                  }
+                }}
+              >
+                <SelectTrigger
+                  size="sm"
+                  className="w-full sm:w-56"
+                  aria-label="Close button behavior"
+                >
+                  <SelectValue>
+                    {CLOSE_BUTTON_TEXT.setting.options[settings.closeButton]}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectPopup align="end" alignItemWithTrigger={false}>
+                  {Object.entries(CLOSE_BUTTON_TEXT.setting.options).map(([value, label]) => (
                     <SelectItem hideIndicator key={value} value={value}>
                       {label}
                     </SelectItem>
