@@ -456,6 +456,16 @@ export const OrchestratorMcpThreadReadInput = Schema.Struct({
 });
 export type OrchestratorMcpThreadReadInput = typeof OrchestratorMcpThreadReadInput.Type;
 
+export const OrchestratorMcpThreadContextUsage = Schema.Struct({
+  usedTokens: NonNegativeInt,
+  maxTokens: Schema.NullOr(NonNegativeInt),
+  usedPercent: Schema.NullOr(NonNegativeInt),
+  compactsAutomatically: Schema.NullOr(Schema.Boolean),
+  autoCompactThreshold: Schema.NullOr(NonNegativeInt),
+  updatedAt: IsoDateTime,
+});
+export type OrchestratorMcpThreadContextUsage = typeof OrchestratorMcpThreadContextUsage.Type;
+
 export const OrchestratorMcpThreadDetail = Schema.Struct({
   threadId: ThreadId,
   projectId: ProjectId,
@@ -497,6 +507,8 @@ export const OrchestratorMcpThreadDetail = Schema.Struct({
   blockedOnThreadWait: Schema.optional(Schema.Boolean),
   /** Absent from linked environments that predate it. */
   pendingBackgroundTasks: Schema.optional(Schema.Array(OrchestratorMcpThreadBackgroundTask)),
+  /** Absent from linked environments that predate it. */
+  contextUsage: Schema.optional(Schema.NullOr(OrchestratorMcpThreadContextUsage)),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });
