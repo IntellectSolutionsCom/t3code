@@ -31,6 +31,7 @@ export function resolveChatCanvasLayout({
   composerHeight = 0,
   detailsCard = null,
   findBar = null,
+  topBarHeight = 0,
 }: {
   container: PreviewMiniPlayerSize;
   preview: ChatCanvasPreview | null;
@@ -41,6 +42,8 @@ export function resolveChatCanvasLayout({
   composerHeight?: number;
   detailsCard?: PreviewMiniPlayerObstacles["detailsCard"];
   findBar?: PreviewMiniPlayerObstacles["detailsCard"];
+  /** The pinned messages bar's height; it blocks only the chat lane. */
+  topBarHeight?: number;
 }) {
   const centeredWidth = Math.max(0, Math.min(maxChatWidth, container.width - padding * 2));
   const laneRight = detailsCard
@@ -49,6 +52,11 @@ export function resolveChatCanvasLayout({
   const normalWidth = Math.max(0, Math.min(centeredWidth, laneRight - padding));
   const canvasCenterLeft = (container.width - normalWidth) / 2;
   const normalLeft = Math.max(padding, Math.min(canvasCenterLeft, laneRight - normalWidth));
+  // The lane before the player narrows it, so the bar's obstacle never follows the player.
+  const topBars =
+    topBarHeight > 0
+      ? [{ left: normalLeft, right: normalLeft + normalWidth, bottom: topBarHeight }]
+      : [];
   let chat = {
     left: normalLeft,
     width: normalWidth,
@@ -85,7 +93,7 @@ export function resolveChatCanvasLayout({
         });
       }
     }
-    const findBarObstacles = findBar ? { detailsCard: findBar, composer: null } : undefined;
+    const findBarObstacles = { detailsCard: findBar, composer: null, topBars };
     const preferredFrame = {
       ...frame,
       ...clampPreviewMiniPlayerPosition(frame, container, frame, findBarObstacles, minimumPreviewX),
@@ -105,7 +113,7 @@ export function resolveChatCanvasLayout({
         frame,
         container,
         frame,
-        { detailsCard: cardObstacle, composer: null },
+        { detailsCard: cardObstacle, composer: null, topBars },
         minimumPreviewX,
       ),
     };
@@ -141,6 +149,7 @@ export function resolveChatCanvasLayout({
       const obstacles = {
         detailsCard: cardObstacle,
         composer: { left: chat.left, right: chat.left + chat.width, height: composerHeight },
+        topBars,
       };
       frame = resolvePreviewMiniPlayerFrame({ ...preview, container, obstacles });
       frame = {
@@ -164,7 +173,7 @@ export function resolveChatCanvasLayout({
             frame,
             container,
             frame,
-            { composer: obstacles.composer, detailsCard: findBar },
+            { composer: obstacles.composer, detailsCard: findBar, topBars },
             minimumPreviewX,
           ),
         };
