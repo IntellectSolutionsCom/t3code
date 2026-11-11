@@ -7,6 +7,8 @@ import {
   ProjectId,
   ProviderDriverKind,
   ProviderInstanceId,
+  ProviderThreadId,
+  ProviderTurnId,
   RunAttemptId,
   RunId,
   ScheduledTaskId,
@@ -124,7 +126,7 @@ function makeRun(input: {
   };
 }
 
-it("readThread preserves caller access errors and prefers activity-run status over a newer cancelled queued run", async () => {
+it("readThread preserves caller access errors and prefers activity-run status over a newer cancelled queued run, and reports the active provider thread's context usage", async () => {
   let callerUnavailable = false;
   let pendingBackgroundTasks: OrchestrationV2ThreadShell["pendingBackgroundTasks"] = [
     {
@@ -160,6 +162,24 @@ it("readThread preserves caller access errors and prefers activity-run status ov
         }
       : {}),
   });
+  const activeProviderThreadId = ProviderThreadId.make("provider-thread-mcp-active");
+  const providerTurn = (id: string, providerThreadId: ProviderThreadId, tokenUsage?: unknown) => ({
+    id: ProviderTurnId.make(id),
+    providerThreadId,
+    ...(tokenUsage === undefined ? {} : { tokenUsage }),
+  });
+  let providerThreads: ReadonlyArray<unknown> = [
+    {
+      id: activeProviderThreadId,
+      contextUsage: { usedTokens: 50_000, maxTokens: 200_000, compactsAutomatically: false },
+      updatedAt: now,
+    },
+  ];
+  let providerTurns: ReadonlyArray<unknown> = [
+    providerTurn("provider-turn-mcp-no-usage", activeProviderThreadId),
+  ];
+  const recordReads: Array<{ readonly fields: ReadonlyArray<string>; readonly filter: unknown }> =
+    [];
   const projection = {
     thread: {
       ...baseThread({
@@ -179,7 +199,12 @@ it("readThread preserves caller access errors and prefers activity-run status ov
       makeRun({ id: cancelledRunId, ordinal: 2, status: "cancelled" }),
     ],
     visibleTurnItems: [],
-    providerTurns: [],
+    get providerThreads() {
+      return providerThreads;
+    },
+    get providerTurns() {
+      return providerTurns;
+    },
     runtimeRequests: [],
     messages: [],
     contextTransfers: [],
@@ -214,13 +239,16 @@ it("readThread preserves caller access errors and prefers activity-run status ov
                         pinnedAt: now,
                         blockedOnThreadWait: true,
                         pendingBackgroundTasks,
+                        activeProviderThreadId,
                       } as unknown as OrchestrationV2ThreadShell)
                     : null,
                 ),
-          getProjectThreadRecords: (input) =>
-            input.threadId === parentThreadId
+          getProjectThreadRecords: (input, fields, filter) => {
+            recordReads.push({ fields, filter });
+            return input.threadId === parentThreadId
               ? Effect.succeed(projection)
-              : Effect.die(`unexpected thread ${input.threadId}`),
+              : Effect.die(`unexpected thread ${input.threadId}`);
+          },
           getRunCount: () => Effect.succeed(projection.runs.length),
         } satisfies Partial<ThreadManagementService.ThreadManagementService["Service"]>),
         ServerSettings.layerTest(),
@@ -247,6 +275,51 @@ it("readThread preserves caller access errors and prefers activity-run status ov
     expect(result.thread.status).toBe("running");
     expect(result.thread.latestRunId).toBe(cancelledRunId);
     expect(result.thread.activeRunId).toBe(activeRunId);
+    expect(recordReads).toContainEqual({
+      fields: ["providerThreads", "providerTurns"],
+      filter: {
+        providerThreadIds: [activeProviderThreadId],
+        providerTurnThreadIds: [activeProviderThreadId],
+        latestProviderTurnUsageOnly: true,
+      },
+    });
+    expect(result.thread.contextUsage).toEqual({
+      usedTokens: 50_000,
+      maxTokens: 200_000,
+      usedPercent: 25,
+      compactsAutomatically: false,
+      autoCompactThreshold: null,
+      updatedAt: DateTime.formatIso(now),
+    });
+
+    providerTurns = [
+      providerTurn("provider-turn-mcp-live", activeProviderThreadId, {
+        usedTokens: 170_000,
+        maxTokens: 200_000,
+        autoCompactThreshold: 180_000,
+        updatedAt: "2026-08-04T12:05:00.000Z",
+      }),
+      providerTurn("provider-turn-mcp-other-provider-thread", ProviderThreadId.make("other"), {
+        usedTokens: 1_000,
+        maxTokens: 200_000,
+        updatedAt: "2026-08-04T12:10:00.000Z",
+      }),
+    ];
+    const live = yield* service.readThread(makeScope(), { threadId: parentThreadId });
+    expect(live.thread.contextUsage).toEqual({
+      usedTokens: 170_000,
+      maxTokens: 200_000,
+      usedPercent: 85,
+      compactsAutomatically: false,
+      autoCompactThreshold: 180_000,
+      updatedAt: "2026-08-04T12:05:00.000Z",
+    });
+
+    providerThreads = [];
+    providerTurns = [providerTurn("provider-turn-mcp-no-usage", activeProviderThreadId)];
+    const none = yield* service.readThread(makeScope(), { threadId: parentThreadId });
+    expect(none.thread.contextUsage).toBeNull();
+
     expect(result.thread.pinned).toBe(true);
     expect(result.thread.blockedOnThreadWait).toBe(true);
     expect(result.thread.pendingBackgroundTasks).toEqual([
@@ -313,6 +386,7 @@ it("readThread pages cut-off text without splitting an emoji across pages", asyn
     }),
     runs: [makeRun({ id: activeRunId, ordinal: 1, status: "running" })],
     visibleTurnItems: [],
+    providerThreads: [],
     providerTurns: [],
     runtimeRequests: [],
     messages: [],
@@ -435,6 +509,7 @@ it("readThread returns the newest items that fit the response budget", async () 
     }),
     runs: [makeRun({ id: activeRunId, ordinal: 1, status: "running" })],
     visibleTurnItems: [],
+    providerThreads: [],
     providerTurns: [],
     runtimeRequests: [],
     messages: [],
@@ -537,6 +612,7 @@ it("readThread keeps an activity page within an MCP client's output limit and pa
     }),
     runs: [makeRun({ id: activeRunId, ordinal: 1, status: "running" })],
     visibleTurnItems: [],
+    providerThreads: [],
     providerTurns: [],
     runtimeRequests: [],
     messages: [],
@@ -794,6 +870,7 @@ it("readThread and sendToThread reach threads in other projects", async () => {
       return parentRuns;
     },
     visibleTurnItems: [],
+    providerThreads: [],
     providerTurns: [],
     runtimeRequests: [],
     messages: [],
@@ -831,6 +908,7 @@ it("readThread and sendToThread reach threads in other projects", async () => {
           },
         },
       ],
+      providerThreads: [],
       providerTurns: [],
       runtimeRequests: [],
       messages: [],

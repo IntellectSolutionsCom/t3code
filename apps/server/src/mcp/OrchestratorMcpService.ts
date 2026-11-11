@@ -36,6 +36,7 @@ import {
   type OrchestratorMcpUpdateScheduledTaskInput,
   type OrchestratorMcpListScheduledTasksInput,
   type ProjectId,
+  type OrchestratorMcpThreadContextUsage,
   type OrchestratorMcpThreadDetail,
   type OrchestratorMcpThreadInterruptInput,
   type OrchestratorMcpThreadInterruptResult,
@@ -1010,9 +1011,54 @@ function listItemFromShell(
   };
 }
 
+// Same precedence as the client meter in packages/client-runtime/src/state/contextWindow.ts.
+// Unlike the meter, compactsAutomatically is never assumed: only what the provider reported.
+function threadContextUsage(
+  projection: Pick<OrchestrationV2ThreadProjection, "providerThreads" | "providerTurns">,
+  activeProviderThreadId: OrchestrationV2ThreadShell["activeProviderThreadId"],
+): OrchestratorMcpThreadContextUsage | null {
+  if (activeProviderThreadId === null) return null;
+  let live: OrchestrationV2ThreadProjection["providerTurns"][number]["tokenUsage"];
+  for (const { providerThreadId, tokenUsage } of projection.providerTurns) {
+    if (providerThreadId !== activeProviderThreadId || tokenUsage === undefined) continue;
+    if (live === undefined || Date.parse(tokenUsage.updatedAt) >= Date.parse(live.updatedAt)) {
+      live = tokenUsage;
+    }
+  }
+  const providerThread = projection.providerThreads.find(
+    (candidate) => candidate.id === activeProviderThreadId,
+  );
+  const source =
+    live !== undefined
+      ? { usage: live, updatedAt: live.updatedAt }
+      : providerThread?.contextUsage != null
+        ? {
+            usage: providerThread.contextUsage,
+            updatedAt: DateTime.formatIso(providerThread.updatedAt),
+          }
+        : null;
+  if (source === null) return null;
+  const { usedTokens, autoCompactThreshold } = source.usage;
+  const maxTokens = source.usage.maxTokens ?? null;
+  return {
+    usedTokens,
+    maxTokens,
+    usedPercent:
+      maxTokens !== null && maxTokens > 0
+        ? Math.round(Math.min(100, (usedTokens / maxTokens) * 100))
+        : null,
+    compactsAutomatically: providerThread?.contextUsage?.compactsAutomatically ?? null,
+    autoCompactThreshold: autoCompactThreshold ?? null,
+    updatedAt: source.updatedAt,
+  };
+}
+
 function threadDetail(
   scope: McpInvocationScope,
-  projection: Pick<OrchestrationV2ThreadProjection, "thread" | "runs" | "runtimeRequests">,
+  projection: Pick<
+    OrchestrationV2ThreadProjection,
+    "thread" | "runs" | "runtimeRequests" | "providerThreads" | "providerTurns"
+  >,
   runCount: number,
   itemCount: number,
   shell: OrchestrationV2ThreadShell,
@@ -1069,6 +1115,7 @@ function threadDetail(
     ...threadSnooze(shell, nowMs),
     pinned: shell.pinnedAt != null,
     ...threadBackgroundWork(shell),
+    contextUsage: threadContextUsage(projection, shell.activeProviderThreadId),
     createdAt: DateTime.formatIso(projection.thread.createdAt),
     updatedAt: DateTime.formatIso(projection.thread.updatedAt),
   };
@@ -1541,6 +1588,11 @@ const make = Effect.gen(function* () {
       );
     }
     const input = { projectId: shell.projectId, threadId };
+    // The context meter reads only the active provider thread.
+    const activeProviderThread = {
+      providerThreadIds:
+        shell.activeProviderThreadId === null ? [] : [shell.activeProviderThreadId],
+    };
     // Acknowledging a caller's child-task result matches it against every run and transfer.
     if (
       parent !== undefined &&
@@ -1548,12 +1600,11 @@ const make = Effect.gen(function* () {
       shell.lineage.relationshipToParent === "subagent"
     ) {
       const target = yield* threadManagement
-        .getProjectThreadRecords(input, [
-          "runs",
-          "providerTurns",
-          "runtimeRequests",
-          "contextTransfers",
-        ])
+        .getProjectThreadRecords(
+          input,
+          ["runs", "providerThreads", "providerTurns", "runtimeRequests", "contextTransfers"],
+          activeProviderThread,
+        )
         .pipe(Effect.mapError(threadManagementFailure));
       return { parent, target, shell, runCount: target.runs.length } as const;
     }
@@ -1566,12 +1617,28 @@ const make = Effect.gen(function* () {
       }),
       threadManagement.getRunCount(threadId),
     ]).pipe(Effect.mapError(threadManagementFailure));
+    // The meter's newest measured turn may predate the recent runs, so it is read on its own.
+    const meter = yield* threadManagement
+      .getProjectThreadRecords(input, ["providerThreads", "providerTurns"], {
+        ...activeProviderThread,
+        providerTurnThreadIds: activeProviderThread.providerThreadIds,
+        latestProviderTurnUsageOnly: true,
+      })
+      .pipe(Effect.mapError(threadManagementFailure));
     const { providerTurns } = yield* threadManagement
       .getProjectThreadRecords(input, ["providerTurns"], {
         providerTurnAttemptIds: records.runs.flatMap((run) => run.activeAttemptId ?? []),
       })
       .pipe(Effect.mapError(threadManagementFailure));
-    const target = { ...records, providerTurns, contextTransfers: [] };
+    const target = {
+      ...records,
+      providerThreads: meter.providerThreads,
+      providerTurns: [
+        ...providerTurns,
+        ...meter.providerTurns.filter((turn) => !providerTurns.some(({ id }) => id === turn.id)),
+      ],
+      contextTransfers: [],
+    };
     return { parent, target, shell, runCount } as const;
   });
 
