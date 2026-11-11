@@ -505,6 +505,9 @@ const layerTest = (
           DesktopClientSettings.DesktopClientSettings.of({
             get: settingsGet,
             set: () => Effect.void,
+            setCloseButton: () => Effect.void,
+            closeButton: Effect.succeed("ask"),
+            readForNewWindow: Effect.void,
           }),
         ),
         Layer.succeed(

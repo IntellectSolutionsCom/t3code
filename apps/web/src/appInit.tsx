@@ -43,6 +43,7 @@ import { readLocalStorageValue, subscribeLocalStorageKey } from "./hooks/useLoca
 import { startHostEnvironmentLookup } from "./state/primaryEnvironment";
 import {
   getClientSettings,
+  startDesktopClientSettingsSync,
   startModelPreferencesMigration,
   subscribeClientSettings,
 } from "./hooks/useSettings";
@@ -286,6 +287,7 @@ export function startAppServices(): AppRouter {
   startBrowserChromeThemeSync(router);
   startDefaultThemeAdoption();
   startModelPreferencesMigration();
+  if (window.desktopBridge) startDesktopClientSettingsSync(window.desktopBridge);
   startAgentOpenedPreviews();
   if (isElectron) startElectronBrowserHost();
   startPreviewTitleRecording();

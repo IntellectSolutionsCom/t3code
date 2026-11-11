@@ -8,6 +8,7 @@ import {
   sourceControlClients,
   type SourceControlDefinition,
 } from "@t3tools/client-runtime/source-control-clients";
+import { CLOSE_BUTTON_TEXT } from "@t3tools/shared/closeButtonText";
 import { DEFAULT_KEYBINDINGS } from "@t3tools/shared/keybindings";
 import * as Schema from "effect/Schema";
 import { decodeMsg, msg, useMessages } from "gt-react";
@@ -59,6 +60,7 @@ export interface SettingsSearchItem {
   readonly scope?: SettingsSearchScope;
   readonly desktopOnly?: boolean;
   readonly macOnly?: boolean;
+  readonly nonMacOnly?: boolean;
   readonly windowsOnly?: boolean;
   readonly releaseChannelOnly?: boolean;
   readonly secretProvidersOnly?: boolean;
@@ -956,6 +958,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     desktopOnly: true,
   },
   {
+    id: "close-button",
+    title: CLOSE_BUTTON_TEXT.setting.title,
+    to: "/settings/general",
+    searchTerms: ["window close x quit keep running background hide tray ask confirmation"],
+    desktopOnly: true,
+    nonMacOnly: true,
+  },
+  {
     id: "text-generation-model",
     title: msg("Text generation model"),
     to: "/settings/threads",
@@ -1707,6 +1717,7 @@ export function settingsForThisPlatform(
       (isElectron || item.desktopOnly !== true) &&
       (!item.releaseChannelOnly || isElectron || HOSTED_APP_CHANNEL !== null) &&
       (!item.macOnly || isMacPlatform(platform)) &&
+      (!item.nonMacOnly || !isMacPlatform(platform)) &&
       (!item.windowsOnly || isWindowsPlatform(platform)),
   );
 }
