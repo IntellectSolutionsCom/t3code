@@ -22,15 +22,19 @@ jobs:
     name: Build Linux x64
     runs-on: ubuntu-24.04
     timeout-minutes: 150
+    outputs:
+      tag_object: ${{ steps.preflight.outputs.tag_object }}
     env:
       T3CODE_TELEMETRY_CHANNEL: dev
       T3CODE_DESKTOP_UPDATE_REPOSITORY: ${{ github.repository }}
     steps:
       - name: Preflight
+        id: preflight
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          export LC_ALL=C.UTF-8
           case "$GITHUB_REF_TYPE:$GITHUB_REF_NAME" in
             tag:v*) raw="${GITHUB_REF_NAME#v}" ;;
             branch:dry-run/*) raw="${GITHUB_REF_NAME#dry-run/}" ;;
@@ -52,6 +56,26 @@ jobs:
           else
             object="$(gh api "$api/git/ref/tags/v$V" --jq '"\(.object.type) \(.object.sha)"')"
             read -r type sha <<<"$object"
+            # The release notes are the tag message's body, so a lightweight tag has none.
+            if [[ "$type" != tag ]]; then echo "::error::v$V is a lightweight tag; the release needs an annotated tag."; exit 1; fi
+            tag_object="$sha"
+            gh api "$api/git/tags/$tag_object" --jq .message > "$RUNNER_TEMP/tag-message"
+            mapfile -t lines < "$RUNNER_TEMP/tag-message"
+            while (( ${#lines[@]} > 0 )) && [[ -z "${lines[-1]}" ]]; do unset 'lines[-1]'; done
+            refuse() { echo "::error::The message of tag v$V $1 See the release guide for its format."; exit 1; }
+            (( ${#lines[@]} >= 4 )) || refuse "needs a subject line, a blank line, '## What's Changed' and 1 to 8 '* ' lines."
+            [[ -n "${lines[0]}" && -z "${lines[1]}" ]] || refuse "must open with a subject line and a blank line."
+            [[ "${lines[2]}" == "## What's Changed" ]] || refuse "must have exactly '## What's Changed' on line 3; git tag -a --cleanup=verbatim keeps it."
+            items=("${lines[@]:3}")
+            (( ${#items[@]} <= 8 )) || refuse "has ${#items[@]} lines after '## What's Changed'; at most 8."
+            for i in "${!items[@]}"; do
+              item="${items[$i]}" n=$(( i + 4 ))
+              [[ "$item" =~ ^\*\ [^[:space:]] ]] || refuse "has line $n that is not a '* ' change line."
+              (( ${#item} <= 220 )) || refuse "has line $n of ${#item} characters; at most 220."
+              [[ "$item" != *'`'* && "$item" != *'**'* ]] || refuse "has a backtick or '**' on line $n."
+            done
+            echo "ok: tag v$V is annotated and its message lists ${#items[@]} changes"
+            echo "tag_object=$tag_object" >> "$GITHUB_OUTPUT"
             while [[ "$type" == tag ]]; do
               object="$(gh api "$api/git/tags/$sha" --jq '"\(.object.type) \(.object.sha)"')"
               read -r type sha <<<"$object"
@@ -112,6 +136,59 @@ jobs:
 
       - name: Install dependencies
         run: vp install --filter=t3... --filter=@t3tools/web... --filter=@t3tools/desktop... --filter=@t3tools/scripts...
+
+      # The app's update offer reads the Release body with this parser. Each change line must come
+      # out as one item, unchanged: markup, entities, sentinel lines and UTF-16 length can break that.
+      - name: Check release notes in the app's parser
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_OBJECT: ${{ steps.preflight.outputs.tag_object }}
+        run: |
+          set -euo pipefail
+          # Same lines as Publish, except that a dry run has no tag and checks a fixed sample.
+          patch="${V##*.}"
+          base="v${V%.*}.$(( (10#$patch - 10000) / 100 ))"
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            gh api "repos/$GITHUB_REPOSITORY/git/tags/$TAG_OBJECT" --jq .message | tail -n +3 > "$RUNNER_TEMP/notes.md"
+          else
+            printf '%s\n' "## What's Changed" \
+              "* fix(server): mark agent messages that arrive over a linked environment" \
+              "* chore(ci): fork release notes come from the release tag" > "$RUNNER_TEMP/notes.md"
+          fi
+          {
+            echo
+            echo "## Full changelog"
+            echo "A fork build of T3 Code from $GITHUB_REPOSITORY. It is not an official T3 Code release."
+            echo
+            echo "- Upstream base: $base"
+            echo "- Commit: $GITHUB_SHA"
+          } >> "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            import { pathToFileURL } from "node:url";
+            const [file, version] = process.argv.slice(1);
+            const { normalizeDesktopUpdateReleaseNotes } = await import(
+              pathToFileURL("apps/desktop/src/updates/releaseNotes.ts").href
+            );
+            const body = readFileSync(file, "utf8");
+            const changes = body.slice(0, body.indexOf("\n## Full changelog\n")).split("\n");
+            const bullets = changes.filter((line) => line.startsWith("* ")).map((line) => line.slice(2));
+            const note = normalizeDesktopUpdateReleaseNotes(body, version, "latest").releaseNotes[0];
+            const items = (note?.items ?? []).toReversed();
+            const total = note?.totalItems ?? 0;
+            console.log(JSON.stringify({ bullets, items, totalItems: total }, null, 2));
+            if (total !== bullets.length || items.length !== bullets.length) {
+              console.log(`::error::The app reads ${total} changes, showing ${items.length}; the notes list ${bullets.length}.`);
+              process.exit(1);
+            }
+            const changed = bullets.findIndex((bullet, index) => items[index] !== bullet);
+            if (changed >= 0) {
+              console.log(`::error::The app shows change ${changed + 1} as ${JSON.stringify(items[changed])}, not ${JSON.stringify(bullets[changed])}.`);
+              process.exit(1);
+            }
+            console.log(`ok: the app shows all ${bullets.length} changes as written`);
+          ' "$RUNNER_TEMP/notes.md" "$V"
 
       - name: Install Linux build libraries
         run: |
@@ -259,6 +336,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
+      TAG_OBJECT: ${{ needs.build.outputs.tag_object }}
     steps:
       # The write token sees drafts, which the build job's read token could not.
       - name: Recheck releases
@@ -274,6 +352,10 @@ jobs:
           # The tag or the release branch may have moved during the build; same lines as the preflight.
           object="$(gh api "$api/git/ref/tags/v$V" --jq '"\(.object.type) \(.object.sha)"')"
           read -r type sha <<<"$object"
+          if [[ "$type" != tag || "$sha" != "$TAG_OBJECT" ]]; then
+            echo "::error::Tag v$V is no longer the annotated tag $TAG_OBJECT whose message the build checked."; exit 1
+          fi
+          echo "ok: tag v$V is still the tag object $TAG_OBJECT"
           while [[ "$type" == tag ]]; do
             object="$(gh api "$api/git/tags/$sha" --jq '"\(.object.type) \(.object.sha)"')"
             read -r type sha <<<"$object"
@@ -312,12 +394,16 @@ jobs:
           sha256sum -c SHA256SUMS
           patch="${V##*.}"
           base="v${V%.*}.$(( (10#$patch - 10000) / 100 ))"
+          # The body after the subject line, as the preflight checked it; never through the shell.
+          gh api "repos/$GITHUB_REPOSITORY/git/tags/$TAG_OBJECT" --jq .message | tail -n +3 > "$RUNNER_TEMP/notes.md"
           {
+            echo
+            echo "## Full changelog"
             echo "A fork build of T3 Code from $GITHUB_REPOSITORY. It is not an official T3 Code release."
             echo
             echo "- Upstream base: $base"
             echo "- Commit: $GITHUB_SHA"
-          } > "$RUNNER_TEMP/notes.md"
+          } >> "$RUNNER_TEMP/notes.md"
           cat "$RUNNER_TEMP/notes.md"
           gh release create "v$V" --verify-tag --draft \
             --title "T3 Code $V (fork build, $GITHUB_REPOSITORY)" --notes-file "$RUNNER_TEMP/notes.md" \
