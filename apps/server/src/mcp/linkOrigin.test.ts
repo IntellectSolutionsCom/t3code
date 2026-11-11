@@ -50,6 +50,11 @@ import * as PeerForwarding from "../peer/PeerForwarding.ts";
 import * as ThreadSearch from "../orchestration-v2/ThreadSearch.ts";
 import * as PeerLinkRequests from "../peer/PeerLinkRequests.ts";
 import * as PeerLinks from "../peer/PeerLinks.ts";
+import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
+import * as AssetSigner from "../assets/AssetSigner.ts";
+import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
+import * as LinkMessageGrants from "../t3f/LinkMessageGrants.ts";
+import * as SqlClient from "effect/sql/SqlClient";
 
 // A linked environment's session drives this one's real orchestrator through
 // its real T3 tools. What the link starts carries its origin, and the link
@@ -118,6 +123,14 @@ const layerLaunches = Layer.effect(
 
 const layerTools = Layer.mergeAll(
   McpHttpServer.layerOrchestratorToolkit,
+  McpHttpServer.layerAttachmentToolkit.pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        Layer.mock(AssetSigner.AssetSigner)({}),
+        Layer.mock(ServerSecretStore.ServerSecretStore)({}),
+      ),
+    ),
+  ),
   McpHttpServer.layerThreadToolkit,
   McpHttpServer.layerProjectRegistration,
 ).pipe(
@@ -450,4 +463,196 @@ it("names the link of an agent message from a caller with no thread here", () =>
     type: "set",
     objective: `${line(' "Mac"')}\n\nship it`,
   });
+});
+
+const reader = clientScope("reader", true, "read-only");
+const sender = (message: string) =>
+  `[Message from an agent on linked environment "T3 Code · reader". This is agent-authored coordination, not a message from the human user.]\n\n${message}`;
+
+const grant = (sessionId: string) =>
+  SqlClient.SqlClient.pipe(
+    Effect.flatMap(
+      (sql) => sql`
+        INSERT INTO t3f_link_message_grants (session_id, granted_at, granted_by_session_id)
+        VALUES (${sessionId}, '2026-11-11T00:00:00.000Z', 'browser')
+      `,
+    ),
+  );
+
+const targetThread = (
+  id: string,
+  options: {
+    readonly runtimeMode?: "auto" | "full-access";
+    readonly startedBy?: McpInvocationContext.McpInvocationScope;
+  } = {},
+) =>
+  Effect.gen(function* () {
+    const orchestrator = yield* Orchestrator.OrchestratorV2;
+    const threadId = ThreadId.make(`thread:${id}`);
+    yield* orchestrator.dispatch({
+      type: "thread.create",
+      commandId: CommandId.make(`create:${id}`),
+      threadId,
+      projectId,
+      title: "The user's full-access thread",
+      modelSelection: { instanceId, model: "gpt-5" },
+      runtimeMode: options.runtimeMode ?? "full-access",
+      interactionMode: "default",
+      branch: null,
+      worktreePath: null,
+      ...(options.startedBy?.client === undefined
+        ? {}
+        : {
+            linkOrigin: {
+              sessionId: options.startedBy.client.sessionId,
+              label: options.startedBy.client.label,
+              access: options.startedBy.client.access,
+            },
+          }),
+      createdBy: "user",
+      creationSource: "web",
+    });
+    return threadId;
+  });
+
+const send = (
+  scope: McpInvocationContext.McpInvocationScope,
+  threadId: ThreadId,
+  message: string,
+  extra: Record<string, unknown> = {},
+) => call(scope, "t3_thread_send", { threadId, message, ...extra });
+
+it.layer(
+  Layer.provideMerge(
+    layerTools,
+    Layer.provideMerge(
+      LinkMessageGrants.layer.pipe(Layer.provide(Layer.mock(EnvironmentAuth.EnvironmentAuth)({}))),
+      layerOrchestration,
+    ),
+  ),
+)("a link allowed to send messages", (it) => {
+  it.effect("queues plain messages to any thread, at that thread's own modes", () =>
+    Effect.gen(function* () {
+      const threads = yield* ThreadManagement.ThreadManagementService;
+      const idle = yield* targetThread("granted-idle");
+
+      // Not yet allowed: a read-only link changes nothing.
+      assert.equal(failureCode(yield* send(reader, idle, "Before the grant")), "capability_denied");
+
+      yield* grant("reader");
+      const started = yield* send(reader, idle, "Check the build");
+      assert.equal(started.isError, false, JSON.stringify(started.content));
+      assert.equal((started.structuredContent as { delivery: string }).delivery, "started");
+      // Now running, so the next waits its turn instead of steering it.
+      const queued = yield* send(reader, idle, "Then the tests", { mode: "auto" });
+      assert.equal((queued.structuredContent as { delivery: string }).delivery, "queued");
+      const path = yield* send(reader, idle, "/home/a/b.ts is broken", { mode: "queue" });
+      assert.equal((path.structuredContent as { delivery: string }).delivery, "queued");
+      const texts = (yield* threads.getThreadProjection(idle)).messages.map(
+        (message) => message.text,
+      );
+      for (const text of ["Check the build", "Then the tests", "/home/a/b.ts is broken"]) {
+        assert.include(texts, sender(text));
+      }
+
+      // Never the running turn, the context or a command.
+      for (const [message, extra] of [
+        ["Steer it", { mode: "steer" }],
+        ["Restart it", { mode: "restart" }],
+        ["Start over", { freshContext: true }],
+        ["  /compact", {}],
+        ["/goal ship it", {}],
+        ["/logout", {}],
+        ["/clear", {}],
+      ] as const) {
+        assert.equal(
+          failureCode(yield* send(reader, idle, message, extra)),
+          "capability_denied",
+          message,
+        );
+      }
+      // Nor any other change to the thread.
+      for (const [name, args] of [
+        ["t3_thread_interrupt", { threadId: idle }],
+        [
+          "t3_thread_send_attachments",
+          {
+            threadId: idle,
+            attachments: [
+              {
+                type: "file",
+                id: "attachment-any",
+                name: "a.txt",
+                mimeType: "text/plain",
+                sizeBytes: 1,
+              },
+            ],
+          },
+        ],
+        ["t3_thread_update", { threadId: idle, action: "rename", title: "Renamed" }],
+        ["t3_thread_configure", { threadId: idle, modelSelection: { instanceId, model: "o3" } }],
+        ["t3_queue", { threadId: idle, action: "resume" }],
+        [
+          "t3_thread_launch",
+          { projectId, title: "Launched", modelSelection: { instanceId, model: "gpt-5" } },
+        ],
+      ] as const) {
+        assert.equal(failureCode(yield* call(reader, name, args)), "capability_denied", name);
+      }
+      // A delegated task acts as a calling thread, which a linked client is not.
+      assert.equal(
+        failureCode(yield* call(reader, "delegate_task", { task: "Do it", target: {} })),
+        "thread_credential_required",
+      );
+    }),
+  );
+
+  it.effect("keeps a link's rights on its own threads, and covers what they lack", () =>
+    Effect.gen(function* () {
+      // Within the link's modes: upstream's path, so what the grant withholds still works.
+      const writer = clientScope("granted-writer", true, "auto");
+      yield* grant("granted-writer");
+      const within = yield* targetThread("granted-within", {
+        runtimeMode: "auto",
+        startedBy: writer,
+      });
+      const fresh = yield* send(writer, within, "Start over", { freshContext: true });
+      assert.equal(fresh.isError, false, JSON.stringify(fresh.content));
+
+      // Raised above the link's modes, or a read-only link: the grant's path and its limits.
+      const raised = yield* targetThread("granted-raised", { startedBy: writer });
+      const ownReader = clientScope("own-reader", true, "read-only");
+      const readerOwn = yield* targetThread("granted-reader-own", { startedBy: ownReader });
+      yield* grant("own-reader");
+      for (const [scope, threadId] of [
+        [writer, raised],
+        [ownReader, readerOwn],
+      ] as const) {
+        const sent = yield* send(scope, threadId, "Plain message");
+        assert.equal(sent.isError, false, JSON.stringify(sent.content));
+        assert.equal(
+          failureCode(yield* send(scope, threadId, "Start over", { freshContext: true })),
+          "capability_denied",
+        );
+        assert.equal(
+          failureCode(yield* send(scope, threadId, "Steer it", { mode: "steer" })),
+          "capability_denied",
+        );
+      }
+    }),
+  );
+
+  it.effect("does nothing for a session that is not a link, or that no caller holds", () =>
+    Effect.gen(function* () {
+      const target = yield* targetThread("granted-other");
+      const outsideReader = clientScope("outside-reader", false, "read-only");
+      yield* grant("outside-reader");
+      yield* grant("nobody");
+      assert.equal(failureCode(yield* send(outsideReader, target, "Hi")), "capability_denied");
+      assert.equal(
+        failureCode(yield* send(clientScope("another-reader", true, "read-only"), target, "Hi")),
+        "capability_denied",
+      );
+    }),
+  );
 });

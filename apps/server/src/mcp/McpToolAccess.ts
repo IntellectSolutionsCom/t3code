@@ -21,6 +21,7 @@ import {
   type DispatchModeRefusal,
 } from "../orchestration-v2/DispatchModeLimit.ts";
 import * as PeerForwarding from "../peer/PeerForwarding.ts";
+import * as LinkMessageGrant from "../t3f/linkMessageGrant.ts";
 import { assertNotLinked, assertSameLink, callerLinkOrigin } from "./linkOrigin.ts";
 import * as McpInvocationContext from "./McpInvocationContext.ts";
 import { resolveInteractionMode, resolveRuntimeMode } from "./delegatedTaskModes.ts";
@@ -109,6 +110,8 @@ const writingCaller = refuseReadOnlyClient.pipe(
   Effect.tap(assertLiveCaller),
 );
 
+const liveCaller = loadCaller().pipe(Effect.tap(assertLiveCaller));
+
 const orchestratingCaller = refuseReadOnlyClient.pipe(
   Effect.andThen(readCaller()),
   Effect.tap(assertLiveCaller),
@@ -176,20 +179,33 @@ export const writesWithCapability = <P, A, E, R>(handle: (params: P) => Effect.E
 export const writesThreads = <P, A, E, R>(
   threads: (params: P) => ReadonlyArray<ThreadId | undefined>,
   handle: (params: P) => Effect.Effect<A, E, R>,
+  options?: { readonly linkGrant?: "queued-send" },
 ) =>
   declare(
     (params: P) =>
       Effect.gen(function* () {
-        const caller = yield* writingCaller;
+        const grant = options?.linkGrant ? yield* LinkMessageGrant.grantedLinkSession : undefined;
+        const caller = yield* grant === undefined ? writingCaller : liveCaller;
+        let granted = false;
         for (const threadId of threads(params)) {
           if (threadId === undefined || threadId === caller.scope.thread?.threadId) continue;
           const target = yield* caller.threads
             .getThreadShell(threadId)
             .pipe(Effect.mapError(unavailable));
           if (target !== null && target.deletedAt === null) {
+            if (grant !== undefined && (yield* LinkMessageGrant.grantCovers(caller, target))) {
+              granted = true;
+              continue;
+            }
             yield* assertTargetWithinLimits(caller.limits, target);
             yield* assertSameLink(caller, target);
           }
+        }
+        if (grant !== undefined && !granted) yield* refuseReadOnlyClient;
+        if (granted) {
+          return yield* handle(params).pipe(
+            Effect.provideService(LinkMessageGrant.LinkGrantedSend, true),
+          );
         }
         // Modes can rise after this check; the orchestrator rechecks under lock and records refusal before handlers wrap errors.
         const refused = yield* Ref.make<DispatchModeRefusal | undefined>(undefined);

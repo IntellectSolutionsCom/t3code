@@ -36,6 +36,7 @@ import { hostedAppUrlConfig } from "../cloud/publicConfig.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as McpHttpServer from "../mcp/McpHttpServer.ts";
+import * as LinkMessageGrants from "../t3f/LinkMessageGrants.ts";
 import type * as McpInvocationContext from "../mcp/McpInvocationContext.ts";
 import * as PayloadSigner from "./PayloadSigner.ts";
 import * as EnvironmentAuth from "./EnvironmentAuth.ts";
@@ -259,6 +260,7 @@ const make = Effect.gen(function* () {
   const random = yield* SecureRandom.SecureRandom;
   const digester = yield* Digest.Digest;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
+  const linkMessageGrants = yield* Effect.serviceOption(LinkMessageGrants.LinkMessageGrants);
   const linksEnabled = serverSettings.getSettings.pipe(
     Effect.map((settings) => settings.linkedEnvironmentsEnabled),
     Effect.orElseSucceed(() => false),
@@ -558,6 +560,9 @@ const make = Effect.gen(function* () {
             ),
           ),
         );
+      if (pending.peerLink && Option.isSome(linkMessageGrants)) {
+        yield* linkMessageGrants.value.recordLink(issued.sessionId);
+      }
       return {
         access_token: issued.token,
         token_type: "Bearer",

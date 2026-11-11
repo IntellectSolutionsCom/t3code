@@ -14,6 +14,7 @@ import {
 } from "./auth.ts";
 import { ORCHESTRATION_V2_WS_METHODS } from "./orchestrationV2.ts";
 import { WS_METHODS } from "./rpc.ts";
+import { T3F_WS_METHODS } from "./t3f/linkMessageGrants.ts";
 
 /** Incremental client enforcement; the server still authorizes every request. */
 export const CLIENT_GUARDED_RPC_SCOPES = {
@@ -77,6 +78,8 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.peerLinksUnlink]: AuthAccessWriteScope,
   // A link lets every agent here reach the other environment: Settings' bar.
   [WS_METHODS.peerLinksAnswerRequest]: AuthAccessWriteScope,
+  // Also needs operate (below): pairing hands out only scopes the pairer holds.
+  [T3F_WS_METHODS.linkMessageGrantsSet]: AuthAccessWriteScope,
 } as const;
 export type ClientGuardedRpcTag = keyof typeof CLIENT_GUARDED_RPC_SCOPES;
 
@@ -99,6 +102,9 @@ export function clientRpcRequiredScopes(
       (payload.action === "create_pr" || payload.action === "commit_push_pr")
     )
       return [AuthSourceControlWriteScope, AuthOrchestrationReadScope];
+  }
+  if (method === T3F_WS_METHODS.linkMessageGrantsSet) {
+    return [AuthAccessWriteScope, AuthOrchestrationOperateScope];
   }
   return Object.hasOwn(CLIENT_GUARDED_RPC_SCOPES, method)
     ? [CLIENT_GUARDED_RPC_SCOPES[method as ClientGuardedRpcTag]]

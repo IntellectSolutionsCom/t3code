@@ -176,6 +176,7 @@ const handlers = {
         const service = yield* OrchestratorMcpService.OrchestratorMcpService;
         return yield* service.sendToThread(scope, input);
       }),
+    { linkGrant: "queued-send" },
   ),
   t3_thread_wait: McpToolAccess.reads((input) =>
     Effect.gen(function* () {

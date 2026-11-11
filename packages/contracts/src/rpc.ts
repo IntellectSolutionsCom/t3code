@@ -411,6 +411,10 @@ import {
 } from "./sourceControl.ts";
 import { VcsError } from "./vcs.ts";
 import { Project, ProjectMutation, ProjectMutationError } from "./project.ts";
+import {
+  T3fLinkMessageGrantsListRpc,
+  T3fLinkMessageGrantsSetRpc,
+} from "./t3f/linkMessageGrants.ts";
 
 export const WS_METHODS = {
   projectsListEntries: "projects.listEntries",
@@ -2100,6 +2104,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsPeerLinksLinkRpc,
   WsPeerLinksUnlinkRpc,
   WsPeerLinksAnswerRequestRpc,
+  T3fLinkMessageGrantsListRpc,
+  T3fLinkMessageGrantsSetRpc,
   WsServerDiscoverSourceControlRpc,
   WsServerSearchAcpRegistryRpc,
   WsServerPrepareAcpRegistryAgentRpc,
