@@ -2921,7 +2921,8 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       ],
       desktop: {
         entry: {
-          StartupWMClass: "t3code",
+          // Match Electron's WM_CLASS from setDesktopName so docks use this launcher.
+          StartupWMClass: "com.t3tools.T3Code",
           // GNOME mints a Wayland activation token only for StartupNotify entries; without one
           // a second launch can't raise the running window and shows "is ready" instead.
           StartupNotify: "true",
