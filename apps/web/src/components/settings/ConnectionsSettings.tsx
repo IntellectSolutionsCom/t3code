@@ -1161,6 +1161,7 @@ function ConnectionsSettingsContent({
       createdPairingCredentials={createdPairingCredentials}
       sharedPairingLinkId={newestPairingLinkId}
       clientSessions={clientSessions}
+      environmentId={accessEnvironmentId}
       revokingPairingLinkId={revokingDesktopPairingLinkId}
       revokingClientSessionId={revokingDesktopClientSessionId}
       onRevokePairingLink={handleRevokeDesktopPairingLink}
