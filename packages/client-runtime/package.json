@@ -239,6 +239,10 @@
       "types": "./src/state/peerLinks.ts",
       "default": "./src/state/peerLinks.ts"
     },
+    "./state/linkMessageGrants": {
+      "types": "./src/state/linkMessageGrants.ts",
+      "default": "./src/state/linkMessageGrants.ts"
+    },
     "./state/environmentHttpAuth": {
       "types": "./src/state/environmentHttpAuth.ts",
       "default": "./src/state/environmentHttpAuth.ts"

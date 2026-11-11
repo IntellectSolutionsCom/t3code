@@ -346,12 +346,17 @@ not know for one of your machines also needs a pasted code. Paste one only for
 an address you trust: the code is sent there.
 
 - The access you pick is the most agents from this machine may do there. An
-  agent also never gets more there than its own mode here.
+  agent also never gets more there than its own mode here, apart from the
+  messages that machine allows below.
 - Threads a link starts are marked **From** and this machine's name there.
 - A full-access link works there like that machine's own agents. Below full
   access, the link's agents can change only threads it started, not that
   machine's own threads, projects or settings, and they skip its project setup
-  scripts.
+  scripts. That machine can allow them, under the link in **Settings → Sharing &
+  access**, to send messages to any of its threads. A message waits for a
+  running turn or starts an idle thread, which then acts with that thread's own
+  permissions. Revoking the link turns this off, and so does renewing it: the
+  renewed link starts with it off.
 - The link shows up in that machine's **Settings → Sharing & access** like any
   outside agent. Revoke it there to end it. **Forget** on this machine only
   removes it here.
