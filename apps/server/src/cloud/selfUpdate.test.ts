@@ -230,7 +230,10 @@ it.layer(NodeServices.layer)("server self update", (it) => {
       expect(urls.length).toBeGreaterThan(0);
       for (const url of urls)
         expect(url).toMatch(/^https:\/\/updates\.example\.com\/t3code\/v1\.[12]\.0\//);
-    }),
+    }).pipe(
+      // The mirror decides where releases come from, so the repository is never read.
+      Effect.provideService(HostProcess.Environment, { T3CODE_RELEASE_REPOSITORY: "not a repo" }),
+    ),
   );
 
   it.effect("delegates desktop-managed updates to the desktop app when available", () =>

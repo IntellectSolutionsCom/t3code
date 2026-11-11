@@ -33,6 +33,7 @@ import {
   pinnedRuntimeVersionsDir,
   prunePinnedRuntimes,
   recordPinnedRuntimeLauncher,
+  resolveReleaseRepository,
   windowsShimTarget,
 } from "../cloud/pinnedRuntime.ts";
 import { compareExactServiceVersions, isExactServiceVersion } from "../cloud/serviceProtocol.ts";
@@ -62,38 +63,6 @@ const decodeReleaseIndex = Schema.decodeUnknownEffect(Schema.fromJsonString(Rele
 
 const RELEASE_INDEX_TIMEOUT = Duration.seconds(30);
 const RELEASE_INDEX_MAX_PAGES = 10;
-
-declare const __T3CODE_BUILD_RELEASE_REPOSITORY__: string | undefined;
-
-const RELEASE_REPOSITORY_ENV = "T3CODE_RELEASE_REPOSITORY";
-const BUILD_RELEASE_REPOSITORY =
-  typeof __T3CODE_BUILD_RELEASE_REPOSITORY__ === "undefined"
-    ? undefined
-    : __T3CODE_BUILD_RELEASE_REPOSITORY__ || undefined;
-// Exactly one <owner>/<repo> with no dot segments, so the value cannot change the API path.
-const RELEASE_REPOSITORY_SEGMENT = /^[A-Za-z0-9._-]+$/u;
-
-/** The `<owner>/<repo>` whose releases `t3 update` follows; `undefined` means the upstream project. */
-export const resolveReleaseRepository = Effect.fn("cli.update.resolve_release_repository")(
-  function* () {
-    const repository =
-      (yield* HostProcess.Environment)[RELEASE_REPOSITORY_ENV]?.trim() || BUILD_RELEASE_REPOSITORY;
-    if (repository === undefined) return undefined;
-    const segments = repository.split("/");
-    const valid =
-      segments.length === 2 &&
-      segments.every(
-        (segment) =>
-          segment !== "." && segment !== ".." && RELEASE_REPOSITORY_SEGMENT.test(segment),
-      );
-    if (!valid) {
-      return yield* new CliUpdateError({
-        reason: `${RELEASE_REPOSITORY_ENV} must be <owner>/<repo>, got '${repository}'.`,
-      });
-    }
-    return repository;
-  },
-);
 
 export const resolveNewestVersion = Effect.fn("cli.update.resolve_newest")(function* (
   channel: CliReleaseChannel,
@@ -414,7 +383,12 @@ export const runUpdate = Effect.fn("cli.update.run")(function* (input: {
       reason: `'${input.requestedVersion}' is not an exact t3 version.`,
     });
   }
-  const repository = mirror === undefined ? yield* resolveReleaseRepository() : undefined;
+  const repository =
+    mirror === undefined
+      ? yield* resolveReleaseRepository().pipe(
+          Effect.mapError((error) => new CliUpdateError({ reason: error.message })),
+        )
+      : undefined;
   const progress = createUpdateProgress();
   progress.status("Checking for updates...");
   const targetVersion = yield* (
