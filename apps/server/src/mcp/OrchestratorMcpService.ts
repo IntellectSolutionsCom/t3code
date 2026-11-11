@@ -36,6 +36,7 @@ import {
   type OrchestratorMcpUpdateScheduledTaskInput,
   type OrchestratorMcpListScheduledTasksInput,
   type ProjectId,
+  type OrchestratorMcpThreadContextUsage,
   type OrchestratorMcpThreadDetail,
   type OrchestratorMcpThreadPullRequest,
   type OrchestratorMcpThreadInterruptInput,
@@ -827,9 +828,54 @@ function listItemFromShell(
   };
 }
 
+// Same precedence as the client meter in packages/client-runtime/src/state/contextWindow.ts.
+// Unlike the meter, compactsAutomatically is never assumed: only what the provider reported.
+function threadContextUsage(
+  projection: Pick<OrchestrationV2ThreadProjection, "providerThreads" | "providerTurns">,
+  activeProviderThreadId: OrchestrationV2ThreadShell["activeProviderThreadId"],
+): OrchestratorMcpThreadContextUsage | null {
+  if (activeProviderThreadId === null) return null;
+  let live: OrchestrationV2ThreadProjection["providerTurns"][number]["tokenUsage"];
+  for (const { providerThreadId, tokenUsage } of projection.providerTurns) {
+    if (providerThreadId !== activeProviderThreadId || tokenUsage === undefined) continue;
+    if (live === undefined || Date.parse(tokenUsage.updatedAt) >= Date.parse(live.updatedAt)) {
+      live = tokenUsage;
+    }
+  }
+  const providerThread = projection.providerThreads.find(
+    (candidate) => candidate.id === activeProviderThreadId,
+  );
+  const source =
+    live !== undefined
+      ? { usage: live, updatedAt: live.updatedAt }
+      : providerThread?.contextUsage != null
+        ? {
+            usage: providerThread.contextUsage,
+            updatedAt: DateTime.formatIso(providerThread.updatedAt),
+          }
+        : null;
+  if (source === null) return null;
+  const { usedTokens, autoCompactThreshold } = source.usage;
+  const maxTokens = source.usage.maxTokens ?? null;
+  return {
+    usedTokens,
+    maxTokens,
+    usedPercent:
+      maxTokens !== null && maxTokens > 0
+        ? Math.round(Math.min(100, (usedTokens / maxTokens) * 100))
+        : null,
+    compactsAutomatically: providerThread?.contextUsage?.compactsAutomatically ?? null,
+    autoCompactThreshold: autoCompactThreshold ?? null,
+    updatedAt: source.updatedAt,
+  };
+}
+
 function threadDetail(
   scope: McpInvocationScope,
-  projection: Pick<OrchestrationV2ThreadProjection, "thread" | "runs" | "runtimeRequests">,
+  projection: Pick<
+    OrchestrationV2ThreadProjection,
+    "thread" | "runs" | "runtimeRequests" | "providerThreads" | "providerTurns"
+  >,
   itemCount: number,
   shell: OrchestrationV2ThreadShell,
   nowMs: number,
@@ -872,6 +918,7 @@ function threadDetail(
     archived: projection.thread.archivedAt !== null,
     ...threadSettlement(projection.thread),
     ...threadSnooze(shell, nowMs),
+    contextUsage: threadContextUsage(projection, shell.activeProviderThreadId),
     createdAt: DateTime.formatIso(projection.thread.createdAt),
     updatedAt: DateTime.formatIso(projection.thread.updatedAt),
   };
@@ -1243,18 +1290,25 @@ const make = Effect.gen(function* () {
       );
     }
     const input = { projectId: shell.projectId, threadId };
+    const filter = {
+      providerThreadIds:
+        shell.activeProviderThreadId === null ? [] : [shell.activeProviderThreadId],
+    };
     // Transfers are needed only to acknowledge a caller's child-task result.
     const records =
       parent === undefined
         ? threadManagement
-            .getProjectThreadRecords(input, ["runs", "providerTurns", "runtimeRequests"])
+            .getProjectThreadRecords(
+              input,
+              ["runs", "providerThreads", "providerTurns", "runtimeRequests"],
+              filter,
+            )
             .pipe(Effect.map((target) => ({ ...target, contextTransfers: [] })))
-        : threadManagement.getProjectThreadRecords(input, [
-            "runs",
-            "providerTurns",
-            "runtimeRequests",
-            "contextTransfers",
-          ]);
+        : threadManagement.getProjectThreadRecords(
+            input,
+            ["runs", "providerThreads", "providerTurns", "runtimeRequests", "contextTransfers"],
+            filter,
+          );
     const target = yield* records.pipe(Effect.mapError(threadManagementFailure));
     return { parent, target, shell } as const;
   });
