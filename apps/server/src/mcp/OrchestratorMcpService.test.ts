@@ -3483,6 +3483,42 @@ describe("OrchestratorMcpService thread lookup", () => {
     }),
   );
 
+  it.effect("names the linked environment of a sender with no thread here", () =>
+    Effect.gen(function* () {
+      const texts: Array<string> = [];
+      const sent = yield* Ref.make(0);
+      const linked: McpInvocationScope = {
+        ...client,
+        client: { sessionId: "mac", label: "Mac", access: "full-access", linked: true },
+      };
+      yield* Effect.gen(function* () {
+        const mcp = yield* OrchestratorMcpService.OrchestratorMcpService;
+        for (const message of ["Check the build", "/compact"]) {
+          yield* mcp.sendToThread(linked, { threadId: launched.id, message });
+        }
+        yield* mcp.sendToThread(client, { threadId: launched.id, message: "Check the build" });
+      }).pipe(
+        Effect.provide(
+          service([launched], sent, {
+            getProjectThreadRecords: () => Effect.succeed(idleThreadProjection(launched)),
+            sendToThread: (input) =>
+              Effect.sync(() => texts.push(input.text)).pipe(
+                Effect.as({
+                  run: { id: RunId.make("run:linked"), status: "queued" },
+                  delivery: "started",
+                } as never),
+              ),
+          }),
+        ),
+      );
+      assert.deepEqual(texts, [
+        '[Message from an agent on linked environment "Mac". This is agent-authored coordination, not a message from the human user.]\n\nCheck the build',
+        "/compact",
+        "Check the build",
+      ]);
+    }),
+  );
+
   it.effect("refuses waiting without orchestration capability before reading the target", () =>
     Effect.gen(function* () {
       const sent = yield* Ref.make(0);
