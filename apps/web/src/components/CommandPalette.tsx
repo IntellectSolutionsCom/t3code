@@ -84,6 +84,7 @@ import {
 import { openThreadFind } from "./chat/threadFindStore";
 import { dispatchPreviewAction } from "./preview/previewActionBus";
 import { previewBridge } from "./preview/previewBridge";
+import { openPinnedMessagesList, readStoredPinnedMessages } from "./chat/pinnedMessages";
 import {
   useDeferredValue,
   useEffect,
@@ -1385,6 +1386,23 @@ function OpenCommandPaletteDialog(props: {
       shortcutCommand: "preview.find",
       run: async () => {
         dispatchPreviewAction("find");
+      },
+    });
+  }
+
+  if (
+    activeThread &&
+    activeThreadKey !== null &&
+    readStoredPinnedMessages(activeThread.environmentId, activeThread.id).length > 0
+  ) {
+    actionItems.push({
+      kind: "action",
+      value: "action:show-pinned-messages",
+      title: "Show pinned messages",
+      searchTerms: ["pinned", "pins", "messages", "bookmarks"],
+      icon: <PinIcon className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        openPinnedMessagesList(activeThreadKey);
       },
     });
   }

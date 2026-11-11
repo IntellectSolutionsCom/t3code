@@ -83,13 +83,17 @@ export function observeAssistantCitationCommentSource({
   return dispose;
 }
 
-export interface AssistantCitationRequest {
-  citation: AssistantCitation;
-  key: string;
-}
+/** A pinned message jump names a message of any role and has no quote to highlight. */
+export type AssistantCitationRequest =
+  | { readonly key: string; readonly citation: AssistantCitation; readonly pin?: undefined }
+  | {
+      readonly key: string;
+      readonly citation: Pick<AssistantCitation, "environmentId" | "threadId" | "messageId">;
+      readonly pin: true;
+    };
 
 /** Navigation owns activation state across virtual row remounts. */
-export interface AssistantCitationTarget extends AssistantCitationRequest {
+export type AssistantCitationTarget = AssistantCitationRequest & {
   activationRef: RefObject<{
     scrolled: boolean;
     dismissed: boolean;
@@ -97,18 +101,24 @@ export interface AssistantCitationTarget extends AssistantCitationRequest {
     pulse?: { startedAt: number; reducedMotion: boolean };
   }>;
   onComplete: () => void;
-}
+};
+
+/** Space between a revealed message and whatever covers the top of the timeline. */
+const REVEAL_TOP_GAP = 12;
 
 function observeAssistantCitationSource({
   root,
   itemKey,
   request,
   list,
+  topInset,
 }: {
   root: HTMLElement;
   itemKey: string;
   request: AssistantCitationTarget;
   list: LegendListRef;
+  /** The height of the pin bar that overlays the top of the timeline. */
+  topInset: number;
 }) {
   const activation = request.activationRef.current;
   if (activation.dismissed) return;
@@ -163,7 +173,7 @@ function observeAssistantCitationSource({
     const state = list.getState();
     const index = state.indexByKey(itemKey);
     if (index === undefined || !(state.sizeAtIndex(index) > 0)) return;
-    const range = resolveAssistantCitationRange(root, request.citation);
+    const range = request.pin ? null : resolveAssistantCitationRange(root, request.citation);
     const rect = (range ?? root).getBoundingClientRect();
     if (rect.height <= 0 || scrollNode.clientHeight <= 0) {
       clear();
@@ -172,11 +182,14 @@ function observeAssistantCitationSource({
     if (!activation.scrolled) {
       if (scrolling) return;
       const scrollRect = scrollNode.getBoundingClientRect();
+      const landing = request.pin
+        ? topInset + REVEAL_TOP_GAP
+        : Math.max(topInset + REVEAL_TOP_GAP, Math.min(120, scrollNode.clientHeight / 3));
       const offset = Math.max(
         0,
         Math.min(
           scrollNode.scrollHeight - scrollNode.clientHeight,
-          state.scroll + rect.top - scrollRect.top - Math.min(120, scrollNode.clientHeight / 3),
+          state.scroll + rect.top - scrollRect.top - landing,
         ),
       );
       if (Math.abs(offset - state.scroll) > 1) {
@@ -194,8 +207,15 @@ function observeAssistantCitationSource({
             request.onComplete();
             toastManager.add({
               type: "warning",
-              title: "Could not open the cited response",
-              description: "Click the citation to try again.",
+              ...(request.pin
+                ? {
+                    title: "Could not open the pinned message",
+                    description: "Click the pin to try again.",
+                  }
+                : {
+                    title: "Could not open the cited response",
+                    description: "Click the citation to try again.",
+                  }),
             });
           },
         );
@@ -204,7 +224,7 @@ function observeAssistantCitationSource({
       if (rect.bottom <= scrollRect.top || rect.top >= scrollRect.bottom) return;
       activation.scrolled = true;
       request.onComplete();
-      if (!range) {
+      if (!range && !request.pin) {
         toastManager.add({
           type: "warning",
           title: "The quoted text has changed",
@@ -338,6 +358,7 @@ export function AssistantCitationSource({
   itemKey,
   request,
   listRef,
+  topInset,
   children,
 }: {
   messageId: MessageId;
@@ -345,6 +366,7 @@ export function AssistantCitationSource({
   itemKey: string;
   request: AssistantCitationTarget | null;
   listRef: RefObject<LegendListRef | null>;
+  topInset: number;
   children: ReactNode;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -352,9 +374,11 @@ export function AssistantCitationSource({
   useEffect(() => {
     const root = rootRef.current;
     const list = listRef.current;
-    if (!root || !list || !request || request.citation.messageId !== messageId) return;
-    return observeAssistantCitationSource({ root, itemKey, request, list });
-  }, [itemKey, listRef, messageId, request]);
+    if (!root || !list || !request || request.pin || request.citation.messageId !== messageId) {
+      return;
+    }
+    return observeAssistantCitationSource({ root, itemKey, request, list, topInset });
+  }, [itemKey, listRef, messageId, request, topInset]);
 
   return (
     <div
@@ -363,6 +387,38 @@ export function AssistantCitationSource({
       data-assistant-citation-environment={threadRef?.environmentId}
       data-assistant-citation-thread={threadRef?.threadId}
     >
+      {children}
+    </div>
+  );
+}
+
+/** Reveals a pinned message's whole row, of any role, below the pin bar. */
+export function PinnedMessageSource({
+  messageId,
+  itemKey,
+  request,
+  listRef,
+  topInset,
+  children,
+}: {
+  messageId: MessageId;
+  itemKey: string;
+  request: AssistantCitationTarget | null;
+  listRef: RefObject<LegendListRef | null>;
+  topInset: number;
+  children: ReactNode;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- observes this message's DOM for a pin jump and scrolls the LegendList to it
+  useEffect(() => {
+    const root = rootRef.current;
+    const list = listRef.current;
+    if (!root || !list || !request?.pin || request.citation.messageId !== messageId) return;
+    return observeAssistantCitationSource({ root, itemKey, request, list, topInset });
+  }, [itemKey, listRef, messageId, request, topInset]);
+
+  return (
+    <div ref={rootRef} data-pinned-message-source={messageId}>
       {children}
     </div>
   );
