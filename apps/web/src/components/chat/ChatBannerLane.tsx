@@ -5,7 +5,7 @@ import type {
   ServerProvider,
   ThreadId,
 } from "@t3tools/contracts";
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { ProviderStatusBanner } from "./ProviderStatusBanner";
 import { dismissThreadErrorBannerForSession, ThreadErrorBanner } from "./ThreadErrorBanner";
 
@@ -26,6 +26,8 @@ export function ChatBannerLane(props: {
   threadErrorBannerKey: string | null;
   setThreadError: (threadId: ThreadId | null, error: string | null) => void;
   setThreadErrorBannerDismissTick: Dispatch<SetStateAction<number>>;
+  /** First, so its reserved height at the top stays put while banners come and go. */
+  pinnedMessagesBar?: ReactNode;
 }) {
   const {
     providerStatus,
@@ -42,6 +44,7 @@ export function ChatBannerLane(props: {
   } = props;
   return (
     <div className="chat-banner-lane pointer-events-none absolute top-0 z-30 flex flex-col">
+      {props.pinnedMessagesBar}
       <ProviderStatusBanner
         environmentId={props.environmentId}
         status={providerStatus}

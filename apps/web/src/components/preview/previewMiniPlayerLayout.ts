@@ -67,6 +67,8 @@ interface HorizontalSpan {
 export interface PreviewMiniPlayerObstacles {
   readonly composer: (HorizontalSpan & { readonly height: number }) | null;
   readonly detailsCard: (HorizontalSpan & { readonly bottom: number }) | null;
+  /** Bars along the top edge, such as the pinned messages bar; each blocks only its own span. */
+  readonly topBars?: ReadonlyArray<HorizontalSpan & { readonly bottom: number }>;
 }
 
 const NO_PREVIEW_MINI_PLAYER_OBSTACLES: PreviewMiniPlayerObstacles = {
@@ -90,8 +92,12 @@ function floorFor(
 }
 
 function ceilingFor(span: HorizontalSpan, obstacles: PreviewMiniPlayerObstacles): number {
-  const { detailsCard } = obstacles;
-  return detailsCard && spansOverlap(span, detailsCard) ? Math.max(0, detailsCard.bottom) : 0;
+  const { detailsCard, topBars = [] } = obstacles;
+  return [detailsCard, ...topBars].reduce(
+    (ceiling, obstacle) =>
+      obstacle && spansOverlap(span, obstacle) ? Math.max(ceiling, obstacle.bottom) : ceiling,
+    0,
+  );
 }
 
 const availableArea = (
@@ -195,9 +201,9 @@ export function clampPreviewMiniPlayerPosition(
     };
   };
   const fallback = fitRows(inside.x);
-  const { composer, detailsCard } = obstacles;
+  const { composer, detailsCard, topBars = [] } = obstacles;
   const span = spanOf(inside.x, player.width);
-  const beside = [composer, detailsCard]
+  const beside = [composer, detailsCard, ...topBars]
     .filter(
       (obstacle): obstacle is NonNullable<typeof obstacle> =>
         obstacle !== null && spansOverlap(span, obstacle),

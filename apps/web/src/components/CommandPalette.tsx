@@ -80,6 +80,7 @@ import {
   UserPlusIcon,
 } from "lucide-react";
 import { openThreadFind } from "./chat/threadFindStore";
+import { openPinnedMessagesList, readStoredPinnedMessages } from "./chat/pinnedMessages";
 import {
   useDeferredValue,
   useEffect,
@@ -1339,6 +1340,23 @@ function OpenCommandPaletteDialog(props: {
       shortcutCommand: "chat.find",
       run: async () => {
         openThreadFind(activeThreadKey);
+      },
+    });
+  }
+
+  if (
+    activeThread &&
+    activeThreadKey !== null &&
+    readStoredPinnedMessages(activeThread.environmentId, activeThread.id).length > 0
+  ) {
+    actionItems.push({
+      kind: "action",
+      value: "action:show-pinned-messages",
+      title: "Show pinned messages",
+      searchTerms: ["pinned", "pins", "messages", "bookmarks"],
+      icon: <PinIcon className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        openPinnedMessagesList(activeThreadKey);
       },
     });
   }

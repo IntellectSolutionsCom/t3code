@@ -59,6 +59,7 @@ import { showThreadUndoNotice } from "./showThreadUndoNotice";
 import { useAtomCommand } from "../state/use-atom-command";
 import { useOrchestrationCommand } from "../state/use-orchestration-command";
 import { useAtomQueryRunner } from "../state/use-atom-query-runner";
+import { clearStoredPinnedMessages } from "../components/chat/pinnedMessages";
 
 export class ThreadArchiveBlockedError extends Schema.TaggedError<ThreadArchiveBlockedError>()(
   "ThreadArchiveBlockedError",
@@ -244,6 +245,7 @@ function clearDeletedThreadPanelState(ref: ScopedThreadRef) {
   useRightPanelStore.getState().removeThread(ref);
   useDiffPanelStore.getState().removeThread(ref);
   usePreviewMiniPlayerStore.getState().removeThread(ref);
+  clearStoredPinnedMessages(ref.environmentId, ref.threadId);
 }
 
 /** A No project thread that already has its own folder, on a server that can promote it. */
