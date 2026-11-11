@@ -134,6 +134,7 @@ import {
   taskPrompt,
 } from "./delegatedTaskModes.ts";
 import { assertTargetWithinLimits, isLiveCallerShell, threadNotFound } from "./threadAccess.ts";
+import { withLinkedSenderLine } from "./linkOrigin.ts";
 import * as SecretRequests from "../secrets/SecretRequests.ts";
 import * as PeerForwarding from "../peer/PeerForwarding.ts";
 import * as RemoteDelegation from "../peer/RemoteDelegation.ts";
@@ -3428,7 +3429,7 @@ const make = Effect.gen(function* () {
             ? { linkedSender: scope.client.senderThread }
             : {}),
           messageId,
-          text: input.message,
+          text: withLinkedSenderLine({ scope, caller: parent?.thread }, input.message),
           attachments: [],
           mode,
           ...(input.freshContext ? { freshContext: true } : {}),

@@ -30,6 +30,7 @@ import { resolveRuntimeMode } from "../../delegatedTaskModes.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import * as McpToolAccess from "../../McpToolAccess.ts";
 import * as OrchestrationMcp from "../../OrchestratorMcpService.ts";
+import { withLinkedSenderLine } from "../../linkOrigin.ts";
 import { newCommandId, readCaller, resolveProjectId, unavailable } from "../../threadAccess.ts";
 import { ProjectToolkit } from "./tools.ts";
 
@@ -280,7 +281,7 @@ export const layer = McpToolAccess.toLayer(ProjectToolkit, {
                 initialMessage: {
                   messageId,
                   ...(caller === undefined ? {} : { senderThreadId: caller.id }),
-                  text: input.message ?? "",
+                  text: withLinkedSenderLine(context, input.message ?? "", attachments.length),
                   attachments,
                 },
               }),
