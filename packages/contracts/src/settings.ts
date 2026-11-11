@@ -291,6 +291,11 @@ const LegacyConfirmQuit = Schema.Boolean.pipe(
 
 const QuitConfirmationModeSetting = Schema.Union([QuitConfirmationMode, LegacyConfirmQuit]);
 
+/** What the window's close button does on Linux and Windows. */
+export const CloseButtonAction = Schema.Literals(["ask", "quit", "keepRunning"]);
+export type CloseButtonAction = typeof CloseButtonAction.Type;
+const DEFAULT_CLOSE_BUTTON_ACTION: CloseButtonAction = "ask";
+
 export const FontFamilyPreference = Schema.String.check(Schema.isMaxLength(200));
 export type FontFamilyPreference = typeof FontFamilyPreference.Type;
 
@@ -455,6 +460,9 @@ export const ClientSettingsSchema = Schema.Struct({
 
   confirmQuit: QuitConfirmationModeSetting.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_QUIT_CONFIRMATION_MODE)),
+  ),
+  closeButton: CloseButtonAction.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_CLOSE_BUTTON_ACTION)),
   ),
   confirmThreadArchive: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   confirmThreadDelete: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
@@ -2003,6 +2011,7 @@ export const ClientSettingsPatch = Schema.Struct({
   browserProfiles: Schema.optionalKey(Schema.Array(BrowserProfile)),
   browserDefaultProfileId: Schema.optionalKey(BrowserProfileId),
   confirmQuit: Schema.optionalKey(QuitConfirmationMode),
+  closeButton: Schema.optionalKey(CloseButtonAction),
   confirmThreadArchive: Schema.optionalKey(Schema.Boolean),
   confirmThreadDelete: Schema.optionalKey(Schema.Boolean),
   confirmThreadUnpin: Schema.optionalKey(Schema.Boolean),

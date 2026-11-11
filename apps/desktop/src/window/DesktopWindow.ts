@@ -10,18 +10,24 @@ import * as Semaphore from "effect/Semaphore";
 
 import * as Electron from "electron";
 
-import { type DesktopSnapShotEvent, DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts";
+import {
+  type CloseButtonAction,
+  type DesktopSnapShotEvent,
+  DEFAULT_CLIENT_SETTINGS,
+} from "@t3tools/contracts";
 
 import * as DesktopAssets from "../app/DesktopAssets.ts";
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import { makeComponentLogger } from "../app/DesktopObservability.ts";
 import * as DesktopState from "../app/DesktopState.ts";
+import * as ElectronDialog from "../electron/ElectronDialog.ts";
 import * as ElectronMenu from "../electron/ElectronMenu.ts";
 import { getDesktopUrl } from "../electron/ElectronProtocol.ts";
 import * as ElectronShell from "../electron/ElectronShell.ts";
 import * as ElectronTheme from "../electron/ElectronTheme.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import {
+  CLIENT_SETTINGS_CHANGED_CHANNEL,
   MENU_ACTION_CHANNEL,
   QUIT_SHORTCUT_CHANNEL,
   SNAP_SHOT_EVENT_CHANNEL,
@@ -38,6 +44,7 @@ import * as ElectronApp from "../electron/ElectronApp.ts";
 import * as DesktopRendererHistory from "../telemetry/DesktopRendererHistory.ts";
 import { makeQuitShortcutHandler } from "./QuitHold.ts";
 import { copyContextMenuImage } from "./ContextMenuImage.ts";
+import { CLOSE_DIALOG_OPTIONS, decideWindowClose, readCloseDialogResult } from "./WindowClose.ts";
 
 const TITLEBAR_HEIGHT = 40;
 
@@ -101,6 +108,7 @@ type DesktopWindowRuntimeServices =
   | DesktopAppSettings.DesktopAppSettings
   | DesktopClientSettings.DesktopClientSettings
   | ElectronApp.ElectronApp
+  | ElectronDialog.ElectronDialog
   | ElectronMenu.ElectronMenu
   | ElectronShell.ElectronShell
   | ElectronTheme.ElectronTheme
@@ -334,6 +342,7 @@ export const make = Effect.gen(function* () {
   const desktopSettings = yield* DesktopAppSettings.DesktopAppSettings;
   const clientSettings = yield* DesktopClientSettings.DesktopClientSettings;
   const electronApp = yield* ElectronApp.ElectronApp;
+  const electronDialog = yield* ElectronDialog.ElectronDialog;
   const rendererHistory = yield* DesktopRendererHistory.DesktopRendererHistory;
   const backendReadyRef = yield* Ref.make(false);
   let backendHasStarted = false;
@@ -342,6 +351,7 @@ export const make = Effect.gen(function* () {
   const context = yield* Effect.context<DesktopWindowRuntimeServices>();
   const runFork = Effect.runForkWith(context);
   const runPromise = Effect.runPromiseWith(context);
+  const runSync = Effect.runSyncWith(context);
   const mainWindowMutex = yield* Semaphore.make(1);
   const pendingMainReveals = new WeakMap<Electron.BrowserWindow, Effect.Effect<void>>();
   const revealMain = Effect.fn("desktop.window.revealMain")((window: Electron.BrowserWindow) =>
@@ -366,7 +376,8 @@ export const make = Effect.gen(function* () {
       ),
     );
 
-  const currentMainWindow = electronWindow.currentMainOrFirst.pipe(Effect.flatMap(withoutSplash));
+  // Not the first-window fallback: a preview popup can outlive the main window.
+  const currentMainWindow = electronWindow.main;
   const focusedMainWindow = electronWindow.focusedMainOrFirst.pipe(Effect.flatMap(withoutSplash));
 
   const zoomWindow = Effect.fn("desktop.window.zoomWindow")(function* (
@@ -382,6 +393,43 @@ export const make = Effect.gen(function* () {
     yield* previewManager.reapplyZoom();
   });
 
+  const rememberCloseButton = Effect.fn("desktop.window.rememberCloseButton")(function* (
+    window: Electron.BrowserWindow,
+    closeButton: Exclude<CloseButtonAction, "ask">,
+  ) {
+    // Saved before acting, so a remembered Quit outlives the renderer.
+    yield* clientSettings
+      .setCloseButton(closeButton)
+      .pipe(
+        Effect.catch((error) =>
+          logWindowWarning("failed to save the close button choice", { message: error.message }),
+        ),
+      );
+    // The renderer writes its whole settings copy on each change; it must merge this one first.
+    if (!window.isDestroyed()) {
+      window.webContents.send(CLIENT_SETTINGS_CHANGED_CHANNEL, { closeButton });
+    }
+  });
+
+  const askBeforeClose = Effect.fn("desktop.window.askBeforeClose")(function* (
+    window: Electron.BrowserWindow,
+  ) {
+    // Without the question, the close button falls back to what it did before: quit.
+    const { answer, remember } = yield* electronDialog
+      .showMessageBox(CLOSE_DIALOG_OPTIONS, window)
+      .pipe(
+        Effect.map(readCloseDialogResult),
+        Effect.catch((error) =>
+          logWindowWarning("failed to ask before closing; quitting", {
+            message: error.message,
+          }).pipe(Effect.as({ answer: "quit" as const, remember: Option.none() })),
+        ),
+      );
+    if (Option.isSome(remember)) yield* rememberCloseButton(window, remember.value);
+    if (answer === "quit") yield* electronApp.quit;
+    return answer;
+  });
+
   const createWindow = Effect.fn("desktop.window.createWindow")(function* (): Effect.fn.Return<
     Option.Option<Electron.BrowserWindow>,
     DesktopWindowError
@@ -393,6 +441,8 @@ export const make = Effect.gen(function* () {
     const iconOption = getIconOption(iconPaths, environment.platform);
     const shouldUseDarkColors = yield* electronTheme.shouldUseDarkColors;
     const persistedSettings = yield* desktopSettings.get;
+    // Seeds the close-button choice the close handler reads synchronously.
+    yield* clientSettings.readForNewWindow.pipe(Effect.ignore);
     const persistedBounds = persistedSettings.mainWindowBounds;
     const displayBoundsResult = yield* Effect.sync(() => {
       try {
@@ -742,8 +792,53 @@ export const make = Effect.gen(function* () {
     window.on("move", scheduleBoundsPersist);
     window.on("maximize", scheduleBoundsPersist);
     window.on("unmaximize", scheduleBoundsPersist);
-    window.on("close", () => {
+    let sessionEnded = false;
+    if (environment.platform === "win32") {
+      // Only the final session-end: a log-off can still be cancelled at query-session-end.
+      window.on("session-end", () => {
+        sessionEnded = true;
+      });
+    }
+    let closeQuestionOpen = false;
+    let closingToKeepRunning = false;
+    const closeKeepingRunning = Effect.gen(function* () {
+      // An update can destroy the window while the question is open.
+      if (window.isDestroyed()) return;
+      yield* Ref.set(desktopState.keepRunningWithoutWindow, true);
+      closingToKeepRunning = true;
+      window.close();
+    });
+    window.on("close", (event) => {
+      // Checked first: the question is still open when Keep running closes the window.
+      if (closingToKeepRunning) {
+        closingToKeepRunning = false;
+        return;
+      }
       runFork(flushBoundsPersist);
+      if (sessionEnded) return;
+      const decision = decideWindowClose({
+        platform: environment.platform,
+        quitting: runSync(Ref.get(desktopState.quitting)),
+        closeButton: runSync(clientSettings.closeButton),
+      });
+      // Reset on every close, so a cancelled one cannot leave the app running windowless.
+      runSync(Ref.set(desktopState.keepRunningWithoutWindow, decision === "keepRunning"));
+      if (decision !== "ask") return;
+      event.preventDefault();
+      if (closeQuestionOpen) return;
+      closeQuestionOpen = true;
+      void runPromise(
+        askBeforeClose(window).pipe(
+          Effect.flatMap((answer) =>
+            answer === "keepRunning" ? closeKeepingRunning : Effect.void,
+          ),
+          Effect.ensuring(
+            Effect.sync(() => {
+              closeQuestionOpen = false;
+            }),
+          ),
+        ),
+      );
     });
 
     if (environment.platform === "darwin") {
@@ -928,6 +1023,7 @@ export const make = Effect.gen(function* () {
     const window = yield* createWindow();
     if (Option.isSome(window)) {
       mainClosedDuringStartup = false;
+      yield* Ref.set(desktopState.keepRunningWithoutWindow, false);
       yield* logWindowInfo("main window created");
     }
     return window;
