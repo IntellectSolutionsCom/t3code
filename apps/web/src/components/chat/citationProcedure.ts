@@ -6,12 +6,13 @@ import { environmentThreadDetails, threadEnvironment } from "../../state/threads
 import { toastManager } from "../ui/toast";
 import type { AssistantCitationRequest } from "./AssistantCitationSource";
 import type { MessagesTimelineRow } from "./MessagesTimeline.logic";
+import { unpinMessage, updateStoredPinnedMessages } from "./pinnedMessages";
 
 /** Whether the cited response is in the loaded history, after paging toward it. */
 export type CitedHistory =
   | { readonly _tag: "loading" }
   | { readonly _tag: "found" }
-  | { readonly _tag: "failed" };
+  | { readonly _tag: "failed"; readonly unavailable?: true };
 
 export type CitationPhase =
   | { readonly _tag: "loading" }
@@ -27,7 +28,13 @@ export interface CitedThreadSnapshot {
 
 export type CitedHistoryOutcome =
   | { readonly _tag: "found" }
-  | { readonly _tag: "failed"; readonly title: string; readonly description: string }
+  | {
+      readonly _tag: "failed";
+      readonly title: string;
+      readonly description: string;
+      /** The thread has no such message any more, rather than failing to load it. */
+      readonly unavailable?: true;
+    }
   | { readonly _tag: "aborted" };
 
 type HistoryPageResult = AtomCommandSuccess<
@@ -47,24 +54,43 @@ const UNAVAILABLE = {
   _tag: "failed",
   title: "The cited response is unavailable",
   description: "It may have been removed. The selected text is still saved in your citation.",
+  unavailable: true,
+} as const;
+
+const PIN_COULD_NOT_LOAD = {
+  _tag: "failed",
+  title: "Could not load the pinned message",
+  description: "Load earlier turns, then click the pin to try again.",
+} as const;
+
+const PIN_UNAVAILABLE = {
+  _tag: "failed",
+  title: "The pinned message is no longer in this thread",
+  description: "It may have been reverted or removed.",
+  unavailable: true,
 } as const;
 
 /**
  * Pages history toward the cited message until it is loaded, the thread runs
  * out of history, or loading fails. `readThread` resolves once the thread
  * detail is settled (loaded and no history page in flight), or with null when
- * the signal aborts.
+ * the signal aborts. A pin may name a user message; a citation may not.
  */
 export async function loadCitedHistory(input: {
   readonly signal: AbortSignal;
   readonly readThread: () => Promise<CitedThreadSnapshot | null>;
   readonly loadThrough: () => Promise<HistoryPageResult>;
+  readonly pin?: boolean;
 }): Promise<CitedHistoryOutcome> {
+  const couldNotLoad = input.pin ? PIN_COULD_NOT_LOAD : COULD_NOT_LOAD;
+  const unavailable = input.pin ? PIN_UNAVAILABLE : UNAVAILABLE;
   for (let attempts = 0; ; attempts += 1) {
     const thread = await input.readThread();
     if (thread === null || input.signal.aborted) return { _tag: "aborted" };
-    if (thread.loadFailed) return COULD_NOT_LOAD;
-    if (thread.message === "assistant") return { _tag: "found" };
+    if (thread.loadFailed) return couldNotLoad;
+    if (thread.message === "assistant" || (input.pin && thread.message === "other")) {
+      return { _tag: "found" };
+    }
     if (thread.message === "other") {
       return {
         _tag: "failed",
@@ -72,14 +98,14 @@ export async function loadCitedHistory(input: {
         description: "The selected text is still saved in your citation.",
       };
     }
-    if (!thread.hasMoreHistory) return UNAVAILABLE;
-    if (attempts >= MAX_CITATION_PAGES) return COULD_NOT_LOAD;
+    if (!thread.hasMoreHistory) return unavailable;
+    if (attempts >= MAX_CITATION_PAGES) return couldNotLoad;
     const result = await input.loadThrough();
     if (input.signal.aborted) return { _tag: "aborted" };
-    if (result._tag === "error") return COULD_NOT_LOAD;
+    if (result._tag === "error") return couldNotLoad;
     // A noop page means the store has nothing older to load (no cursor, or the
     // thread is gone), so re-reading would only spin on the same snapshot.
-    if (result._tag === "noop") return UNAVAILABLE;
+    if (result._tag === "noop") return unavailable;
   }
 }
 
@@ -87,6 +113,8 @@ export async function loadCitedHistory(input: {
 export function resolveCitationPhase(input: {
   readonly history: CitedHistory;
   readonly messageId: string;
+  /** A pin reveals a user message too. */
+  readonly pin?: boolean;
   readonly entries: ReadonlyArray<TimelineEntry>;
   readonly rows: ReadonlyArray<MessagesTimelineRow>;
 }): CitationPhase {
@@ -96,7 +124,12 @@ export function resolveCitationPhase(input: {
   );
   // The history store can hold the message a render before the entries do.
   if (!source) return { _tag: "loading" };
-  if (source.kind !== "message" || source.message.role !== "assistant") return { _tag: "failed" };
+  if (
+    source.kind !== "message" ||
+    (source.message.role !== "assistant" && !(input.pin && source.message.role === "user"))
+  ) {
+    return { _tag: "failed" };
+  }
   const row = input.rows.find(
     (candidate) => candidate.kind === "message" && candidate.message.id === input.messageId,
   );
@@ -142,6 +175,7 @@ interface CitedHistoryKey {
   readonly environmentId: AssistantCitationRequest["citation"]["environmentId"];
   readonly threadId: AssistantCitationRequest["citation"]["threadId"];
   readonly messageId: AssistantCitationRequest["citation"]["messageId"];
+  readonly pin: boolean;
 }
 
 function waitForSettledThread(
@@ -176,7 +210,7 @@ function waitForSettledThread(
  * Plain-object keys compare structurally, so one activation is one procedure.
  */
 const citedHistoryAtom = Atom.family(
-  ({ key, environmentId, threadId, messageId }: CitedHistoryKey) => {
+  ({ key, environmentId, threadId, messageId, pin }: CitedHistoryKey) => {
     const ref = { environmentId, threadId };
     const threadAtom = environmentThreadDetails.quietThreadAtom(ref);
     const historyAtom = environmentThreadDetails.historyAtom(ref);
@@ -196,6 +230,7 @@ const citedHistoryAtom = Atom.family(
       get.addFinalizer(() => controller.abort());
       void loadCitedHistory({
         signal: controller.signal,
+        pin,
         readThread: () => waitForSettledThread(get.registry, settledThreadAtom, controller.signal),
         loadThrough: async () => {
           const result = await runAtomCommand(
@@ -211,11 +246,28 @@ const citedHistoryAtom = Atom.family(
       }).then((outcome) => {
         if (outcome._tag === "aborted") return;
         if (outcome._tag === "failed") {
-          toastManager.add({
+          const toastId = toastManager.add({
             type: "warning",
             title: outcome.title,
             description: outcome.description,
+            ...(pin && outcome.unavailable
+              ? {
+                  actionProps: {
+                    children: "Unpin",
+                    onClick: () => {
+                      toastManager.close(toastId);
+                      updateStoredPinnedMessages(environmentId, threadId, (pins) =>
+                        unpinMessage(pins, messageId),
+                      );
+                    },
+                  },
+                }
+              : {}),
           });
+          get.setSelf(
+            outcome.unavailable ? { _tag: "failed", unavailable: true } : { _tag: "failed" },
+          );
+          return;
         }
         get.setSelf({ _tag: outcome._tag });
       });
@@ -235,6 +287,7 @@ export function useCitedHistory(request: AssistantCitationRequest | null): Cited
           environmentId: request.citation.environmentId,
           threadId: request.citation.threadId,
           messageId: request.citation.messageId,
+          pin: request.pin === true,
         }),
   );
 }

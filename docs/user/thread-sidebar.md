@@ -243,6 +243,16 @@ thread** from its long-press menu on mobile.
 **Thread ID** copies the bare ID for scripts and the `t3` CLI. See
 [keybindings](./keybindings.md) for custom configuration.
 
+## Pin messages
+
+On web and desktop, hover a message and choose **Pin message** to keep it in a
+bar at the top of the thread. Click the bar to jump to the pin and step to the
+next older one; the list button shows every pin, newest first. Find it from
+the command palette with **Show pinned messages**.
+
+Pins stay in this browser, on this device, and for this T3 Code address. They
+don't sync to other devices or browsers, and the mobile app doesn't show them.
+
 ## Inspect agent work
 
 **Limited** means the provider stopped on a usage or rate limit. The conversation

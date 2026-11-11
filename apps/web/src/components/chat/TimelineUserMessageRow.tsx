@@ -54,6 +54,7 @@ import {
 } from "./SnapShotAttachmentDetails";
 import { GuestMessageName, guestBubbleClassName } from "./guestMessageStyle";
 import { MessageCopyButton } from "./MessageCopyButton";
+import { MessagePinButton } from "./MessagePinButton";
 import { promptLinkFor } from "../promptLinks/copyPromptLink";
 import { PierreEntryIcon } from "./PierreEntryIcon";
 import { formatBytes } from "../../lib/formatBytes";
@@ -360,6 +361,7 @@ function AutomationMessageRow({ row }: { row: Extract<TimelineRow, { kind: "mess
                   variant="ghost"
                 />
               )}
+              <MessagePinButton messageId={row.message.id} label={() => summary} />
             </div>
           </div>
         </div>
@@ -824,6 +826,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
             variant="ghost"
           />
         )}
+        <MessagePinButton messageId={row.message.id} label={() => plainText || "Attachment"} />
       </div>
     </div>
   );

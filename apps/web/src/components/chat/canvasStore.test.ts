@@ -21,6 +21,7 @@ const measurements = (width: number, height = 900): ChatCanvasMeasurements => ({
   composerHeight: 180,
   timelineGutter: 0,
   findBar: null,
+  topBar: 0,
 });
 const preview: ChatCanvasPreview = {
   key: "browser:one",
@@ -67,6 +68,44 @@ describe("chat canvas model", () => {
     });
     expect(model.layout.overlapsDetailsCard).toBe(false);
     expect(model.detailsCardMode).toBe("inline");
+  });
+
+  it("keeps the pin bar's lane clear without moving a details card beside it", () => {
+    const model = resolveChatCanvasModel({
+      measurements: { ...measurements(1400), topBar: 44 },
+      detailsCardMeasurement: { threadRef, width: 280, fullContentHeight: 300 },
+      threadRef,
+      preview: { ...preview, position: { x: 760, y: 12 }, lastInteraction: "drag" },
+      detailsCardInlineOpen: true,
+    });
+    expect(model.detailsCardPlacement).toMatchObject({ x: 1108, y: 12 });
+    // The player stays beside the card, only below the bar it shares a lane with.
+    expect(model.layout.frame).toMatchObject({ x: 760, y: 56 });
+    expect(model.layout.overlapsDetailsCard).toBe(false);
+  });
+
+  it("settles the player beside a pin bar it narrows", () => {
+    const unsettled: string[] = [];
+    for (const width of [1100, 1200, 1300]) {
+      for (const x of [660, 700, 740, 760]) {
+        const resolve = () =>
+          resolveChatCanvasModel({
+            measurements: { ...measurements(width), topBar: 44 },
+            detailsCardMeasurement: null,
+            threadRef,
+            preview: { ...preview, position: { x, y: 12 }, lastInteraction: "drag" },
+            detailsCardInlineOpen: false,
+          }).layout;
+        const first = resolve();
+        const second = resolve();
+        const { chat, frame } = second;
+        const clearOfBar = frame!.x >= chat.left + chat.width + 12 || frame!.y >= 44 + 12;
+        if (JSON.stringify(first) !== JSON.stringify(second) || !clearOfBar) {
+          unsettled.push(`${width}@${x}`);
+        }
+      }
+    }
+    expect(unsettled).toEqual([]);
   });
 
   it("keeps state identity when a measurement repeats", () => {

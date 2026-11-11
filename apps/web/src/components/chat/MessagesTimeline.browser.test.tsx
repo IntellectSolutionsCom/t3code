@@ -947,6 +947,90 @@ describe("MessagesTimeline citations", () => {
   });
 });
 
+describe("MessagesTimeline pinned messages", () => {
+  it("brings a pinned message from older history in a folded attempt into view below the bar", async () => {
+    const runId = RunId.make("run-steered");
+    const attempt = (id: string, ordinal: number, status: "superseded" | "running") => ({
+      id: RunAttemptId.make(id),
+      runId,
+      attemptOrdinal: ordinal,
+      rootNodeId: `node-${id}` as never,
+      status,
+      completedAt: null,
+    });
+    const superseded = attempt("attempt-1", 1, "superseded");
+    const active = attempt("attempt-2", 2, "running");
+    const inAttempt = (entry: Entry, entryAttempt: typeof superseded): Entry => ({
+      ...entry,
+      attempt: entryAttempt,
+    });
+    const topInset = 44;
+    const props = {
+      ...baseProps(),
+      latestRun: { runId, status: "running", startedAt: CREATED_AT, completedAt: null },
+      topInset,
+      citationRequest: {
+        key: "pin-jump-1",
+        citation: {
+          environmentId: ENVIRONMENT_ID,
+          threadId: ThreadId.make("thread-pinned"),
+          messageId: MessageId.make("answer"),
+        },
+        pin: true,
+      },
+    } satisfies Omit<TimelineProps, "timelineEntries">;
+    const recent = [
+      inAttempt(message("Change direction", { runId }, "steer"), active),
+      ...Array.from({ length: 12 }, (_, index) =>
+        inAttempt(
+          message(
+            `Progress ${index}. ${"More detail on the work. ".repeat(30)}`,
+            {
+              role: "assistant",
+              runId,
+            },
+            `progress-${index}`,
+          ),
+          active,
+        ),
+      ),
+    ];
+    const timeline = (entries: Entry[], citationHistory: CitedHistory) => (
+      <MessagesTimeline {...props} timelineEntries={entries} citationHistory={citationHistory} />
+    );
+    // An instant scroll, so the row is never seen passing through the landing band.
+    const session = cdp();
+    await session.send("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+    });
+    onTestFinished(async () => {
+      await session.send("Emulation.setEmulatedMedia", { features: [] });
+    });
+    await using screen = await renderElement(timeline(recent, { _tag: "loading" }));
+    await expect.element(screen.getByText("Change direction")).toBeVisible();
+
+    await screen.rerender(
+      timeline(
+        [
+          message(`Earlier work. ${"Context from before. ".repeat(80)}`, {}, "earlier"),
+          inAttempt(message("Build it", { runId }, "question"), superseded),
+          inAttempt(message("First answer", { role: "assistant", runId }, "answer"), superseded),
+          ...recent,
+        ],
+        { _tag: "found" },
+      ),
+    );
+    await expect.element(screen.getByText("First answer")).toBeVisible();
+    await vi.waitFor(() => {
+      const source = screen.container.querySelector("[data-pinned-message-source=answer]")!;
+      const viewport = screen.container.querySelector(".messages-timeline-scroll")!;
+      const offset = source.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+      expect(offset).toBeGreaterThan(topInset + 8);
+      expect(offset).toBeLessThan(topInset + 16);
+    });
+  });
+});
+
 describe("MessagesTimeline automation prompts", () => {
   it("folds an automation prompt into a bubble titled by its task", async () => {
     setup({ scheduledTasks: [{ id: TASK_ID, title: "Nightly triage" }] });

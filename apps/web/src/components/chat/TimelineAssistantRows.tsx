@@ -14,6 +14,8 @@ import { ChangedFilesCard } from "./ChangedFilesTree";
 import { useFileContextMenuHandler } from "../../fileContextMenu";
 import { useAssistantMessageText, useProject, useThreadShell } from "../../state/entities";
 import { MessageCopyButton } from "./MessageCopyButton";
+import { MessagePinButton } from "./MessagePinButton";
+import { markdownPlainText } from "./timelineMinimapItems";
 import { AssistantCitationSource } from "./AssistantCitationSource";
 import { resolveAssistantMessageCopyState } from "./MessagesTimeline.logic";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -46,6 +48,7 @@ export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind
             itemKey={row.id}
             request={ctx.citationRequest}
             listRef={ctx.listRef}
+            topInset={ctx.topInset}
           >
             <ChatMarkdown
               text={messageText}
@@ -189,6 +192,12 @@ function AssistantMessageMeta({
       {projectedItem?.item.type === "assistant_message" ? (
         <AssistantForkButton projectedItem={projectedItem} />
       ) : null}
+      {message.streaming ? null : (
+        <MessagePinButton
+          messageId={message.id}
+          label={() => markdownPlainText(message.text.slice(0, 1_500)) || "Response"}
+        />
+      )}
       {!message.streaming && (
         <Tooltip>
           <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>

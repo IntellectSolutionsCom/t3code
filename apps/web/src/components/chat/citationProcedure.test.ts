@@ -18,9 +18,10 @@ function scriptedHistory(snapshots: ReadonlyArray<CitedThreadSnapshot | null>) {
     get loads() {
       return loads;
     },
-    run: (results: ReadonlyArray<"loaded" | "noop" | "error"> = []) =>
+    run: (results: ReadonlyArray<"loaded" | "noop" | "error"> = [], pin = false) =>
       loadCitedHistory({
         signal: controller.signal,
+        pin,
         readThread: async () => snapshots[Math.min(reads++, snapshots.length - 1)] ?? null,
         loadThrough: async () => {
           const result = results[loads++] ?? "loaded";
@@ -57,12 +58,13 @@ describe("loadCitedHistory", () => {
     });
   });
 
-  it("rejects a citation that names a user message", async () => {
+  it("rejects a citation that names a user message, but not a pin", async () => {
     const history = scriptedHistory([{ message: "other", hasMoreHistory: false }]);
     await expect(history.run()).resolves.toMatchObject({
       _tag: "failed",
       title: "The citation does not refer to an assistant response",
     });
+    await expect(history.run([], true)).resolves.toEqual({ _tag: "found" });
   });
 
   it("stops on a failed page", async () => {
@@ -158,10 +160,12 @@ describe("resolveCitationPhase", () => {
     history?: "loading" | "found" | "failed";
     entries?: ReadonlyArray<TimelineEntry>;
     rows?: ReadonlyArray<MessagesTimelineRow>;
+    pin?: boolean;
   }) =>
     resolveCitationPhase({
       history: { _tag: input.history ?? "loading" },
       messageId,
+      pin: input.pin ?? false,
       entries: input.entries ?? [],
       rows: input.rows ?? [],
     });
@@ -181,12 +185,13 @@ describe("resolveCitationPhase", () => {
     });
   });
 
-  it("fails for a citation that names a user message", () => {
+  it("fails for a citation that names a user message, but not for a pin", () => {
     const userEntry: TimelineEntry = {
       ...entry,
       message: { ...entry.message, role: "user" },
     } as TimelineEntry;
     expect(phase({ entries: [userEntry] })).toEqual({ _tag: "failed" });
+    expect(phase({ entries: [userEntry], pin: true })).toEqual({ _tag: "expanding" });
   });
 
   it("fails when the history procedure failed", () => {
