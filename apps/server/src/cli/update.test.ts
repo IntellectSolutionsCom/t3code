@@ -24,6 +24,7 @@ import {
   prunePinnedRuntimes,
   readPosixLauncherTarget,
   resolveLauncherPath,
+  resolveReleaseRepository,
 } from "../cloud/pinnedRuntime.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as ProcessRunner from "../processRunner.ts";
@@ -31,7 +32,6 @@ import {
   repointLauncher,
   resolveMirrorVersion,
   resolveNewestVersion,
-  resolveReleaseRepository,
   runUpdate,
 } from "./update.ts";
 
