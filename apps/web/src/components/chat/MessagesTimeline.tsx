@@ -78,7 +78,7 @@ import {
 } from "./timelineScrollAnchoring";
 import { AssistantSelectionToolbar } from "./AssistantSelectionToolbar";
 import type { AssistantCitationSourceAnchor } from "~/lib/assistantTextSelection";
-import { type AssistantCitationRequest } from "./AssistantCitationSource";
+import { type AssistantCitationRequest, PinnedMessageSource } from "./AssistantCitationSource";
 import { useAssistantCitationTarget } from "./useAssistantCitationTarget";
 import { worktreeSetupAgentStarted } from "@t3tools/client-runtime/worktree-setup";
 import { resolveCitationPhase, type CitedHistory } from "./citationProcedure";
@@ -115,6 +115,7 @@ import {
   TimelineRowActivityCtx,
   type WorkGroupViewState,
   type TimelineRow,
+  type TimelinePinnedMessages,
 } from "./timelineRowContext";
 import { TimelineRowTimestamp, ActivityShimmerOverlay } from "./TimelineRowParts";
 import {
@@ -240,6 +241,9 @@ interface MessagesTimelineProps {
   onRespondToApproval?: TimelineRowSharedState["onRespondToApproval"];
   citationRequest?: AssistantCitationRequest | null;
   citationHistory?: CitedHistory;
+  pinnedMessages?: TimelinePinnedMessages | null;
+  /** The pin bar's height; the timeline leaves room for it at the top. */
+  topInset?: number;
   onCiteAssistantText?: (
     citation: AssistantCitation,
     sourceAnchor: AssistantCitationSourceAnchor,
@@ -369,6 +373,8 @@ const ConversationTimeline = memo(function ConversationTimeline({
   onRespondToApproval,
   citationRequest = null,
   citationHistory = CITED_HISTORY_LOADING,
+  pinnedMessages = null,
+  topInset = 0,
   onCiteAssistantText,
   onReplyToResponse,
   isWorking,
@@ -703,7 +709,8 @@ const ConversationTimeline = memo(function ConversationTimeline({
       ? timelineEntries.find(
           (entry) =>
             (entry.kind === "message" &&
-              entry.message.role === "assistant" &&
+              (entry.message.role === "assistant" ||
+                (citationRequest.pin === true && entry.message.role === "user")) &&
               entry.message.id === citationRequest.citation.messageId) ||
             (entry.kind === "sent-message" && entry.id === citationRequest.citation.messageId),
         )
@@ -866,6 +873,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
       ? resolveCitationPhase({
           history: citationHistory,
           messageId: citationRequest.citation.messageId,
+          pin: citationRequest.pin === true,
           entries: timelineEntries,
           rows,
         })
@@ -1136,6 +1144,8 @@ const ConversationTimeline = memo(function ConversationTimeline({
     onRespondToApproval,
     citationRequest: readyCitationRequest,
     onReplyToResponse,
+    pinnedMessages,
+    topInset,
     listRef,
     timestampFormat,
     routeThreadKey,
@@ -1271,6 +1281,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
     );
   const listHeader = (
     <>
+      {topInset > 0 ? <div style={{ height: topInset }} /> : null}
       {parentThreadLink === null ? listHeaderLeadingContent : null}
       {historyControls ? <TimelineHistoryControl {...historyControls} /> : null}
       {parentThreadLink !== null ? listHeaderLeadingContent : null}
@@ -1555,7 +1566,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
                 void listRef.current?.scrollToIndex({
                   index: item.rowIndex,
                   animated: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-                  viewOffset: TIMELINE_MINIMAP_TARGET_OFFSET,
+                  viewOffset: TIMELINE_MINIMAP_TARGET_OFFSET + topInset,
                 });
               }}
             />
@@ -1736,9 +1747,8 @@ const TimelineRowContent = memo(function TimelineRowContent({ row }: { row: Time
       {row.kind === "turn-fold" ? <TurnFoldTimelineRow key={row.id} row={row} /> : null}
       {row.kind === "attempt-fold" ? <AttemptFoldTimelineRow row={row} /> : null}
       {row.kind === "context-compaction" ? <ContextCompactionTimelineRow row={row} /> : null}
-      {row.kind === "message" && row.message.role === "user" ? <UserMessageRow row={row} /> : null}
-      {row.kind === "message" && row.message.role === "assistant" ? (
-        <AssistantTimelineRow row={row} />
+      {row.kind === "message" && row.message.role !== "system" ? (
+        <PinnableMessageRow row={row} />
       ) : null}
       {row.kind === "assistant-meta" ? <AssistantMetaTimelineRow row={row} /> : null}
       {row.kind === "proposed-plan" ? <ProposedPlanTimelineRow row={row} /> : null}
@@ -1752,6 +1762,25 @@ const TimelineRowContent = memo(function TimelineRowContent({ row }: { row: Time
     </div>
   );
 });
+
+function PinnableMessageRow({ row }: { row: Extract<TimelineRow, { kind: "message" }> }) {
+  const ctx = use(TimelineRowCtx);
+  return (
+    <PinnedMessageSource
+      messageId={row.message.id}
+      itemKey={row.id}
+      request={ctx.citationRequest}
+      listRef={ctx.listRef}
+      topInset={ctx.topInset}
+    >
+      {row.message.role === "user" ? (
+        <UserMessageRow row={row} />
+      ) : (
+        <AssistantTimelineRow row={row} />
+      )}
+    </PinnedMessageSource>
+  );
+}
 
 function WorktreeSetupTimelineRow({
   row,

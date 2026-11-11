@@ -23,6 +23,8 @@ export interface ChatCanvasMeasurements {
   readonly timelineGutter: number;
   /** The find bar's box in canvas coordinates while it is shown. */
   readonly findBar: CanvasEdges | null;
+  /** The pinned messages bar's height at the top of the chat lane; 0 without pins. */
+  readonly topBar: number;
 }
 
 interface ChatCanvasStoreState {
@@ -42,6 +44,7 @@ const INITIAL_MEASUREMENTS: ChatCanvasMeasurements = {
   composerHeight: 0,
   timelineGutter: 0,
   findBar: null,
+  topBar: 0,
 };
 
 const sameEdges = (a: CanvasEdges | null, b: CanvasEdges | null) =>
@@ -58,7 +61,8 @@ const sameMeasurements = (a: ChatCanvasMeasurements, b: ChatCanvasMeasurements) 
   a.minChatWidth === b.minChatWidth &&
   a.composerHeight === b.composerHeight &&
   a.timelineGutter === b.timelineGutter &&
-  sameEdges(a.findBar, b.findBar);
+  sameEdges(a.findBar, b.findBar) &&
+  a.topBar === b.topBar;
 
 /**
  * One store per chat view: the canvas measures into it, and the chat view's
@@ -100,6 +104,7 @@ export function resolveChatCanvasModel({
 }) {
   const container = { width: measurements.width, height: measurements.height };
   const { findBar } = measurements;
+  // The pin bar stays in the chat lane, which keeps clear of the card column.
   const detailsCardTopInset = findBar?.bottom ?? 0;
   const lane = { padding: measurements.padding, minChatWidth: measurements.minChatWidth };
   // The preview avoids where an open inline card would sit, whether or not a
@@ -143,6 +148,7 @@ export function resolveChatCanvasModel({
     composerHeight: measurements.composerHeight,
     detailsCard,
     findBar,
+    topBarHeight: measurements.topBar,
   });
   const detailsCardPlacement = resolveThreadDetailsCardLayout({
     container,

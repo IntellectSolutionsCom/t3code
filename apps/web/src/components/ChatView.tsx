@@ -67,6 +67,15 @@ import { useUsageLimitsPanel } from "./chat/useUsageLimitsPanel";
 import { useWorktreeSetup } from "./chat/useWorktreeSetup";
 import { useChatShortcuts } from "./chat/useChatShortcuts";
 import { ChatBannerLane } from "./chat/ChatBannerLane";
+import { PINNED_MESSAGES_BAR_RESERVED_HEIGHT, PinnedMessagesBar } from "./chat/PinnedMessagesBar";
+import {
+  MAX_PINNED_MESSAGES,
+  pinMessage,
+  unpinMessage,
+  updateStoredPinnedMessages,
+  usePinnedMessages,
+  type PinnedMessage,
+} from "./chat/pinnedMessages";
 import * as Schema from "effect/Schema";
 import {
   AuthOrchestrationOperateScope,
@@ -218,7 +227,7 @@ import { cn } from "~/lib/utils";
 import { COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS } from "~/workspaceTitlebar";
 import { toastManager } from "./ui/toast";
 import { projectScriptIdFromCommand } from "~/projectScripts";
-import { newMessageId } from "~/lib/utils";
+import { newMessageId, randomUUID } from "~/lib/utils";
 import {
   isInSideChatPane,
   resolveThreadOpenRoute,
@@ -432,6 +441,7 @@ import type { CodexArtifactTemplate } from "@t3tools/shared/codexArtifactTemplat
 
 const EMPTY_FEEDBACK_SUBMISSIONS: ReadonlyArray<CodexFeedbackSubmission> = [];
 const EMPTY_PROVIDER_SKILLS: ServerProvider["skills"] = [];
+const NO_PINNED_MESSAGES: ReadonlyArray<PinnedMessage> = [];
 const EMPTY_TURN_ITEMS: ThreadStructure["turnItems"] = [];
 const EMPTY_RUNS: ThreadStructure["runs"] = [];
 const EMPTY_AUTO_UPDATE_ENVIRONMENTS: ReadonlyArray<EnvironmentPresentation> = [];
@@ -630,12 +640,28 @@ export default function ChatView(props: ChatViewProps) {
   const citationLocation = { href: citationHref, key: citationKey };
   const locationCitation = assistantCitationFromLocation(citationLocation.href);
   const citationActivation = citationLocation.key ?? citationLocation.href;
+  // A pin jump rides the citation path until the location moves to another citation.
+  const [pinJump, setPinJump] = useState<{
+    readonly threadKey: string;
+    readonly messageId: MessageId;
+    readonly key: string;
+    readonly locationKey: string;
+  } | null>(null);
+  if (pinJump !== null && pinJump.threadKey !== routeThreadKey) setPinJump(null);
   const citationRequest = (
-    locationCitation &&
-    locationCitation.environmentId === environmentId &&
-    locationCitation.threadId === threadId
-      ? { citation: locationCitation, key: citationActivation }
-      : null
+    pinJump !== null &&
+    pinJump.threadKey === routeThreadKey &&
+    pinJump.locationKey === citationActivation
+      ? {
+          key: pinJump.key,
+          citation: { environmentId, threadId, messageId: pinJump.messageId },
+          pin: true,
+        }
+      : locationCitation &&
+          locationCitation.environmentId === environmentId &&
+          locationCitation.threadId === threadId
+        ? { citation: locationCitation, key: citationActivation }
+        : null
   ) as AssistantCitationRequest | null;
   useSideChatCitationReveal(embedded ? null : routeThreadRef, locationCitation, citationActivation);
   const citationHistory = useCitedHistory(citationRequest);
@@ -1869,6 +1895,46 @@ export default function ChatView(props: ChatViewProps) {
     ? activeProviderStatus
     : null;
   const hasTimelineTopBanner = Boolean(timelineThreadError) || visibleProviderStatus !== null;
+  const storedPinnedMessages = usePinnedMessages(environmentId, threadId);
+  const pinnedMessages = isServerThread ? storedPinnedMessages : NO_PINNED_MESSAGES;
+  const pinnedMessagesInset = pinnedMessages.length > 0 ? PINNED_MESSAGES_BAR_RESERVED_HEIGHT : 0;
+  const togglePinnedMessageStable = useStableCallback((messageId: MessageId, label: string) => {
+    const pinned = storedPinnedMessages.some((pin) => pin.messageId === messageId);
+    if (!pinned && storedPinnedMessages.length >= MAX_PINNED_MESSAGES) {
+      toastManager.add({
+        type: "warning",
+        title: "This thread has the most pins it can hold",
+        description: `Unpin a message to pin another. A thread keeps up to ${MAX_PINNED_MESSAGES}.`,
+      });
+      return;
+    }
+    updateStoredPinnedMessages(environmentId, threadId, (pins) =>
+      pinned
+        ? unpinMessage(pins, messageId)
+        : pinMessage(pins, { messageId, label, pinnedAt: new Date().toISOString() }),
+    );
+  });
+  const unpinMessageStable = useStableCallback((messageId: MessageId) =>
+    updateStoredPinnedMessages(environmentId, threadId, (pins) => unpinMessage(pins, messageId)),
+  );
+  const jumpToPinnedMessageStable = useStableCallback((messageId: MessageId) =>
+    setPinJump({
+      threadKey: routeThreadKey,
+      messageId,
+      key: randomUUID(),
+      locationKey: citationActivation,
+    }),
+  );
+  const timelinePinnedMessages = isServerThread
+    ? {
+        ids: new Set(pinnedMessages.map((pin) => pin.messageId)),
+        toggle: togglePinnedMessageStable,
+      }
+    : null;
+  const reportedGonePin =
+    citationRequest?.pin && citationHistory._tag === "failed" && citationHistory.unavailable
+      ? { key: citationRequest.key, messageId: citationRequest.citation.messageId }
+      : null;
   const activeProjectCwd = activeProject?.workspaceRoot ?? null;
   const activeThreadWorktreePath = activeThread?.worktreePath ?? null;
   const activeWorkspaceRoot = activeThreadWorktreePath ?? activeProjectCwd ?? undefined;
@@ -3618,6 +3684,7 @@ export default function ChatView(props: ChatViewProps) {
             threadRef={activeThreadRef}
             preview={canvasPreview}
             detailsCardTopInset={isThreadFindActive ? THREAD_FIND_BAR_RESERVED_HEIGHT : 0}
+            topBarHeight={pinnedMessagesInset}
             composerOverlayElement={isDraftHeroState ? null : composerOverlayElement}
             data-chat-workspace-drop-target="true"
             onDragEnter={workspaceFileDropHandlers.onDragEnter}
@@ -3643,6 +3710,18 @@ export default function ChatView(props: ChatViewProps) {
               threadErrorBannerKey={threadErrorBannerKey}
               setThreadError={setThreadError}
               setThreadErrorBannerDismissTick={setThreadErrorBannerDismissTick}
+              pinnedMessagesBar={
+                pinnedMessages.length > 0 ? (
+                  <PinnedMessagesBar
+                    key={routeThreadKey}
+                    threadKey={routeThreadKey}
+                    pins={pinnedMessages}
+                    reportedGone={reportedGonePin}
+                    onJump={jumpToPinnedMessageStable}
+                    onUnpin={unpinMessageStable}
+                  />
+                ) : null
+              }
             />
             <div
               {...conversationArea}
@@ -3663,6 +3742,8 @@ export default function ChatView(props: ChatViewProps) {
                   detailLoading={threadDetailLoading}
                   citationRequest={citationRequest}
                   citationHistory={citationHistory}
+                  pinnedMessages={timelinePinnedMessages}
+                  topInset={pinnedMessagesInset}
                   onCiteAssistantText={citeAssistantTextStable}
                   onReplyToResponse={replyToResponseStable}
                   {...(activeProject && !runsOutsideHostCheckout
