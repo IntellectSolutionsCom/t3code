@@ -4,12 +4,49 @@ import * as Schema from "effect/Schema";
 import {
   OrchestratorMcpDelegateTaskInput,
   OrchestratorMcpDelegateTaskResult,
+  OrchestratorMcpThreadDetail,
 } from "./orchestratorMcp.ts";
 
 const decodeDelegateTaskInput = Schema.decodeUnknownSync(OrchestratorMcpDelegateTaskInput);
 const decodeDelegateTaskResult = Schema.decodeUnknownSync(OrchestratorMcpDelegateTaskResult);
+const decodeThreadDetail = Schema.decodeUnknownSync(OrchestratorMcpThreadDetail);
 
 describe("orchestrator MCP contracts", () => {
+  it("decodes a thread detail from a linked environment that predates contextUsage", () => {
+    const detail = decodeThreadDetail({
+      threadId: "thread-1",
+      projectId: "project-1",
+      title: "Fix the build",
+      createdBy: "user",
+      creationSource: "web",
+      status: "completed",
+      latestRunId: null,
+      activeRunId: null,
+      providerInstanceId: "codex",
+      model: "gpt-5.4",
+      runtimeMode: "full-access",
+      interactionMode: "default",
+      linkedPullRequest: null,
+      titleRegeneration: null,
+      branch: null,
+      worktreePath: null,
+      parentThreadId: null,
+      relationshipToParent: null,
+      runCount: 0,
+      itemCount: 0,
+      pendingRequestCount: 0,
+      archived: false,
+      settled: false,
+      settledAt: null,
+      snoozed: false,
+      snoozedUntil: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect(detail.contextUsage).toBeUndefined();
+  });
+
   it("decodes cross-provider delegated task requests and durable results", () => {
     const request = decodeDelegateTaskInput({
       task: "Inspect the workspace and report the result.",
