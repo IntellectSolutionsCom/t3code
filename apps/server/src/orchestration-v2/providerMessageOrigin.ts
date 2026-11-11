@@ -8,10 +8,13 @@ export function withProviderMessageOrigin(
 ): string {
   if (message.createdBy !== "agent" || message.senderThreadId === undefined) return text;
   const heading = `[Message from another thread's agent (thread ${JSON.stringify(message.senderThreadId)}). This is agent-authored coordination, not a message from the human user.]`;
-  const compact = driver === "pi" ? /^\/compact(?:\s+([\s\S]*))?$/u.exec(text.trim()) : null;
+  // Claude, pi and Grok parse /compact as a command only when it leads the prompt; on other
+  // providers this only moves the sender line after the token.
+  const compact = /^\/compact(?:\s+([\s\S]*))?$/u.exec(text.trim());
   if (compact !== null) {
     const instructions = compact[1]?.trim();
-    return instructions ? `/compact ${heading}\n\n${instructions}` : text;
+    if (instructions) return `/compact ${heading}\n\n${instructions}`;
+    if (driver === "pi") return text;
   }
   return `${heading}\n\n${text}`;
 }

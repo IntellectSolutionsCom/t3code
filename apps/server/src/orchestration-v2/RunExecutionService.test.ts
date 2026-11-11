@@ -1071,6 +1071,19 @@ it.effect(
           driver: ProviderDriverKind.make("pi"),
         },
         {
+          text: "/compact keep the tests",
+          attachments: [],
+          expected: "command",
+          driver: ProviderDriverKind.make("claudeAgent"),
+        },
+        { text: "/compact keep the tests", attachments: [], expected: "command" },
+        {
+          text: "/compact",
+          attachments: [attachment],
+          expected: "unchanged",
+          driver: ProviderDriverKind.make("pi"),
+        },
+        {
           text: "Continue the work",
           attachments: [],
           expected: "prompt",
@@ -1184,6 +1197,7 @@ it.effect(
           if (
             testCase.expected !== "goal" &&
             testCase.expected !== "control" &&
+            testCase.expected !== "unchanged" &&
             testCase.createdBy === "agent" &&
             testCase.senderThreadId !== undefined
           ) {
