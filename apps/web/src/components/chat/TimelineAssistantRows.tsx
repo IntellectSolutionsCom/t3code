@@ -23,6 +23,8 @@ import {
   useQuietThreadShell,
 } from "../../state/entities";
 import { MessageCopyButton } from "./MessageCopyButton";
+import { MessagePinButton } from "./MessagePinButton";
+import { markdownPlainText } from "./timelineMinimapItems";
 import { AssistantCitationSource } from "./AssistantCitationSource";
 import { resolveAssistantMessageCopyState } from "./MessagesTimeline.logic";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -62,6 +64,7 @@ export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind
             itemKey={row.id}
             request={ctx.citationRequest}
             listRef={ctx.listRef}
+            topInset={ctx.topInset}
           >
             <ChatMarkdown
               text={messageText}
@@ -128,6 +131,7 @@ export function SentMessageTimelineRow({
         itemKey={row.id}
         request={ctx.citationRequest}
         listRef={ctx.listRef}
+        topInset={ctx.topInset}
       >
         <ChatMarkdown
           text={row.text}
@@ -256,6 +260,12 @@ function AssistantMessageMeta({
       {!message.streaming && projectedItem ? (
         <AssistantReplyButton message={message} itemId={projectedItem.sourceItemId} />
       ) : null}
+      {message.streaming ? null : (
+        <MessagePinButton
+          messageId={message.id}
+          label={() => markdownPlainText(message.text.slice(0, 1_500)) || "Response"}
+        />
+      )}
       {!message.streaming && (
         <Tooltip>
           <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>

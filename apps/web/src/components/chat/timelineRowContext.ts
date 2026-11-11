@@ -43,6 +43,11 @@ export interface TurnItemSource {
   }) => Atom.Atom<AsyncResult.AsyncResult<CommandOutputView, unknown>>;
 }
 
+export interface TimelinePinnedMessages {
+  readonly ids: ReadonlySet<MessageId>;
+  readonly toggle: (messageId: MessageId, label: string) => void;
+}
+
 export interface TimelineRowSharedState {
   pendingApprovals: ReadonlyMap<RuntimeRequestId, PendingApproval>;
   respondingRequestIds: ReadonlyArray<RuntimeRequestId>;
@@ -53,6 +58,10 @@ export interface TimelineRowSharedState {
   citationRequest: AssistantCitationTarget | null;
   /** Absent hides "Reply", as in the guest view. */
   onReplyToResponse: ((response: ResponseContextRecord) => boolean) | undefined;
+  /** Absent hides Pin and Unpin, as in the guest view. */
+  pinnedMessages: TimelinePinnedMessages | null;
+  /** The pin bar's height over the top of the timeline; reveals land below it. */
+  topInset: number;
   listRef: React.RefObject<LegendListRef | null>;
   timestampFormat: TimestampFormat;
   routeThreadKey: string;
