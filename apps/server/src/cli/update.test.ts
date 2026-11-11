@@ -17,7 +17,11 @@ import { afterEach, vi } from "vite-plus/test";
 
 import packageJson from "../../package.json" with { type: "json" };
 import * as BootService from "../cloud/bootService.ts";
-import { pinnedRuntimePaths, prunePinnedRuntimes } from "../cloud/pinnedRuntime.ts";
+import {
+  pinnedRuntimePaths,
+  prunePinnedRuntimes,
+  resolveReleaseRepository,
+} from "../cloud/pinnedRuntime.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import {
@@ -25,7 +29,6 @@ import {
   resolveLauncherPath,
   resolveMirrorVersion,
   resolveNewestVersion,
-  resolveReleaseRepository,
   runUpdate,
 } from "./update.ts";
 

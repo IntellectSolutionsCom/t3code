@@ -103,6 +103,39 @@ it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
       assert.deepEqual(commands, ["tar"]);
       assert.equal(yield* fs.readFileString(paths.sentinelPath), `${version}\n`);
       assert.isFalse(yield* fs.exists(path.join(paths.versionDir, "t3-runtime-archive")));
+
+      const checksums = yield* validChecksums;
+      const install = (installDir: string, installRequests: string[], repository: string) =>
+        ensurePinnedRuntimeInstalled({
+          baseDir: installDir,
+          version,
+          fs,
+          path,
+          platform: "linux",
+          arch: "x64",
+          httpClient: releaseHttpClient(checksums, installRequests),
+          runner: extractingRunner(fs, path),
+          validate: () => Effect.void,
+        }).pipe(
+          Effect.provideService(HostProcess.Environment, { T3CODE_RELEASE_REPOSITORY: repository }),
+        );
+      const forkRequests: string[] = [];
+      yield* install(
+        yield* fs.makeTempDirectoryScoped({ prefix: "t3-pinned-archive-fork-" }),
+        forkRequests,
+        "example/t3code-fork",
+      );
+      assert.deepEqual(forkRequests, [
+        `https://github.com/example/t3code-fork/releases/download/v${version}/SHA256SUMS`,
+        `https://github.com/example/t3code-fork/releases/download/v${version}/${archiveName}`,
+      ]);
+      // An already pinned runtime never reads the repository, so a bad value cannot stop it.
+      const pinnedRequests: string[] = [];
+      assert.equal(
+        (yield* install(baseDir, pinnedRequests, "not a repo")).entryPath,
+        paths.entryPath,
+      );
+      assert.deepEqual(pinnedRequests, []);
     }),
   );
 

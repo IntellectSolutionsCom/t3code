@@ -17,6 +17,7 @@ import {
   cliArchivePlatformKey,
   cliArchiveTarCommand,
   cliReleaseAssetUrl,
+  cliReleaseRepositoryBaseUrl,
   type CliArchivePlatformKey,
   parseChecksums,
 } from "@t3tools/shared/cliRelease";
@@ -94,6 +95,37 @@ export class PinnedRuntimePreflightBlockedError extends Schema.TaggedError<Pinne
     return this.reason;
   }
 }
+
+declare const __T3CODE_BUILD_RELEASE_REPOSITORY__: string | undefined;
+
+const RELEASE_REPOSITORY_ENV = "T3CODE_RELEASE_REPOSITORY";
+const BUILD_RELEASE_REPOSITORY =
+  typeof __T3CODE_BUILD_RELEASE_REPOSITORY__ === "undefined"
+    ? undefined
+    : __T3CODE_BUILD_RELEASE_REPOSITORY__ || undefined;
+// Exactly one <owner>/<repo> with no dot segments, so the value cannot change the API path.
+const RELEASE_REPOSITORY_SEGMENT = /^[A-Za-z0-9._-]+$/u;
+
+/** The `<owner>/<repo>` whose releases t3 follows; `undefined` means the upstream project. */
+export const resolveReleaseRepository = Effect.fn(
+  "cloud.pinned_runtime.resolve_release_repository",
+)(function* () {
+  const repository =
+    (yield* HostProcess.Environment)[RELEASE_REPOSITORY_ENV]?.trim() || BUILD_RELEASE_REPOSITORY;
+  if (repository === undefined) return undefined;
+  const segments = repository.split("/");
+  const valid =
+    segments.length === 2 &&
+    segments.every(
+      (segment) => segment !== "." && segment !== ".." && RELEASE_REPOSITORY_SEGMENT.test(segment),
+    );
+  if (!valid) {
+    return yield* new PinnedRuntimeInstallError({
+      step: `resolving the release repository: ${RELEASE_REPOSITORY_ENV} must be <owner>/<repo>, got '${repository}'`,
+    });
+  }
+  return repository;
+});
 
 export type PinnedRuntimeProgress =
   | { readonly stage: "download"; readonly received: number; readonly total: number | undefined }
@@ -307,6 +339,9 @@ const installPinnedRuntime = Effect.fn("cloud.pinned_runtime.ensure_installed")(
     yield* input.validate(paths);
     return paths;
   }
+  const download = input.releaseBaseUrl?.trim()
+    ? input
+    : { ...input, releaseBaseUrl: cliReleaseRepositoryBaseUrl(yield* resolveReleaseRepository()) };
   if (versionDirExists) {
     yield* fs.remove(paths.versionDir, { recursive: true, force: true }).pipe(
       Effect.mapError(
@@ -350,7 +385,7 @@ const installPinnedRuntime = Effect.fn("cloud.pinned_runtime.ensure_installed")(
   };
 
   return yield* Effect.gen(function* () {
-    yield* installFromArchive(input, stagingDir);
+    yield* installFromArchive(download, stagingDir);
 
     input.onProgress?.({ stage: "validate" });
     yield* input.validate(stagingPaths);
