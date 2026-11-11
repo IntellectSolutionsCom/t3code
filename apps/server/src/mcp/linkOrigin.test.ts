@@ -7,6 +7,7 @@ import {
   ContextTransferId,
   EnvironmentId,
   NodeId,
+  parseGoalCommand,
   type OrchestrationV2Run,
   ProjectId,
   ProviderDriverKind,
@@ -43,6 +44,8 @@ import * as SourceControlRepositoryService from "../sourceControl/SourceControlR
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as McpHttpServer from "./McpHttpServer.ts";
 import * as McpInvocationContext from "./McpInvocationContext.ts";
+import { liveThreadShell } from "./McpToolAccess.testkit.ts";
+import { withLinkedSenderLine } from "./linkOrigin.ts";
 import * as PeerForwarding from "../peer/PeerForwarding.ts";
 import * as ThreadSearch from "../orchestration-v2/ThreadSearch.ts";
 import * as PeerLinkRequests from "../peer/PeerLinkRequests.ts";
@@ -409,4 +412,42 @@ it.layer(Layer.provideMerge(layerTools, layerOrchestration))("work a link starts
       }
     }),
   );
+});
+
+it("names the link of an agent message from a caller with no thread here", () => {
+  const line = (label: string) =>
+    `[Message from an agent on linked environment${label}. This is agent-authored coordination, not a message from the human user.]`;
+  const mac = {
+    scope: { ...laptop, client: { ...laptop.client!, label: "Mac" } },
+    caller: undefined,
+  };
+  const unnamed = {
+    scope: { ...laptop, client: { ...laptop.client!, label: "" } },
+    caller: undefined,
+  };
+  const sender = liveThreadShell(ThreadId.make("thread:sender"));
+  const cases = [
+    [mac, "Check the build", 0, `${line(' "Mac"')}\n\nCheck the build`],
+    [unnamed, "Check the build", 0, `${line("")}\n\nCheck the build`],
+    [mac, "/review the diff", 0, `${line(' "Mac"')}\n\n/review the diff`],
+    [mac, "/compact", 1, `${line(' "Mac"')}\n\n/compact`],
+    [mac, "", 1, line(' "Mac"')],
+    [mac, " /COMPACT ", 0, " /COMPACT "],
+    [mac, "/compact keep the plan", 0, `/compact ${line(' "Mac"')}\n\nkeep the plan`],
+    [mac, "/goal ship it", 0, `/goal ${line(' "Mac"')}\n\nship it`],
+    [mac, "/goal ship it", 1, `${line(' "Mac"')}\n\n/goal ship it`],
+    [mac, "/goal pause", 0, "/goal pause"],
+    [mac, "/goal", 0, "/goal"],
+    [mac, "/logout", 0, "/logout"],
+    [{ scope: claudeCode, caller: undefined }, "Check the build", 0, "Check the build"],
+    [{ scope: laptop, caller: sender }, "Check the build", 0, "Check the build"],
+  ] as const;
+  for (const [caller, text, attachments, expected] of cases) {
+    assert.equal(withLinkedSenderLine(caller, text, attachments), expected, text);
+  }
+  // The labelled goal still sets a goal, with the line ahead of its objective.
+  assert.deepEqual(parseGoalCommand({ text: withLinkedSenderLine(mac, "/goal ship it") }), {
+    type: "set",
+    objective: `${line(' "Mac"')}\n\nship it`,
+  });
 });

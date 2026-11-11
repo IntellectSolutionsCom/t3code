@@ -12,6 +12,7 @@ import * as Upload from "../../../assets/AttachmentUpload.ts";
 import * as Claims from "../../../orchestration-v2/AttachmentClaims.ts";
 import * as ThreadMessageIntake from "../../../orchestration-v2/ThreadMessageIntake.ts";
 import * as McpToolAccess from "../../McpToolAccess.ts";
+import { withLinkedSenderLine } from "../../linkOrigin.ts";
 import { newCommandId, readThread, unavailable } from "../../threadAccess.ts";
 import { AttachmentToolkit } from "./tools.ts";
 
@@ -85,7 +86,8 @@ export const layer = McpToolAccess.toLayer(
         (input) => [input.threadId],
         (input) =>
           Effect.gen(function* () {
-            const { caller, projection } = yield* readThread(input.threadId, ["messages"]);
+            const context = yield* readThread(input.threadId, ["messages"]);
+            const { caller, projection } = context;
             if (projection.thread.archivedAt !== null)
               return yield* new OrchestratorMcpFailure({
                 code: "invalid_request",
@@ -103,7 +105,7 @@ export const layer = McpToolAccess.toLayer(
               commandId,
               messageId,
               ...(caller === undefined ? {} : { senderThreadId: caller.id }),
-              text: input.message ?? "",
+              text: withLinkedSenderLine(context, input.message ?? "", attachments.length),
               attachments,
               mode: "auto",
               createdBy: "agent",

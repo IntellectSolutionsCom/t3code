@@ -1,11 +1,13 @@
 import {
   linkOriginIsFenced,
   OrchestratorMcpFailure,
+  parseGoalCommand,
   type OrchestrationV2LinkOrigin,
   type OrchestrationV2ThreadShell,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 
+import { isNativeMaintenanceCommand } from "../orchestration-v2/CommandPolicy.ts";
 import type { Caller } from "./threadAccess.ts";
 
 /**
@@ -27,6 +29,31 @@ export const callerLinkOrigin = (
         access: caller.scope.client.access,
       }
     : undefined);
+
+/**
+ * An agent message from a linked environment's agent with no thread here has no
+ * sender thread to name, so its text says which link it came from. A command
+ * delivery runs keeps its token first: the line goes into its free text, and a
+ * bare control command stays as it is.
+ */
+export const withLinkedSenderLine = (
+  { scope, caller }: Pick<Caller, "scope"> & { readonly caller: object | undefined },
+  text: string,
+  attachments = 0,
+): string => {
+  const origin = caller === undefined ? callerLinkOrigin({ scope, caller }) : undefined;
+  if (origin === undefined) return text;
+  const from = origin.label.length === 0 ? "" : ` ${JSON.stringify(origin.label)}`;
+  const line = `[Message from an agent on linked environment${from}. This is agent-authored coordination, not a message from the human user.]`;
+  if (attachments === 0) {
+    if (isNativeMaintenanceCommand({ text, attachments: [] })) return text;
+    const goal = parseGoalCommand({ text });
+    if (goal !== null) return goal.type === "set" ? `/goal ${line}\n\n${goal.objective}` : text;
+    const compact = /^\/compact\s+([\s\S]+)$/u.exec(text.trim());
+    if (compact?.[1] !== undefined) return `/compact ${line}\n\n${compact[1].trim()}`;
+  }
+  return text.length === 0 ? line : `${line}\n\n${text}`;
+};
 
 /** The link that fences a caller, if any: one paired below full access. */
 const fencingLinkOrigin = (caller: Pick<Caller, "scope" | "caller">) => {
