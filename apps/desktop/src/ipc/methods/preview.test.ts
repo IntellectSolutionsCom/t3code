@@ -65,6 +65,9 @@ describe("preview IPC methods", () => {
         Effect.provideService(DesktopClientSettings.DesktopClientSettings, {
           get: Effect.succeedNone,
           set: () => Effect.void,
+          setCloseButton: () => Effect.void,
+          closeButton: Effect.succeed("ask" as const),
+          readForNewWindow: Effect.void,
         }),
       ),
     );

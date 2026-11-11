@@ -5,6 +5,7 @@ import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import {
   DEFAULT_SERVER_SETTINGS,
   AuthSettingsWriteScope,
+  type DesktopBridge,
   requiredScopesForServerSettingsPatch,
   type EnvironmentId,
   type ProviderInstanceMutation,
@@ -244,6 +245,15 @@ export function persistClientSettingsPatch(
       operation: "persist",
       ...safeErrorLogAttributes(error),
     });
+  });
+}
+
+/** Merges choices the desktop saved itself, so the renderer's next whole-copy write keeps them. */
+export function startDesktopClientSettingsSync(
+  bridge: Pick<DesktopBridge, "onClientSettingsChanged">,
+): () => void {
+  return bridge.onClientSettingsChanged((patch) => {
+    void persistClientSettingsPatch(patch);
   });
 }
 

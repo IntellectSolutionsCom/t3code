@@ -1,4 +1,9 @@
-import { ClientSettingsSchema, type ClientSettings } from "@t3tools/contracts";
+import {
+  ClientSettingsSchema,
+  type ClientSettings,
+  type CloseButtonAction,
+  DEFAULT_CLIENT_SETTINGS,
+} from "@t3tools/contracts";
 import { fromLenientJson } from "@t3tools/shared/schemaJson";
 import { resolveSymlinkTarget } from "@t3tools/shared/symlink";
 import * as Context from "effect/Context";
@@ -10,6 +15,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Ref from "effect/Ref";
+import * as Semaphore from "effect/Semaphore";
 
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 
@@ -66,9 +72,18 @@ export class DesktopClientSettings extends Context.Service<
   DesktopClientSettings,
   {
     readonly get: Effect.Effect<Option.Option<ClientSettings>, DesktopClientSettingsReadError>;
+    /** Saves the renderer's whole copy, keeping a close-button choice it has not seen yet. */
     readonly set: (
       settings: ClientSettings,
     ) => Effect.Effect<void, DesktopClientSettingsWriteError>;
+    /** Saves a close-button choice made in the main process, merged into the file. */
+    readonly setCloseButton: (
+      closeButton: CloseButtonAction,
+    ) => Effect.Effect<void, DesktopClientSettingsReadError | DesktopClientSettingsWriteError>;
+    /** The saved close-button choice; a window's close handler reads it synchronously. */
+    readonly closeButton: Effect.Effect<CloseButtonAction>;
+    /** Reads the file for a new main window, whose renderer will carry every choice in it. */
+    readonly readForNewWindow: Effect.Effect<void, DesktopClientSettingsReadError>;
   }
 >()("@t3tools/desktop/settings/DesktopClientSettings") {}
 
@@ -186,18 +201,65 @@ const writeClientSettings = Effect.fnUntraced(function* (input: {
   }).pipe(Effect.ensuring(input.fileSystem.remove(tempPath, { force: true }).pipe(Effect.ignore)));
 });
 
+const makeStore = Effect.fn("DesktopClientSettings.makeStore")(function* (store: {
+  readonly read: Effect.Effect<Option.Option<ClientSettings>, DesktopClientSettingsReadError>;
+  readonly write: (
+    settings: ClientSettings,
+  ) => Effect.Effect<void, DesktopClientSettingsWriteError>;
+}) {
+  // The renderer and the main process both write the whole file, so one at a time.
+  const writes = yield* Semaphore.make(1);
+  const closeButton = yield* Ref.make(DEFAULT_CLIENT_SETTINGS.closeButton);
+  // A main-process choice the renderer's copy does not carry yet; its saves keep it until then.
+  const unseenCloseButton = yield* Ref.make(Option.none<CloseButtonAction>());
+  const save = (settings: ClientSettings) =>
+    store.write(settings).pipe(Effect.andThen(Ref.set(closeButton, settings.closeButton)));
+
+  const read = store.read.pipe(
+    Effect.tap((saved) =>
+      Option.isSome(saved) ? Ref.set(closeButton, saved.value.closeButton) : Effect.void,
+    ),
+  );
+
+  return DesktopClientSettings.of({
+    get: read.pipe(writes.withPermits(1), Effect.withSpan("desktop.clientSettings.get")),
+    set: Effect.fn("desktop.clientSettings.set")(function* (settings) {
+      const unseen = yield* Ref.get(unseenCloseButton);
+      if (Option.isNone(unseen)) return yield* save(settings);
+      if (settings.closeButton !== unseen.value) {
+        return yield* save({ ...settings, closeButton: unseen.value });
+      }
+      yield* save(settings);
+      yield* Ref.set(unseenCloseButton, Option.none());
+    }, writes.withPermits(1)),
+    setCloseButton: Effect.fn("desktop.clientSettings.setCloseButton")(function* (value) {
+      const saved = yield* store.read;
+      yield* save({
+        ...Option.getOrElse(saved, () => DEFAULT_CLIENT_SETTINGS),
+        closeButton: value,
+      });
+      yield* Ref.set(unseenCloseButton, Option.some(value));
+    }, writes.withPermits(1)),
+    closeButton: Ref.get(closeButton),
+    // Not in get: Ctrl+Q and snapshots also read while the old renderer may still lack the choice.
+    readForNewWindow: read.pipe(
+      Effect.andThen(Ref.set(unseenCloseButton, Option.none())),
+      writes.withPermits(1),
+      Effect.withSpan("desktop.clientSettings.readForNewWindow"),
+    ),
+  });
+});
+
 export const make = Effect.gen(function* () {
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const random = yield* SecureRandom.SecureRandom;
 
-  return DesktopClientSettings.of({
-    get: readClientSettings(fileSystem, environment.clientSettingsPath).pipe(
-      Effect.withSpan("desktop.clientSettings.get"),
-    ),
-    set: Effect.fn("desktop.clientSettings.set")(function (settings) {
-      return random.uuidV4().pipe(
+  return yield* makeStore({
+    read: readClientSettings(fileSystem, environment.clientSettingsPath),
+    write: (settings) =>
+      random.uuidV4().pipe(
         Effect.map((uuid) => uuid.replace(/-/g, "")),
         Effect.flatMap((suffix) =>
           writeClientSettings({
@@ -208,8 +270,7 @@ export const make = Effect.gen(function* () {
             suffix,
           }),
         ),
-      );
-    }),
+      ),
   });
 });
 
@@ -220,11 +281,9 @@ export const layerTest = (initialSettings: Option.Option<ClientSettings> = Optio
     DesktopClientSettings,
     Effect.gen(function* () {
       const settingsRef = yield* Ref.make(initialSettings);
-      return DesktopClientSettings.of({
-        get: Ref.get(settingsRef),
-        set: Effect.fn("DesktopClientSettings.set")(function (settings) {
-          return Ref.set(settingsRef, Option.some(settings));
-        }),
+      return yield* makeStore({
+        read: Ref.get(settingsRef),
+        write: (settings) => Ref.set(settingsRef, Option.some(settings)),
       });
     }),
   );

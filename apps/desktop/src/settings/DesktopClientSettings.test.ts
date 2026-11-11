@@ -6,7 +6,9 @@ import {
   DEFAULT_CLIENT_SETTINGS,
   type ClientSettings,
 } from "@t3tools/contracts";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -211,6 +213,63 @@ describe("DesktopClientSettings", () => {
 
         failRead = false;
         assert.deepEqual(yield* retryableSettings.get, Option.some(savedSettings));
+      }),
+    ),
+  );
+
+  it.effect("keeps a close-button choice made while a renderer save is in flight", () =>
+    withClientSettings(
+      Effect.gen(function* () {
+        const environment = yield* DesktopEnvironment.DesktopEnvironment;
+        const fileSystem = yield* FileSystem.FileSystem;
+        const renameStarted = yield* Deferred.make<void>();
+        const releaseRename = yield* Deferred.make<void>();
+        let gateNextRename = true;
+        const settings = yield* DesktopClientSettings.make.pipe(
+          Effect.provideService(
+            FileSystem.FileSystem,
+            FileSystem.FileSystem.of({
+              ...fileSystem,
+              rename: (from, to) =>
+                Effect.suspend(() => {
+                  if (!gateNextRename) return fileSystem.rename(from, to);
+                  gateNextRename = false;
+                  return Deferred.succeed(renameStarted, undefined).pipe(
+                    Effect.andThen(Deferred.await(releaseRename)),
+                    Effect.andThen(fileSystem.rename(from, to)),
+                  );
+                }),
+            }),
+          ),
+        );
+        const saved = Effect.flatMap(
+          fileSystem.readFileString(environment.clientSettingsPath),
+          decodeClientSettingsJson,
+        );
+        const rendererCopy = { ...clientSettings, closeButton: "ask" as const };
+
+        const rendererSave = yield* settings.set(rendererCopy).pipe(Effect.forkChild);
+        yield* Deferred.await(renameStarted);
+        const remembered = yield* settings.setCloseButton("quit").pipe(Effect.forkChild);
+        yield* Deferred.succeed(releaseRename, undefined);
+        yield* Fiber.join(rendererSave);
+        yield* Fiber.join(remembered);
+        assert.equal((yield* saved).closeButton, "quit");
+
+        // The renderer's copy still says "ask" until it merges the pushed choice.
+        yield* settings.set(rendererCopy);
+        assert.deepEqual(yield* saved, { ...rendererCopy, closeButton: "quit" });
+        assert.equal(yield* settings.closeButton, "quit");
+
+        // A new main window reads the file; a choice its closed predecessor never merged is not kept.
+        yield* settings.readForNewWindow;
+        yield* settings.set(rendererCopy);
+        assert.equal((yield* saved).closeButton, "ask");
+
+        yield* settings.set({ ...rendererCopy, closeButton: "quit" });
+        yield* settings.set({ ...rendererCopy, closeButton: "keepRunning" });
+        assert.equal((yield* saved).closeButton, "keepRunning");
+        assert.equal(yield* settings.closeButton, "keepRunning");
       }),
     ),
   );
