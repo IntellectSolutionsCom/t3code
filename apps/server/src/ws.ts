@@ -11,6 +11,7 @@ import * as PeerClientPairing from "./peer/PeerClientPairing.ts";
 import * as PeerLinkRequests from "./peer/PeerLinkRequests.ts";
 import * as PeerLinks from "./peer/PeerLinks.ts";
 import * as PeerThreadRelay from "./peer/PeerThreadRelay.ts";
+import * as LinkMessageGrants from "./t3f/LinkMessageGrants.ts";
 
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -108,6 +109,7 @@ import {
   ThreadId,
   type TerminalMetadataStreamEvent,
   type PullRequestRef,
+  T3F_WS_METHODS,
   WS_METHODS,
   WsRpcGroup,
 } from "@t3tools/contracts";
@@ -1593,6 +1595,7 @@ export const layerWsRpc = (
       const hostEnvironment = yield* HostProcess.Environment;
       const secretResolver = yield* SecretResolver.SecretResolver;
       const peerLinks = yield* PeerLinks.PeerLinks;
+      const linkMessageGrants = yield* LinkMessageGrants.LinkMessageGrants;
       const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
       const peerThreadRelay = yield* PeerThreadRelay.PeerThreadRelay;
       const peerClientPairing = yield* PeerClientPairing.PeerClientPairing;
@@ -2841,6 +2844,9 @@ export const layerWsRpc = (
           peerClientPairing.request(input, currentSession),
         [WS_METHODS.peerLinksPairLink]: (input) =>
           peerClientPairing.requestForLink(input, currentSession),
+        [T3F_WS_METHODS.linkMessageGrantsList]: () => linkMessageGrants.list,
+        [T3F_WS_METHODS.linkMessageGrantsSet]: (input) =>
+          linkMessageGrants.set(input, currentSessionId),
         [WS_METHODS.peerLinksAnswerRequest]: (input) =>
           Effect.annotateCurrentSpan({ "orchestration_v2.thread_id": input.threadId }).pipe(
             Effect.andThen(peerLinkRequests.answer(input)),
@@ -3814,6 +3820,7 @@ export const layer = Layer.unwrap(
     const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
     const peerThreadRelay = yield* PeerThreadRelay.PeerThreadRelay;
     const peerClientPairing = yield* PeerClientPairing.PeerClientPairing;
+    const linkMessageGrants = yield* LinkMessageGrants.LinkMessageGrants;
     const sql = yield* SqlClient.SqlClient;
     return HttpRouter.add(
       "GET",
@@ -3922,6 +3929,7 @@ export const layer = Layer.unwrap(
               Layer.provide(Layer.succeed(PeerLinkRequests.PeerLinkRequests, peerLinkRequests)),
               Layer.provide(Layer.succeed(PeerThreadRelay.PeerThreadRelay, peerThreadRelay)),
               Layer.provide(Layer.succeed(PeerClientPairing.PeerClientPairing, peerClientPairing)),
+              Layer.provide(Layer.succeed(LinkMessageGrants.LinkMessageGrants, linkMessageGrants)),
               Layer.provide(
                 SourceControlDiscovery.layer.pipe(
                   Layer.provide(
