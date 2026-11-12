@@ -2,10 +2,20 @@ import { NodeHttpServer } from "@effect/platform-node";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
-import { AuthSessionId, EnvironmentId, MessageId, RunId, ThreadId } from "@t3tools/contracts";
+import {
+  AuthSessionId,
+  EnvironmentId,
+  MCP_PEER_LINK_SOFTWARE_ID,
+  MessageId,
+  RunId,
+  ThreadId,
+} from "@t3tools/contracts";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
-import { HttpBody, HttpClient, HttpRouter } from "effect/http";
+import { HttpBody, HttpClient, HttpRouter, HttpServerRequest } from "effect/http";
+import * as Redacted from "effect/Redacted";
 
 import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
 import * as McpOAuth from "../auth/McpOAuth.ts";
@@ -39,7 +49,7 @@ const layerState = LinkMessageGrants.layer.pipe(
     }),
   ),
   Layer.provideMerge(Sqlite.layerMemory),
-  Layer.provide(ServerSecretStore.layer),
+  Layer.provideMerge(ServerSecretStore.layer),
   Layer.provide(ManagedPolicy.layerTest()),
   Layer.provideMerge(ServerEnvironment.layerIdentity),
   Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3f-grant-wiring-" })),
@@ -137,4 +147,83 @@ it.effect("a granted link's t3_thread_send reaches the grant through /mcp", () =
       expect(sentAsGranted).toEqual([true]);
     }),
   ).pipe(Effect.provide(layerState.pipe(Layer.provideMerge(NodeHttpServer.layerTest)))),
+);
+
+it.effect("a link's session is never listed before the link is recorded", () =>
+  Effect.gen(function* () {
+    const auth = yield* EnvironmentAuth.EnvironmentAuth;
+    const grants = yield* LinkMessageGrants.LinkMessageGrants;
+    const issued = yield* Deferred.make<void>();
+    const release = yield* Deferred.make<void>();
+    // The order a page lost: the session is listable and the page lists before the issue returns.
+    const oauth = yield* McpOAuth.McpOAuth.pipe(
+      Effect.provide(
+        McpOAuth.layer.pipe(
+          Layer.provide(
+            Layer.succeed(EnvironmentAuth.EnvironmentAuth)({
+              ...auth,
+              issueMcpClientSession: (input) =>
+                auth.issueMcpClientSession(input).pipe(
+                  Effect.tap(() => Deferred.succeed(issued, undefined)),
+                  Effect.tap(() => Deferred.await(release)),
+                ),
+            }),
+          ),
+          Layer.provide(ServerSettings.layerTest({ linkedEnvironmentsEnabled: true })),
+        ),
+      ),
+    );
+    const urls = { issuer: "http://127.0.0.1", resource: "http://127.0.0.1/mcp" };
+    const request = HttpServerRequest.fromWeb(new Request("http://127.0.0.1/oauth/mcp/token"));
+    const redirectUri = "http://localhost/callback";
+    const verifier = `${"a".repeat(43)}-verifier-for-tests`;
+    const client = yield* oauth.register({
+      client_name: "T3 Code · laptop",
+      software_id: MCP_PEER_LINK_SOFTWARE_ID,
+      redirect_uris: [redirectUri],
+      token_endpoint_auth_method: "none",
+    });
+    const authorization = yield* oauth.validateAuthorization({
+      urls,
+      request: {
+        response_type: "code",
+        client_id: client.clientId,
+        redirect_uri: redirectUri,
+        code_challenge: "DeB41nTVkPwpbbYecrnqtVq7VXLezustdHAK4SWt13c",
+        code_challenge_method: "S256",
+        resource: urls.resource,
+      },
+    });
+    const pairing = yield* auth.issuePairingCredential();
+    const callback = yield* oauth.approve({
+      request,
+      authorization,
+      decision: { _tag: "pairing-code", access: "read-only", code: pairing.credential },
+    });
+    const exchange = yield* oauth
+      .exchangeCode({
+        request,
+        urls,
+        token: {
+          grant_type: "authorization_code",
+          code: Redacted.make(new URL(callback).searchParams.get("code")!),
+          redirect_uri: redirectUri,
+          client_id: client.clientId,
+          code_verifier: Redacted.make(verifier),
+          resource: urls.resource,
+        },
+      })
+      .pipe(Effect.forkChild);
+
+    yield* Deferred.await(issued);
+    const listing = yield* grants.list.pipe(Effect.forkChild({ startImmediately: true }));
+    yield* Deferred.succeed(release, undefined);
+    yield* Fiber.join(exchange);
+    const list = yield* Fiber.join(listing);
+
+    const link = (yield* auth.listSessions()).find(
+      (session) => session.client.label === "T3 Code · laptop",
+    );
+    expect(list.links).toEqual([{ sessionId: link?.sessionId, granted: false }]);
+  }).pipe(Effect.provide(layerState.pipe(Layer.provideMerge(NodeHttpServer.layerTest)))),
 );

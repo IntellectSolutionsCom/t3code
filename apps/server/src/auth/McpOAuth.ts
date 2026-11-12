@@ -552,6 +552,10 @@ const make = Effect.gen(function* () {
           client: deriveAuthClientMetadata({ request }),
         })
         .pipe(
+          (issue) =>
+            pending.peerLink && Option.isSome(linkMessageGrants)
+              ? linkMessageGrants.value.issueLink(issue)
+              : issue,
           Effect.catch((cause) =>
             Effect.logError("Could not issue an MCP client session.", { cause }).pipe(
               Effect.andThen(
@@ -560,9 +564,6 @@ const make = Effect.gen(function* () {
             ),
           ),
         );
-      if (pending.peerLink && Option.isSome(linkMessageGrants)) {
-        yield* linkMessageGrants.value.recordLink(issued.sessionId);
-      }
       return {
         access_token: issued.token,
         token_type: "Bearer",

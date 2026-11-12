@@ -10,6 +10,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
+import * as Semaphore from "effect/Semaphore";
 import * as SqlClient from "effect/sql/SqlClient";
 
 import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
@@ -24,6 +25,13 @@ export class LinkMessageGrants extends Context.Service<
     readonly isGranted: (sessionId: string) => Effect.Effect<boolean>;
     /** Notes that a session is another environment's link; only its token says so. */
     readonly recordLink: (sessionId: string) => Effect.Effect<void>;
+    /**
+     * Issues a link's session and records it. `list` waits meanwhile: clients list on seeing the
+     * session, which happens before the issue returns its id.
+     */
+    readonly issueLink: <A extends { readonly sessionId: string }, E>(
+      issue: Effect.Effect<A, E>,
+    ) => Effect.Effect<A, E>;
     /** Link sessions below full access, and agent sessions from before links were recorded. */
     readonly list: Effect.Effect<T3fLinkMessageGrantsListResult, T3fLinkMessageGrantError>;
     readonly set: (
@@ -49,6 +57,7 @@ const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   const environmentAuth = yield* EnvironmentAuth.EnvironmentAuth;
   const recorded = yield* Ref.make<ReadonlySet<string>>(new Set());
+  const issuing = yield* Semaphore.make(1);
 
   const isGranted: LinkMessageGrants["Service"]["isGranted"] = Effect.fn(
     "LinkMessageGrants.isGranted",
@@ -76,6 +85,14 @@ const make = Effect.gen(function* () {
       Effect.catch((cause) => Effect.logWarning("Could not record a link session.", { cause })),
     );
   });
+
+  const issueLink: LinkMessageGrants["Service"]["issueLink"] = (issue) =>
+    issue.pipe(
+      Effect.tap(({ sessionId }) => recordLink(sessionId)),
+      Effect.uninterruptible,
+      issuing.withPermit,
+      Effect.withSpan("LinkMessageGrants.issueLink"),
+    );
 
   const readEligible = Effect.gen(function* () {
     const active = yield* environmentAuth.listSessions().pipe(Effect.catch(storageError));
@@ -126,7 +143,7 @@ const make = Effect.gen(function* () {
         )
         .map((session) => session.sessionId),
     };
-  }).pipe(Effect.withSpan("LinkMessageGrants.list"));
+  }).pipe(issuing.withPermit, Effect.withSpan("LinkMessageGrants.list"));
 
   const set: LinkMessageGrants["Service"]["set"] = Effect.fn("LinkMessageGrants.set")(function* (
     { sessionId, granted },
@@ -160,7 +177,7 @@ const make = Effect.gen(function* () {
     return { granted };
   });
 
-  return LinkMessageGrants.of({ isGranted, recordLink, list, set });
+  return LinkMessageGrants.of({ isGranted, recordLink, issueLink, list, set });
 });
 
 export const layer = Layer.effect(LinkMessageGrants, make);
