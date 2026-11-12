@@ -17,7 +17,7 @@ export const CLOSE_BUTTON_TEXT = {
     message: "Do you want to quit?",
     detail:
       "Quitting stops T3 Code and every running thread on this computer.\n" +
-      "Keep running closes the window; open T3 Code again to bring it back.",
+      "Keep running closes the window; click the T3 Code icon in the system tray, or open T3 Code again, to bring it back.",
     remember: "Remember my decision",
     cancel: "Cancel",
     keepRunning: "Keep running",
