@@ -22,6 +22,7 @@ import {
   type EnvironmentId,
   type OrchestrationV2ProjectedTurnItem,
 } from "@t3tools/contracts";
+import { EDITION_APP_BASE_NAME, EDITION_NAME } from "@t3tools/shared/edition";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { msg, T, useGT, useMessages, Var } from "gt-react-native";
@@ -453,7 +454,11 @@ function LinkRequestSheet(props: {
               <T>
                 An agent here never gets more there than its own mode here either. Threads it starts
                 there cannot change that environment's own threads, projects or settings.
-              </T>
+              </T>{" "}
+              {gt(
+                "If that machine runs {appName}, it can still let agents here send messages to any of its threads, under Settings → {editionName} there.",
+                { appName: EDITION_APP_BASE_NAME, editionName: EDITION_NAME },
+              )}
             </Text>
           </>
         )}
