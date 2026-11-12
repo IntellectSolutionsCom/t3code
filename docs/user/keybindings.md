@@ -211,8 +211,9 @@ single press or **Double press** for two presses only. Choosing **Quit** from th
 application menu always quits immediately.
 
 On Windows and Linux, the window's close button asks whether to quit or keep T3 Code
-running in the background. Keep running closes the window; open T3 Code again to
-bring it back. While the window is closed, thread notifications stop, and a backend
-restart opens the window again. To quit while the window is closed, open T3 Code again
-and use Ctrl+Q or **Quit**. Change the answer in
+running in the background. Keep running closes the window and shows a T3 Code icon in
+the system tray; click it or choose **Open T3 Code** to bring the window back, or
+**Quit T3 Code** to quit. On a desktop without a system tray, open T3 Code again from
+your launcher, then use Ctrl+Q or **Quit**. While the window is closed, thread
+notifications stop, and a backend restart opens the window again. Change the answer in
 **Settings → General → Confirmations → Close button**.

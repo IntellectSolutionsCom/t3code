@@ -6,6 +6,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
+import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as Semaphore from "effect/Semaphore";
 
 import * as Electron from "electron";
@@ -804,7 +805,7 @@ export const make = Effect.gen(function* () {
     const closeKeepingRunning = Effect.gen(function* () {
       // An update can destroy the window while the question is open.
       if (window.isDestroyed()) return;
-      yield* Ref.set(desktopState.keepRunningWithoutWindow, true);
+      yield* SubscriptionRef.set(desktopState.keepRunningWithoutWindow, true);
       closingToKeepRunning = true;
       window.close();
     });
@@ -822,7 +823,9 @@ export const make = Effect.gen(function* () {
         closeButton: runSync(clientSettings.closeButton),
       });
       // Reset on every close, so a cancelled one cannot leave the app running windowless.
-      runSync(Ref.set(desktopState.keepRunningWithoutWindow, decision === "keepRunning"));
+      runSync(
+        SubscriptionRef.set(desktopState.keepRunningWithoutWindow, decision === "keepRunning"),
+      );
       if (decision !== "ask") return;
       event.preventDefault();
       if (closeQuestionOpen) return;
@@ -1022,7 +1025,7 @@ export const make = Effect.gen(function* () {
     if (Option.isSome(window)) {
       yield* electronWindow.setMain(window.value);
       mainClosedDuringStartup = false;
-      yield* Ref.set(desktopState.keepRunningWithoutWindow, false);
+      yield* SubscriptionRef.set(desktopState.keepRunningWithoutWindow, false);
       yield* logWindowInfo("main window created");
     }
     return window;

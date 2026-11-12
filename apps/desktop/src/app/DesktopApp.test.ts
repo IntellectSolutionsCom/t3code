@@ -22,9 +22,14 @@ vi.mock("../ipc/DesktopIpcHandlers.ts", () => ({
 }));
 vi.mock("../updates/DesktopRemoteUpdates.ts", () => ({ listen: Effect.void }));
 vi.mock("./DesktopStartupRecovery.ts", () => ({ listen: Effect.void }));
+vi.mock("../window/DesktopTray.ts", () => ({
+  TRAY_SHOWN: "whileWindowless",
+  listen: () => Effect.void,
+}));
 
 import * as DesktopApp from "./DesktopApp.ts";
 import * as DesktopAppActivation from "./DesktopAppActivation.ts";
+import * as DesktopAssets from "./DesktopAssets.ts";
 import * as DesktopAppIdentity from "./DesktopAppIdentity.ts";
 import * as DesktopClerk from "./DesktopClerk.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
@@ -166,6 +171,10 @@ it.effect.each([false, true])(
           Effect.provideService(DesktopState.DesktopState, {
             quitting,
           } as DesktopState.DesktopState["Service"]),
+          Effect.provideService(
+            DesktopAssets.DesktopAssets,
+            {} as unknown as DesktopAssets.DesktopAssets["Service"],
+          ),
           Effect.provideService(DesktopWindow.DesktopWindow, {
             ensureMain: record("window").pipe(
               Effect.andThen(Deferred.succeed(windowStarted, undefined)),

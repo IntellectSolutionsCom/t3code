@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
+import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as Scope from "effect/Scope";
 
 import type * as Electron from "electron";
@@ -294,7 +295,7 @@ export const make = DesktopLifecycle.of({
           const app = yield* ElectronApp.ElectronApp;
           const state = yield* DesktopState.DesktopState;
           if (environment.platform === "darwin" || (yield* Ref.get(state.quitting))) return;
-          if (yield* Ref.get(state.keepRunningWithoutWindow)) return;
+          if (yield* SubscriptionRef.get(state.keepRunningWithoutWindow)) return;
           yield* app.quit;
         }).pipe(Effect.withSpan("desktop.lifecycle.windowAllClosed")),
       );

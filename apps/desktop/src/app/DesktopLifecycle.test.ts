@@ -3,6 +3,7 @@ import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
+import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as TestClock from "effect/testing/TestClock";
 
 import * as HostProcess from "@t3tools/shared/HostProcess";
@@ -140,7 +141,10 @@ describe("DesktopLifecycle", () => {
           const lifecycle = yield* DesktopLifecycle.DesktopLifecycle;
           yield* lifecycle.register;
           // Keep running closed the window; the update must still install.
-          yield* Ref.set((yield* DesktopState.DesktopState).keepRunningWithoutWindow, true);
+          yield* SubscriptionRef.set(
+            (yield* DesktopState.DesktopState).keepRunningWithoutWindow,
+            true,
+          );
 
           appListeners.get("before-quit-for-update")?.();
           yield* Effect.yieldNow;
@@ -214,7 +218,10 @@ describe("DesktopLifecycle", () => {
           const lifecycle = yield* DesktopLifecycle.DesktopLifecycle;
           yield* lifecycle.register;
           // Keep running closed the window; a quit must still quit.
-          yield* Ref.set((yield* DesktopState.DesktopState).keepRunningWithoutWindow, true);
+          yield* SubscriptionRef.set(
+            (yield* DesktopState.DesktopState).keepRunningWithoutWindow,
+            true,
+          );
 
           const event = { preventDefault: () => undefined } as Electron.Event;
           appListeners.get("before-quit")?.(event);
@@ -366,7 +373,8 @@ describe("DesktopLifecycle", () => {
           const lifecycle = yield* DesktopLifecycle.DesktopLifecycle;
           const state = yield* DesktopState.DesktopState;
           yield* lifecycle.register;
-          if ("keepRunning" in row) yield* Ref.set(state.keepRunningWithoutWindow, true);
+          if ("keepRunning" in row)
+            yield* SubscriptionRef.set(state.keepRunningWithoutWindow, true);
           if ("quitting" in row) yield* Ref.set(state.quitting, true);
 
           appListeners.get("window-all-closed")?.();
