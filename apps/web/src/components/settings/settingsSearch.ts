@@ -8,11 +8,12 @@ import {
   sourceControlClients,
   type SourceControlDefinition,
 } from "@t3tools/client-runtime/source-control-clients";
-import { CLOSE_BUTTON_TEXT } from "@t3tools/shared/closeButtonText";
+import { EDITION_NAME } from "@t3tools/shared/edition";
 import { DEFAULT_KEYBINDINGS } from "@t3tools/shared/keybindings";
 import * as Schema from "effect/Schema";
 import { TYPOGRAPHY_ADVANCED_STORAGE_KEY } from "../../appearanceFonts";
 import { writeLocalStorageValue } from "../../hooks/useLocalStorage";
+import { EDITION_SETTINGS_SEARCH_ITEMS } from "./editionSettingsSearch";
 import { commandLabel } from "./KeybindingsSettings.logic";
 import type { ResolvedSettingsScope } from "./settingsScope";
 
@@ -38,6 +39,7 @@ export type SettingsPath =
   | "/settings/secrets"
   | "/settings/maintenance"
   | "/settings/labs"
+  | "/settings/edition"
   | "/settings/about"
   | "/settings/archived";
 
@@ -114,6 +116,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/secrets": "Secrets",
   "/settings/maintenance": "Maintenance",
   "/settings/labs": "Labs",
+  "/settings/edition": EDITION_NAME,
   "/settings/about": "About",
   "/settings/voice": "Voice",
   "/settings/archived": "Archive",
@@ -160,7 +163,13 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
   },
   {
     heading: null,
-    paths: ["/settings/maintenance", "/settings/labs", "/settings/about", "/settings/archived"],
+    paths: [
+      "/settings/maintenance",
+      "/settings/labs",
+      "/settings/edition",
+      "/settings/about",
+      "/settings/archived",
+    ],
   },
 ];
 
@@ -829,14 +838,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     desktopOnly: true,
   },
   {
-    id: "close-button",
-    title: CLOSE_BUTTON_TEXT.setting.title,
-    to: "/settings/general",
-    searchTerms: ["window close x quit keep running background hide tray ask confirmation"],
-    desktopOnly: true,
-    nonMacOnly: true,
-  },
-  {
     id: "text-generation-model",
     title: "Text generation model",
     to: "/settings/threads",
@@ -1338,6 +1339,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/archived",
     searchTerms: ["restore reopen deleted history projects"],
   },
+  ...EDITION_SETTINGS_SEARCH_ITEMS,
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;
 
 export type SettingsSearchItemId = (typeof SETTINGS_SEARCH_ITEMS)[number]["id"];
@@ -1366,6 +1368,7 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/scheduled-tasks": null,
   "/settings/maintenance": null,
   "/settings/labs": null,
+  "/settings/edition": null,
   "/settings/about": null,
   "/settings/archived": "project-defaults",
 };

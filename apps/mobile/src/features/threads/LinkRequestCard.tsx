@@ -24,6 +24,7 @@ import {
   type EnvironmentId,
   type OrchestrationV2ProjectedTurnItem,
 } from "@t3tools/contracts";
+import { EDITION_NAME } from "@t3tools/shared/edition";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { useMemo, useRef, useState } from "react";
@@ -413,7 +414,9 @@ function LinkRequestSheet(props: {
             </SettingsSection>
             <Text className="font-sans text-xs text-foreground-muted">
               An agent here never gets more there than its own mode here either. Threads it starts
-              there cannot change that environment's own threads, projects or settings.
+              there cannot change that environment's own threads, projects or settings. If that
+              machine runs T3 Code {EDITION_NAME}, it can still let agents here send messages to any
+              of its threads, under Settings → {EDITION_NAME} there.
             </Text>
           </>
         )}

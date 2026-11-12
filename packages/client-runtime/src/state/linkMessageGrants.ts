@@ -10,7 +10,7 @@ export type LinkMessageGrants =
   | ({ readonly supported: true } & T3fLinkMessageGrantsListResult)
   | { readonly supported: false };
 
-/** A server without grants answers their list with this defect; its Connections show no toggle. */
+/** A server without grants answers their list with this defect; its settings show no switch. */
 export const orUnsupported = <E, R>(
   list: Effect.Effect<T3fLinkMessageGrantsListResult, E, R>,
 ): Effect.Effect<LinkMessageGrants, E, R> =>

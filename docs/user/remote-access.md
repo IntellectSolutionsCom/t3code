@@ -352,8 +352,8 @@ an address you trust: the code is sent there.
 - A full-access link works there like that machine's own agents. Below full
   access, the link's agents can change only threads it started, not that
   machine's own threads, projects or settings, and they skip its project setup
-  scripts. That machine can allow them, under the link in **Settings → Sharing &
-  access**, to send messages to any of its threads. A message waits for a
+  scripts. That machine can allow them to send messages to any of its threads,
+  in **Settings → Crew → Messages from linked machines**. A message waits for a
   running turn or starts an idle thread, which then acts with that thread's own
   permissions. Revoking the link turns this off, and so does renewing it: the
   renewed link starts with it off.
@@ -361,6 +361,10 @@ an address you trust: the code is sent there.
   outside agent. Revoke it there to end it. **Forget** on this machine only
   removes it here.
 - Links last 30 days. Link again with a new pairing code to renew one.
+
+**Settings → Crew** gathers the settings this edition adds to T3 Code:
+**Messages from linked machines** and, on Windows and Linux, the window's
+**Close button**.
 
 An agent can also hand a task to a linked machine with `delegate_task`: it runs
 there as an ordinary thread, in the project with the same repository (or the

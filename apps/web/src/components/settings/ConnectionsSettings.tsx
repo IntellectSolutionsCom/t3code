@@ -138,6 +138,7 @@ import {
   SavedBackendListRow,
 } from "./SavedEnvironmentRows";
 import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
+import { LinkMessagesPointer } from "./EditionSettingsPanel";
 
 const DEFAULT_TAILSCALE_SERVE_PORT = 443;
 const EMPTY_ADVERTISED_ENDPOINTS: ReadonlyArray<AdvertisedEndpoint> = [];
@@ -1042,7 +1043,6 @@ function ConnectionsSettingsContent({
       createdPairingCredentials={createdPairingCredentials}
       sharedPairingLinkId={newestPairingLinkId}
       clientSessions={clientSessions}
-      environmentId={accessEnvironmentId}
       revokingPairingLinkId={revokingDesktopPairingLinkId}
       revokingClientSessionId={revokingDesktopClientSessionId}
       onRevokePairingLink={handleRevokeDesktopPairingLink}
@@ -1303,6 +1303,9 @@ function ConnectionsSettingsContent({
                   </p>
                 )}
               </ScrollArea>
+              {accessEnvironmentId === null ? null : (
+                <LinkMessagesPointer environmentId={accessEnvironmentId} />
+              )}
             </FoldedSettingsSection>
           ) : null}
           <AlertDialog

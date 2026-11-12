@@ -216,4 +216,4 @@ the system tray; click it or choose **Open T3 Code** to bring the window back, o
 **Quit T3 Code** to quit. On a desktop without a system tray, open T3 Code again from
 your launcher, then use Ctrl+Q or **Quit**. While the window is closed, thread
 notifications stop, and a backend restart opens the window again. Change the answer in
-**Settings → General → Confirmations → Close button**.
+**Settings → Crew → Close button**.
