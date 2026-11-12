@@ -430,12 +430,29 @@ export const OrchestratorMcpThreadReadInput = Schema.Struct({
 });
 export type OrchestratorMcpThreadReadInput = typeof OrchestratorMcpThreadReadInput.Type;
 
+/** `provider`: the provider runtime reported it. `settings`: the provider entry's configuration. */
+const OrchestratorMcpContextLimitSource = Schema.Literals(["provider", "settings"]);
+
 export const OrchestratorMcpThreadContextUsage = Schema.Struct({
   usedTokens: NonNegativeInt,
   maxTokens: Schema.NullOr(NonNegativeInt),
   usedPercent: Schema.NullOr(NonNegativeInt),
   compactsAutomatically: Schema.NullOr(Schema.Boolean),
+  compactsAutomaticallySource: Schema.optional(OrchestratorMcpContextLimitSource),
   autoCompactThreshold: Schema.NullOr(NonNegativeInt),
+  autoCompactThresholdSource: Schema.optional(OrchestratorMcpContextLimitSource),
+  /**
+   * T3 Code's own compaction of an idle Claude thread over `minTokens`, from the thread's entry.
+   * `onHumanSend`: before a person's send from a client after the prompt cache expired.
+   * `beforeCacheExpires`: that, and the server compacts just before the cache expires.
+   */
+  idleCompaction: Schema.optional(
+    Schema.Struct({
+      mode: Schema.Literals(["onHumanSend", "beforeCacheExpires", "off"]),
+      minTokens: Schema.optional(NonNegativeInt),
+      source: Schema.Literal("settings"),
+    }),
+  ),
   updatedAt: IsoDateTime,
 });
 export type OrchestratorMcpThreadContextUsage = typeof OrchestratorMcpThreadContextUsage.Type;
