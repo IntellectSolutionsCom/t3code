@@ -7,6 +7,7 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Schedule from "effect/Schedule";
+import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as Semaphore from "effect/Semaphore";
 
 import * as Electron from "electron";
@@ -54,7 +55,7 @@ import * as DesktopRendererHistory from "../telemetry/DesktopRendererHistory.ts"
 import { makeQuitShortcutHandler } from "./QuitHold.ts";
 import { copyContextMenuImage } from "./ContextMenuImage.ts";
 import { installMainWindowRemoteRequestHeaderPolicy } from "./RemoteRequestHeaders.ts";
-import { CLOSE_DIALOG_OPTIONS, decideWindowClose, readCloseDialogResult } from "./WindowClose.ts";
+import { closeDialogOptions, decideWindowClose, readCloseDialogResult } from "./WindowClose.ts";
 
 const TITLEBAR_HEIGHT = 40;
 
@@ -486,7 +487,7 @@ export const make = Effect.gen(function* () {
   ) {
     // Without the question, the close button falls back to what it did before: quit.
     const { answer, remember } = yield* electronDialog
-      .showMessageBox(CLOSE_DIALOG_OPTIONS, window)
+      .showMessageBox(closeDialogOptions(), window)
       .pipe(
         Effect.map(readCloseDialogResult),
         Effect.catch((error) =>
@@ -937,7 +938,7 @@ export const make = Effect.gen(function* () {
     const closeKeepingRunning = Effect.gen(function* () {
       // An update can destroy the window while the question is open.
       if (window.isDestroyed()) return;
-      yield* Ref.set(desktopState.keepRunningWithoutWindow, true);
+      yield* SubscriptionRef.set(desktopState.keepRunningWithoutWindow, true);
       closingToKeepRunning = true;
       window.close();
     });
@@ -955,7 +956,9 @@ export const make = Effect.gen(function* () {
         closeButton: runSync(clientSettings.closeButton),
       });
       // Reset on every close, so a cancelled one cannot leave the app running windowless.
-      runSync(Ref.set(desktopState.keepRunningWithoutWindow, decision === "keepRunning"));
+      runSync(
+        SubscriptionRef.set(desktopState.keepRunningWithoutWindow, decision === "keepRunning"),
+      );
       if (decision !== "ask") return;
       event.preventDefault();
       if (closeQuestionOpen) return;
@@ -1185,7 +1188,7 @@ export const make = Effect.gen(function* () {
     const window = yield* createWindow();
     if (Option.isSome(window)) {
       mainClosedDuringStartup = false;
-      yield* Ref.set(desktopState.keepRunningWithoutWindow, false);
+      yield* SubscriptionRef.set(desktopState.keepRunningWithoutWindow, false);
       yield* logWindowInfo("main window created");
     }
     return window;

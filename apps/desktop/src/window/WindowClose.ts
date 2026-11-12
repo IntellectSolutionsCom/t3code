@@ -3,6 +3,8 @@ import { CLOSE_BUTTON_TEXT } from "@t3tools/shared/closeButtonText";
 import * as Option from "effect/Option";
 import type * as Electron from "electron";
 
+import { m } from "../i18n/messages.ts";
+
 export type WindowCloseDecision = "close" | "ask" | "keepRunning";
 export type CloseDialogAnswer = "cancel" | "keepRunning" | "quit";
 
@@ -22,22 +24,24 @@ const CLOSE_DIALOG_ANSWERS = [
   "quit",
 ] as const satisfies CloseDialogAnswer[];
 
-export const CLOSE_DIALOG_OPTIONS: Electron.MessageBoxOptions = {
-  type: "question",
-  title: CLOSE_BUTTON_TEXT.dialog.title,
-  message: CLOSE_BUTTON_TEXT.dialog.message,
-  detail: CLOSE_BUTTON_TEXT.dialog.detail,
-  checkboxLabel: CLOSE_BUTTON_TEXT.dialog.remember,
-  checkboxChecked: false,
-  buttons: [
-    CLOSE_BUTTON_TEXT.dialog.cancel,
-    CLOSE_BUTTON_TEXT.dialog.keepRunning,
-    CLOSE_BUTTON_TEXT.dialog.quit,
-  ],
-  defaultId: 0,
-  cancelId: 0,
-  noLink: true,
-};
+export function closeDialogOptions(): Electron.MessageBoxOptions {
+  return {
+    type: "question",
+    title: m(CLOSE_BUTTON_TEXT.dialog.title),
+    message: m(CLOSE_BUTTON_TEXT.dialog.message),
+    detail: m(CLOSE_BUTTON_TEXT.dialog.detail),
+    checkboxLabel: m(CLOSE_BUTTON_TEXT.dialog.remember),
+    checkboxChecked: false,
+    buttons: [
+      m(CLOSE_BUTTON_TEXT.dialog.cancel),
+      m(CLOSE_BUTTON_TEXT.dialog.keepRunning),
+      m(CLOSE_BUTTON_TEXT.dialog.quit),
+    ],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  };
+}
 
 export function readCloseDialogResult(
   result: Pick<Electron.MessageBoxReturnValue, "response" | "checkboxChecked">,
