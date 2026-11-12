@@ -17,10 +17,12 @@ import {
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Metric from "effect/Metric";
 import * as TestClock from "effect/testing/TestClock";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "vite-plus/test";
 
 import * as ProviderAdapterRegistry from "../orchestration-v2/ProviderAdapterRegistry.ts";
@@ -41,6 +43,7 @@ import { liveThreadShell } from "./McpToolAccess.testkit.ts";
 const layerOrchestratorService = OrchestratorMcpService.layer.pipe(
   Layer.provide(Layer.mock(ThreadLaunchService.ThreadLaunchService)({})),
   Layer.provide(Layer.mock(GitVcsDriver.GitVcsDriver)({})),
+  Layer.provide(NodeServices.layer),
 );
 
 const environmentId = EnvironmentId.make("environment-mcp-orchestrator-detail");
@@ -132,25 +135,38 @@ it("readThread preserves caller access errors and prefers activity-run status ov
     providerThreadId,
     ...(tokenUsage === undefined ? {} : { tokenUsage }),
   });
+  const claudeDriver = ProviderDriverKind.make("claudeAgent");
+  const executorInstanceId = ProviderInstanceId.make("claude-executors");
+  const compactOffInstanceId = ProviderInstanceId.make("claude-compact-off");
+  const brokenSettingsInstanceId = ProviderInstanceId.make("claude-broken-settings");
+  const fileSettingsInstanceId = ProviderInstanceId.make("claude-file-settings");
+  let workspaceRoot = "";
+  const codexLimitInstanceId = ProviderInstanceId.make("codex-compact-limit");
+  const providerThread = (
+    driver: ProviderDriverKind,
+    providerInstanceId: ProviderInstanceId,
+    contextUsage: unknown = null,
+  ) => ({ id: activeProviderThreadId, driver, providerInstanceId, contextUsage, updatedAt: now });
   let providerThreads: ReadonlyArray<unknown> = [
-    {
-      id: activeProviderThreadId,
-      contextUsage: { usedTokens: 50_000, maxTokens: 200_000, compactsAutomatically: false },
-      updatedAt: now,
-    },
+    providerThread(codexDriver, parentInstanceId, {
+      usedTokens: 50_000,
+      maxTokens: 200_000,
+      compactsAutomatically: false,
+    }),
   ];
   let providerTurns: ReadonlyArray<unknown> = [
     providerTurn("provider-turn-mcp-no-usage", activeProviderThreadId),
   ];
   const recordReads: Array<{ readonly fields: ReadonlyArray<string>; readonly filter: unknown }> =
     [];
+  const thread = baseThread({
+    threadId: parentThreadId,
+    title: "Parent",
+    instanceId: parentInstanceId,
+    model: "gpt-5.4",
+  });
   const projection = {
-    thread: baseThread({
-      threadId: parentThreadId,
-      title: "Parent",
-      instanceId: parentInstanceId,
-      model: "gpt-5.4",
-    }),
+    thread,
     runs: [
       makeRun({ id: activeRunId, ordinal: 1, status: "running" }),
       makeRun({ id: cancelledRunId, ordinal: 2, status: "cancelled" }),
@@ -203,11 +219,41 @@ it("readThread preserves caller access errors and prefers activity-run status ov
               : Effect.die(`unexpected thread ${input.threadId}`);
           },
         } satisfies Partial<ThreadManagementService.ThreadManagementService["Service"]>),
-        ServerSettings.layerTest(),
+        ServerSettings.layerTest({
+          providerInstances: {
+            [executorInstanceId]: {
+              driver: claudeDriver,
+              config: {
+                autoCompactWindow: "300000",
+                launchArgs: `--settings '{"autoCompactEnabled":true}'`,
+                idleCompaction: "beforeCacheExpires",
+              },
+            },
+            [compactOffInstanceId]: {
+              driver: claudeDriver,
+              environment: [{ name: "DISABLE_AUTO_COMPACT", value: "1", sensitive: false }],
+              config: { launchArgs: `--settings '{"autoCompactEnabled":true}'` },
+            },
+            [brokenSettingsInstanceId]: {
+              driver: claudeDriver,
+              config: { launchArgs: `--settings '{"autoCompactEnabled":'` },
+            },
+            [fileSettingsInstanceId]: {
+              driver: claudeDriver,
+              config: { launchArgs: "--settings compaction.json" },
+            },
+            [codexLimitInstanceId]: {
+              driver: codexDriver,
+              config: { launchArgs: "-c model_auto_compact_token_limit=200_000" },
+            },
+          },
+        }),
         Layer.mock(ProviderRegistry.ProviderRegistry)({
           getProviders: Effect.succeed([]),
         } satisfies Partial<ProviderRegistry.ProviderRegistry["Service"]>),
-        Layer.mock(ProjectService.ProjectService)({}),
+        Layer.mock(ProjectService.ProjectService)({
+          getById: () => Effect.succeedSome({ workspaceRoot } as never),
+        } satisfies Partial<ProjectService.ProjectService["Service"]>),
         Layer.mock(SecretRequests.SecretRequests)({}),
         Layer.mock(RemoteDelegation.RemoteDelegation)({}),
         Layer.mock(ScheduledTaskService.ScheduledTaskService)({
@@ -222,6 +268,12 @@ it("readThread preserves caller access errors and prefers activity-run status ov
   );
 
   await Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    workspaceRoot = yield* fileSystem.makeTempDirectoryScoped();
+    yield* fileSystem.writeFileString(
+      `${workspaceRoot}/compaction.json`,
+      '{"autoCompactEnabled":false}',
+    );
     const service = yield* OrchestratorMcpService.OrchestratorMcpService;
     const result = yield* service.readThread(makeScope(), { threadId: parentThreadId });
     expect(result.thread.status).toBe("running");
@@ -236,10 +288,106 @@ it("readThread preserves caller access errors and prefers activity-run status ov
       maxTokens: 200_000,
       usedPercent: 25,
       compactsAutomatically: false,
+      compactsAutomaticallySource: "provider",
       autoCompactThreshold: null,
       updatedAt: DateTime.formatIso(now),
     });
 
+    thread.providerInstanceId = executorInstanceId;
+    providerThreads = [providerThread(claudeDriver, executorInstanceId)];
+    providerTurns = [
+      providerTurn("provider-turn-mcp-executor", activeProviderThreadId, {
+        usedTokens: 89_744,
+        maxTokens: 1_000_000,
+        autoCompactThreshold: 267_000,
+        updatedAt: "2026-08-04T12:01:00.000Z",
+      }),
+    ];
+    const executor = yield* service.readThread(makeScope(), { threadId: parentThreadId });
+    expect(executor.thread.contextUsage).toEqual({
+      usedTokens: 89_744,
+      maxTokens: 1_000_000,
+      usedPercent: 9,
+      compactsAutomatically: true,
+      compactsAutomaticallySource: "settings",
+      autoCompactThreshold: 267_000,
+      autoCompactThresholdSource: "provider",
+      idleCompaction: { mode: "beforeCacheExpires", minTokens: 200_000, source: "settings" },
+      updatedAt: "2026-08-04T12:01:00.000Z",
+    });
+
+    // The thread's own entry decides idle compaction, so another provider thread's shows none.
+    providerThreads = [providerThread(claudeDriver, compactOffInstanceId)];
+    const compactOff = yield* service.readThread(makeScope(), { threadId: parentThreadId });
+    expect(compactOff.thread.contextUsage).toMatchObject({
+      compactsAutomatically: false,
+      compactsAutomaticallySource: "settings",
+    });
+    expect(compactOff.thread.contextUsage).not.toHaveProperty("idleCompaction");
+
+    thread.providerInstanceId = brokenSettingsInstanceId;
+    providerThreads = [providerThread(claudeDriver, brokenSettingsInstanceId)];
+    const brokenSettings = yield* service.readThread(makeScope(), { threadId: parentThreadId });
+    expect(brokenSettings.thread.contextUsage?.compactsAutomatically).toBeNull();
+    expect(brokenSettings.thread.contextUsage).not.toHaveProperty("compactsAutomaticallySource");
+    expect(brokenSettings.thread.contextUsage?.idleCompaction).toEqual({
+      mode: "onHumanSend",
+      minTokens: 200_000,
+      source: "settings",
+    });
+
+    // A relative --settings path resolves against the project root, as the turn's cwd does.
+    thread.providerInstanceId = fileSettingsInstanceId;
+    providerThreads = [providerThread(claudeDriver, fileSettingsInstanceId)];
+    const fileSettings = yield* service.readThread(makeScope(), { threadId: parentThreadId });
+    expect(fileSettings.thread.contextUsage).toMatchObject({
+      compactsAutomatically: false,
+      compactsAutomaticallySource: "settings",
+    });
+
+    thread.providerInstanceId = codexLimitInstanceId;
+    providerThreads = [providerThread(codexDriver, codexLimitInstanceId)];
+    providerTurns = [
+      providerTurn("provider-turn-mcp-codex", activeProviderThreadId, {
+        usedTokens: 120_000,
+        maxTokens: 258_400,
+        updatedAt: "2026-08-04T12:02:00.000Z",
+      }),
+    ];
+    const codexLimit = yield* service.readThread(makeScope(), { threadId: parentThreadId });
+    expect(codexLimit.thread.contextUsage).toEqual({
+      usedTokens: 120_000,
+      maxTokens: 258_400,
+      usedPercent: 46,
+      compactsAutomatically: null,
+      autoCompactThreshold: 200_000,
+      autoCompactThresholdSource: "settings",
+      updatedAt: "2026-08-04T12:02:00.000Z",
+    });
+
+    providerTurns = [
+      providerTurn("provider-turn-mcp-codex-reported", activeProviderThreadId, {
+        usedTokens: 120_000,
+        maxTokens: 258_400,
+        autoCompactThreshold: 150_000,
+        updatedAt: "2026-08-04T12:03:00.000Z",
+      }),
+    ];
+    const codexReported = yield* service.readThread(makeScope(), { threadId: parentThreadId });
+    expect(codexReported.thread.contextUsage).toMatchObject({
+      autoCompactThreshold: 150_000,
+      autoCompactThresholdSource: "provider",
+    });
+
+    thread.providerInstanceId = parentInstanceId;
+
+    providerThreads = [
+      providerThread(codexDriver, parentInstanceId, {
+        usedTokens: 50_000,
+        maxTokens: 200_000,
+        compactsAutomatically: false,
+      }),
+    ];
     providerTurns = [
       providerTurn("provider-turn-mcp-live", activeProviderThreadId, {
         usedTokens: 170_000,
@@ -259,7 +407,9 @@ it("readThread preserves caller access errors and prefers activity-run status ov
       maxTokens: 200_000,
       usedPercent: 85,
       compactsAutomatically: false,
+      compactsAutomaticallySource: "provider",
       autoCompactThreshold: 180_000,
+      autoCompactThresholdSource: "provider",
       updatedAt: "2026-08-04T12:05:00.000Z",
     });
 
@@ -278,7 +428,11 @@ it("readThread preserves caller access errors and prefers activity-run status ov
       .pipe(Effect.flip);
     expect(missingCaller.code).toBe("orchestration_error");
     expect(missingCaller.message).toContain(`Unable to read thread ${parentThreadId}:`);
-  }).pipe(Effect.provide(layer), Effect.runPromise);
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(Layer.mergeAll(layer, NodeServices.layer)),
+    Effect.runPromise,
+  );
 });
 
 it("readThread pages cut-off text without splitting an emoji across pages", async () => {
