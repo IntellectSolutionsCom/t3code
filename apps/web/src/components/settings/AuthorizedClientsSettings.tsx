@@ -65,7 +65,6 @@ import { useAtomCommand } from "~/state/use-atom-command";
 import { ManagedControl } from "../ManagedPolicy";
 import { openUseInAnotherApp } from "../mcp/UseInAnotherAppDialog";
 import { ConnectionStatusDot } from "../ConnectionStatusDot";
-import { LinkMessageGrantSwitch } from "./LinkMessageGrantSwitch";
 import { ITEM_ROW_CLASSNAME, ITEM_ROW_INNER_CLASSNAME } from "./itemRows";
 import {
   formatAccessTimestamp,
@@ -505,7 +504,6 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
 
 type ConnectedClientListRowProps = {
   clientSession: ServerClientSessionRecord;
-  environmentId: EnvironmentId | null;
   revokingClientSessionId: string | null;
   onRevokeSession: (sessionId: ServerClientSessionRecord["sessionId"]) => void;
   canRevoke: boolean;
@@ -513,7 +511,6 @@ type ConnectedClientListRowProps = {
 
 const ConnectedClientListRow = memo(function ConnectedClientListRow({
   clientSession,
-  environmentId,
   revokingClientSessionId,
   onRevokeSession,
   canRevoke,
@@ -571,12 +568,6 @@ const ConnectedClientListRow = memo(function ConnectedClientListRow({
             ) : null}
             <AccessScopeSummary scopes={clientSession.scopes} label={gt("Client scopes")} />
           </p>
-          {environmentId === null ? null : (
-            <LinkMessageGrantSwitch
-              environmentId={environmentId}
-              sessionId={clientSession.sessionId}
-            />
-          )}
         </div>
         <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:justify-end">
           {!clientSession.current ? (
@@ -868,7 +859,6 @@ type PairingClientsListProps = {
   createdPairingCredentials: ReadonlyMap<string, string>;
   sharedPairingLinkId: string | null;
   clientSessions: ReadonlyArray<ServerClientSessionRecord>;
-  environmentId: EnvironmentId | null;
   revokingPairingLinkId: string | null;
   revokingClientSessionId: string | null;
   onRevokePairingLink: (id: string) => void;
@@ -886,7 +876,6 @@ export const PairingClientsList = memo(function PairingClientsList({
   createdPairingCredentials,
   sharedPairingLinkId,
   clientSessions,
-  environmentId,
   revokingPairingLinkId,
   revokingClientSessionId,
   onRevokePairingLink,
@@ -915,7 +904,6 @@ export const PairingClientsList = memo(function PairingClientsList({
         <ConnectedClientListRow
           key={clientSession.sessionId}
           clientSession={clientSession}
-          environmentId={environmentId}
           revokingClientSessionId={revokingClientSessionId}
           onRevokeSession={onRevokeClientSession}
           canRevoke={canRevoke}

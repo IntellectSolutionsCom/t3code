@@ -1138,49 +1138,6 @@ export function GeneralSettingsPanel() {
             }
           />
         ) : null}
-        {isElectron && !isMacPlatform(navigator.platform) ? (
-          <SettingsRow
-            {...setting("close-button")}
-            description={CLOSE_BUTTON_TEXT.setting.description}
-            resetAction={
-              settings.closeButton !== DEFAULT_UNIFIED_SETTINGS.closeButton ? (
-                <SettingResetButton
-                  ariaLabel="Reset close button behavior to default"
-                  onClick={() =>
-                    updateSettings({ closeButton: DEFAULT_UNIFIED_SETTINGS.closeButton })
-                  }
-                />
-              ) : null
-            }
-            control={
-              <Select
-                value={settings.closeButton}
-                onValueChange={(value) => {
-                  if (value === "ask" || value === "quit" || value === "keepRunning") {
-                    updateSettings({ closeButton: value });
-                  }
-                }}
-              >
-                <SelectTrigger
-                  size="sm"
-                  className="w-full sm:w-56"
-                  aria-label="Close button behavior"
-                >
-                  <SelectValue>
-                    {CLOSE_BUTTON_TEXT.setting.options[settings.closeButton]}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectPopup align="end" alignItemWithTrigger={false}>
-                  {Object.entries(CLOSE_BUTTON_TEXT.setting.options).map(([value, label]) => (
-                    <SelectItem hideIndicator key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectPopup>
-              </Select>
-            }
-          />
-        ) : null}
       </SettingsSection>
 
       <SettingsSection id="display" title={gt("Display")}>

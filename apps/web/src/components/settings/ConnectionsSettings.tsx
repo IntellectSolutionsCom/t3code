@@ -155,6 +155,7 @@ import {
   type ConnectDeviceRevokeRequest,
   RevokeConnectDeviceDialog,
 } from "./RevokeConnectDeviceDialog";
+import { LinkMessagesPointer } from "./EditionSettingsPanel";
 
 // Sessions T3 Connect minted for a device signed in to the linked account.
 const CLOUD_CONNECT_SESSION_SUBJECT = "cloud-connect";
@@ -1187,7 +1188,6 @@ function ConnectionsSettingsContent({
       createdPairingCredentials={createdPairingCredentials}
       sharedPairingLinkId={newestPairingLinkId}
       clientSessions={clientSessions}
-      environmentId={accessEnvironmentId}
       revokingPairingLinkId={revokingDesktopPairingLinkId}
       revokingClientSessionId={revokingDesktopClientSessionId}
       onRevokePairingLink={handleRevokeDesktopPairingLink}
@@ -1497,6 +1497,9 @@ function ConnectionsSettingsContent({
                   </p>
                 )}
               </ScrollArea>
+              {accessEnvironmentId === null ? null : (
+                <LinkMessagesPointer environmentId={accessEnvironmentId} />
+              )}
             </FoldedSettingsSection>
           ) : null}
           {canReadAccess &&
