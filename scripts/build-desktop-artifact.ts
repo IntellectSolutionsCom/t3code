@@ -2922,6 +2922,9 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       desktop: {
         entry: {
           StartupWMClass: "t3code",
+          // GNOME mints a Wayland activation token only for StartupNotify entries; without one
+          // a second launch can't raise the running window and shows "is ready" instead.
+          StartupNotify: "true",
         },
       },
     };
