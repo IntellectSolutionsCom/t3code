@@ -20,7 +20,7 @@ export class DesktopState extends Context.Service<
     // Set by DesktopUpdates.configure, which runs before the first backend start.
     readonly canInstallUpdates: Ref.Ref<boolean>;
     /** Keep running closed the main window; closing the last window must not quit. */
-    readonly keepRunningWithoutWindow: Ref.Ref<boolean>;
+    readonly keepRunningWithoutWindow: SubscriptionRef.SubscriptionRef<boolean>;
     readonly primaryBackendStartup: SubscriptionRef.SubscriptionRef<PrimaryBackendStartup>;
   }
 >()("@t3tools/desktop/app/DesktopState") {}
@@ -29,7 +29,7 @@ const make = Effect.all({
   backendReady: Ref.make(false),
   quitting: Ref.make(false),
   canInstallUpdates: Ref.make(false),
-  keepRunningWithoutWindow: Ref.make(false),
+  keepRunningWithoutWindow: SubscriptionRef.make(false),
   primaryBackendStartup: SubscriptionRef.make<PrimaryBackendStartup>({ _tag: "Starting" }),
 });
 
