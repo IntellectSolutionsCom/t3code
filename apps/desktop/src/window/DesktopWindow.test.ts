@@ -15,6 +15,7 @@ import * as Option from "effect/Option";
 import * as Queue from "effect/Queue";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
+import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as TestClock from "effect/testing/TestClock";
 
 import * as Electron from "electron";
@@ -1368,7 +1369,8 @@ describe("DesktopWindow", () => {
         const state = yield* DesktopState.DesktopState;
         yield* desktopWindow.handleBackendReady(new URL("http://127.0.0.1:3773"));
         if ("quitting" in row) yield* Ref.set(state.quitting, row.quitting);
-        if ("staleKeepRunning" in row) yield* Ref.set(state.keepRunningWithoutWindow, true);
+        if ("staleKeepRunning" in row)
+          yield* SubscriptionRef.set(state.keepRunningWithoutWindow, true);
         if ("sessionEnd" in row) fakeWindow.windowListeners.get("session-end")?.();
 
         fakeWindow.windowListeners.get("close")?.({ preventDefault });
@@ -1376,7 +1378,10 @@ describe("DesktopWindow", () => {
 
         assert.equal(preventDefault.mock.calls.length, row.prevented ? 1 : 0);
         assert.deepEqual(events, [...row.events]);
-        assert.equal(yield* Ref.get(state.keepRunningWithoutWindow), "keepRunning" in row);
+        assert.equal(
+          yield* SubscriptionRef.get(state.keepRunningWithoutWindow),
+          "keepRunning" in row,
+        );
       }).pipe(Effect.provide(layer));
     }),
   );
@@ -1420,9 +1425,9 @@ describe("DesktopWindow", () => {
       yield* Effect.gen(function* () {
         const desktopWindow = yield* DesktopWindow.DesktopWindow;
         const state = yield* DesktopState.DesktopState;
-        yield* Ref.set(state.keepRunningWithoutWindow, true);
+        yield* SubscriptionRef.set(state.keepRunningWithoutWindow, true);
         yield* desktopWindow.ensureMain;
-        assert.isFalse(yield* Ref.get(state.keepRunningWithoutWindow));
+        assert.isFalse(yield* SubscriptionRef.get(state.keepRunningWithoutWindow));
       }).pipe(Effect.provide(layerTest({ window: fake.window, createCount, mainWindow })));
     }),
   );
