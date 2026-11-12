@@ -71,6 +71,7 @@ import {
 import { getProviderOptionCurrentValue, withLegacyUltracodeEffort } from "@t3tools/shared/model";
 import { backgroundWorkHoldsCompletion } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
 import { runRanAfter } from "@t3tools/shared/orchestrationV2ThreadError";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import { formatThreadLink } from "@t3tools/shared/threadLinks";
 import { threadPullRequestUpdatedAtMs } from "@t3tools/shared/threadPullRequests";
@@ -85,8 +86,10 @@ import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
@@ -119,7 +122,12 @@ import * as ThreadLaunchService from "../orchestration-v2/ThreadLaunchService.ts
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import { isSnoozed } from "../orchestration-v2/ThreadSettlementService.ts";
 import { userFacingDispatchErrorMessage } from "../orchestration-v2/UserFacingErrors.ts";
+import * as ManagedProviders from "../policy/managedProviders.ts";
 import * as ProjectService from "../project/ProjectService.ts";
+import {
+  type ConfiguredCompaction,
+  readConfiguredCompaction,
+} from "../provider/ConfiguredCompaction.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 import * as ServerSettings from "../serverSettings.ts";
@@ -1050,11 +1058,20 @@ function listItemFromShell(
   };
 }
 
+const reportedThenConfigured = <A>(reported: A | null | undefined, configured: A | undefined) =>
+  reported != null
+    ? { value: reported, source: "provider" as const }
+    : configured !== undefined
+      ? { value: configured, source: "settings" as const }
+      : undefined;
+
 // Same precedence as the client meter in packages/client-runtime/src/state/contextWindow.ts.
-// Unlike the meter, compactsAutomatically is never assumed: only what the provider reported.
+// Unlike the meter, compaction limits are never assumed: the provider's report, then the entry's
+// configuration, else null.
 function threadContextUsage(
   projection: Pick<OrchestrationV2ThreadProjection, "providerThreads" | "providerTurns">,
   activeProviderThreadId: OrchestrationV2ThreadShell["activeProviderThreadId"],
+  configured: ConfiguredCompaction,
 ): OrchestratorMcpThreadContextUsage | null {
   if (activeProviderThreadId === null) return null;
   let live: OrchestrationV2ThreadProjection["providerTurns"][number]["tokenUsage"];
@@ -1077,8 +1094,16 @@ function threadContextUsage(
           }
         : null;
   if (source === null) return null;
-  const { usedTokens, autoCompactThreshold } = source.usage;
+  const { usedTokens } = source.usage;
   const maxTokens = source.usage.maxTokens ?? null;
+  const compacts = reportedThenConfigured(
+    providerThread?.contextUsage?.compactsAutomatically,
+    configured.compactsAutomatically,
+  );
+  const threshold = reportedThenConfigured(
+    source.usage.autoCompactThreshold,
+    configured.autoCompactThreshold,
+  );
   return {
     usedTokens,
     maxTokens,
@@ -1086,8 +1111,13 @@ function threadContextUsage(
       maxTokens !== null && maxTokens > 0
         ? Math.round(Math.min(100, (usedTokens / maxTokens) * 100))
         : null,
-    compactsAutomatically: providerThread?.contextUsage?.compactsAutomatically ?? null,
-    autoCompactThreshold: autoCompactThreshold ?? null,
+    compactsAutomatically: compacts?.value ?? null,
+    ...(compacts === undefined ? {} : { compactsAutomaticallySource: compacts.source }),
+    autoCompactThreshold: threshold?.value ?? null,
+    ...(threshold === undefined ? {} : { autoCompactThresholdSource: threshold.source }),
+    ...(configured.idleCompaction === undefined
+      ? {}
+      : { idleCompaction: { ...configured.idleCompaction, source: "settings" as const } }),
     updatedAt: source.updatedAt,
   };
 }
@@ -1103,6 +1133,7 @@ function threadDetail(
   shell: OrchestrationV2ThreadShell,
   nowMs: number,
   firstPage: boolean,
+  configuredCompaction: ConfiguredCompaction,
 ): OrchestratorMcpThreadDetail {
   const latest = ThreadManagementService.latestRun(projection);
   const active = ThreadManagementService.latestActiveRun(projection);
@@ -1154,7 +1185,11 @@ function threadDetail(
     ...threadSnooze(shell, nowMs),
     pinned: shell.pinnedAt != null,
     ...threadBackgroundWork(shell),
-    contextUsage: threadContextUsage(projection, shell.activeProviderThreadId),
+    contextUsage: threadContextUsage(
+      projection,
+      shell.activeProviderThreadId,
+      configuredCompaction,
+    ),
     createdAt: DateTime.formatIso(projection.thread.createdAt),
     updatedAt: DateTime.formatIso(projection.thread.updatedAt),
   };
@@ -1415,6 +1450,56 @@ const make = Effect.gen(function* () {
   const gitDriver = yield* GitVcsDriver.GitVcsDriver;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const remoteDelegation = yield* RemoteDelegation.RemoteDelegation;
+  const fileSystem = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const hostEnvironment = ManagedProviders.providerHostEnvironment(
+    serverSettings.managedPolicy,
+    yield* HostProcess.Environment,
+  );
+
+  // Read for the active provider thread's own entry, which is not the thread's next-turn selection.
+  const readThreadConfiguredCompaction = Effect.fn(
+    "OrchestratorMcpService.readThreadConfiguredCompaction",
+  )(
+    function* (
+      projection: Pick<
+        OrchestrationV2ThreadProjection,
+        "thread" | "providerThreads" | "providerTurns"
+      >,
+      activeProviderThreadId: OrchestrationV2ThreadShell["activeProviderThreadId"],
+    ) {
+      const providerThread = projection.providerThreads.find(
+        (candidate) => candidate.id === activeProviderThreadId,
+      );
+      const hasUsage =
+        providerThread?.contextUsage != null ||
+        projection.providerTurns.some(
+          (turn) =>
+            turn.providerThreadId === activeProviderThreadId && turn.tokenUsage !== undefined,
+        );
+      if (providerThread === undefined || !hasUsage) return {} satisfies ConfiguredCompaction;
+      const { thread } = projection;
+      return yield* readConfiguredCompaction({
+        settings: yield* serverSettings.getSettings,
+        driver: providerThread.driver,
+        instanceId: providerThread.providerInstanceId,
+        threadInstanceId: thread.providerInstanceId,
+        // The turn's cwd, as RuntimePolicy resolves it.
+        cwd:
+          thread.worktreePath ??
+          Option.getOrNull(
+            Option.map(
+              yield* projects.getById(thread.projectId),
+              (project) => project.workspaceRoot,
+            ),
+          ),
+        hostEnvironment,
+        fileSystem,
+        path,
+      });
+    },
+    Effect.orElseSucceed((): ConfiguredCompaction => ({})),
+  );
 
   const requireProject = (projectId: ProjectId) =>
     projects.getById(projectId).pipe(
@@ -3738,6 +3823,7 @@ const make = Effect.gen(function* () {
         input.afterPosition === undefined &&
           input.itemId === undefined &&
           (input.beforePosition === undefined || input.beforePosition >= timeline.totalItems),
+        yield* readThreadConfiguredCompaction(target, shell.activeProviderThreadId),
       );
       const recentRuns = target.runs
         .toSorted((left, right) => right.ordinal - left.ordinal)
@@ -4034,4 +4120,6 @@ export const layer: Layer.Layer<
   | SecretRequests.SecretRequests
   | ServerSettings.ServerSettingsService
   | RemoteDelegation.RemoteDelegation
+  | FileSystem.FileSystem
+  | Path.Path
 > = Layer.effect(OrchestratorMcpService, make);

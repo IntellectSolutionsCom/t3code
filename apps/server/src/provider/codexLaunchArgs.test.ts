@@ -4,6 +4,7 @@ import { describe, it } from "vite-plus/test";
 
 import {
   codexAppServerArgs,
+  codexAutoCompactTokenLimit,
   codexExecLaunchArgs,
   codexMcpListLaunchArgs,
   resolveCodexLaunchArgs,
@@ -109,5 +110,30 @@ describe.each(["", "="])("codex exec and mcp list launch args with -p%swork", (s
       "--enable",
       "foo",
     ]);
+  });
+});
+
+describe("codexAutoCompactTokenLimit", () => {
+  it("reads the last model_auto_compact_token_limit override, or nothing", () => {
+    const cases: ReadonlyArray<readonly [string, number | undefined]> = [
+      ["-c model_auto_compact_token_limit=200000", 200_000],
+      ["--config=model_auto_compact_token_limit=180_000 --strict-config", 180_000],
+      ["-c model_auto_compact_token_limit=1 -c 'model_auto_compact_token_limit = 150000'", 150_000],
+      ['-c model_auto_compact_token_limit="200000"', 200_000],
+      [String.raw`-c model_auto_compact_token_limit=\"200000\"`, undefined],
+      ["-c model=gpt-5.4 --enable model_auto_compact_token_limit=200000", undefined],
+      [
+        String.raw`-c model_auto_compact_token_limit=200000 -c model_auto_compact_token_limit_scope=\"total\"`,
+        200_000,
+      ],
+      [
+        "-c model_auto_compact_token_limit=200000 -c model_auto_compact_token_limit_scope=body_after_prefix",
+        undefined,
+      ],
+      ["", undefined],
+    ];
+    for (const [launchArgs, limit] of cases) {
+      NodeAssert.strictEqual(codexAutoCompactTokenLimit(launchArgs), limit, launchArgs);
+    }
   });
 });
