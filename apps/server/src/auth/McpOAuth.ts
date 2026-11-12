@@ -578,6 +578,10 @@ const make = Effect.gen(function* () {
           approvedAtRevocationCount: pending.approvedAtRevocationCount,
         })
         .pipe(
+          (issue) =>
+            pending.peerLink && Option.isSome(linkMessageGrants)
+              ? linkMessageGrants.value.issueLink(issue)
+              : issue,
           Effect.catch((cause) =>
             cause._tag === "ServerAuthInvalidCredentialError"
               ? Effect.fail(fail("invalid_grant", "The authorization code is invalid or expired."))
@@ -588,9 +592,6 @@ const make = Effect.gen(function* () {
                 ),
           ),
         );
-      if (pending.peerLink && Option.isSome(linkMessageGrants)) {
-        yield* linkMessageGrants.value.recordLink(issued.sessionId);
-      }
       return {
         access_token: issued.token,
         token_type: "Bearer",
