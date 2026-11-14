@@ -275,6 +275,8 @@
   "0141195cbbe0e4ca": "{count, plural, one {Tentou usar os controles do dispositivo {count} vez} other {Tentou usar os controles do dispositivo {count} vezes}}",
   "4d411db1abd4feff": "{count, plural, one {Verificou os recursos de orquestração {count} vez} other {Verificou os recursos de orquestração {count} vezes}}",
   "44ea53e1df760a86": "{count, plural, one {Tentou verificar os recursos de orquestração {count} vez} other {Tentou verificar os recursos de orquestração {count} vezes}}",
+  "f218a4ca6e1387ed": "{count, plural, one {Read provider usage limits {count} time} other {Read provider usage limits {count} times}}",
+  "a70f5d6a76f92a1d": "{count, plural, one {Tried to read provider usage limits {count} time} other {Tried to read provider usage limits {count} times}}",
   "b5ab4f13edefadf7": "{count, plural, one {Leu {count} thread} other {Leu {count} threads}}",
   "e1eaf0526bf5a107": "{count, plural, one {Tentou ler {count} thread} other {Tentou ler {count} threads}}",
   "a259da1772c6478b": "{count, plural, one {Leu threads {count} vez} other {Leu threads {count} vezes}}",

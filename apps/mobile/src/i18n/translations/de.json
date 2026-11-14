@@ -275,6 +275,8 @@
   "0141195cbbe0e4ca": "{count, plural, one {Versucht, die Gerätesteuerung {count}-mal zu verwenden} other {Versucht, die Gerätesteuerung {count}-mal zu verwenden}}",
   "4d411db1abd4feff": "{count, plural, one {Orchestrierungsfunktionen {count}-mal geprüft} other {Orchestrierungsfunktionen {count}-mal geprüft}}",
   "44ea53e1df760a86": "{count, plural, one {Versucht, Orchestrierungsfunktionen {count}-mal zu prüfen} other {Versucht, Orchestrierungsfunktionen {count}-mal zu prüfen}}",
+  "f218a4ca6e1387ed": "{count, plural, one {Read provider usage limits {count} time} other {Read provider usage limits {count} times}}",
+  "a70f5d6a76f92a1d": "{count, plural, one {Tried to read provider usage limits {count} time} other {Tried to read provider usage limits {count} times}}",
   "b5ab4f13edefadf7": "{count, plural, one {{count} Thread gelesen} other {{count} Threads gelesen}}",
   "e1eaf0526bf5a107": "{count, plural, one {Versucht, {count} Thread zu lesen} other {Versucht, {count} Threads zu lesen}}",
   "a259da1772c6478b": "{count, plural, one {Threads {count}-mal gelesen} other {Threads {count}-mal gelesen}}",

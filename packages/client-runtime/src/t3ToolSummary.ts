@@ -1804,6 +1804,23 @@ export function summarizeT3ToolCalls(
           );
       break;
     }
+    case "usage-limits": {
+      const count = selected.length;
+      label = done
+        ? resolve(
+            msg(
+              "{count, plural, one {Read provider usage limits {count} time} other {Read provider usage limits {count} times}}",
+              { count },
+            ),
+          )
+        : resolve(
+            msg(
+              "{count, plural, one {Tried to read provider usage limits {count} time} other {Tried to read provider usage limits {count} times}}",
+              { count },
+            ),
+          );
+      break;
+    }
   }
   return { label, failedCount };
 }

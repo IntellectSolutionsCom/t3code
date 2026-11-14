@@ -275,6 +275,8 @@
   "0141195cbbe0e4ca": "{count, plural, one {Попытка управлять устройством: {count} раз} few {Попытка управлять устройством: {count} раза} many {Попытка управлять устройством: {count} раз} other {Попытка управлять устройством: {count} раза}}",
   "4d411db1abd4feff": "{count, plural, one {Возможности оркестрации проверены {count} раз} few {Возможности оркестрации проверены {count} раза} many {Возможности оркестрации проверены {count} раз} other {Возможности оркестрации проверены {count} раза}}",
   "44ea53e1df760a86": "{count, plural, one {Попытка проверить возможности оркестрации: {count} раз} few {Попытка проверить возможности оркестрации: {count} раза} many {Попытка проверить возможности оркестрации: {count} раз} other {Попытка проверить возможности оркестрации: {count} раза}}",
+  "f218a4ca6e1387ed": "{count, plural, one {Read provider usage limits {count} time} other {Read provider usage limits {count} times}}",
+  "a70f5d6a76f92a1d": "{count, plural, one {Tried to read provider usage limits {count} time} other {Tried to read provider usage limits {count} times}}",
   "b5ab4f13edefadf7": "{count, plural, one {Прочитан {count} тред} few {Прочитано {count} треда} many {Прочитано {count} тредов} other {Прочитано {count} треда}}",
   "e1eaf0526bf5a107": "{count, plural, one {Попытка прочитать {count} тред} few {Попытка прочитать {count} треда} many {Попытка прочитать {count} тредов} other {Попытка прочитать {count} треда}}",
   "a259da1772c6478b": "{count, plural, one {Треды прочитаны {count} раз} few {Треды прочитаны {count} раза} many {Треды прочитаны {count} раз} other {Треды прочитаны {count} раза}}",

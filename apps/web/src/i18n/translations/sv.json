@@ -275,6 +275,8 @@
   "0141195cbbe0e4ca": "{count, plural, one {Försökte använda enhetsstyrning {count} gång} other {Försökte använda enhetsstyrning {count} gånger}}",
   "4d411db1abd4feff": "{count, plural, one {Kontrollerade orkestreringsfunktioner {count} gång} other {Kontrollerade orkestreringsfunktioner {count} gånger}}",
   "44ea53e1df760a86": "{count, plural, one {Försökte kontrollera orkestreringsfunktioner {count} gång} other {Försökte kontrollera orkestreringsfunktioner {count} gånger}}",
+  "f218a4ca6e1387ed": "{count, plural, one {Read provider usage limits {count} time} other {Read provider usage limits {count} times}}",
+  "a70f5d6a76f92a1d": "{count, plural, one {Tried to read provider usage limits {count} time} other {Tried to read provider usage limits {count} times}}",
   "b5ab4f13edefadf7": "{count, plural, one {Läste {count} tråd} other {Läste {count} trådar}}",
   "e1eaf0526bf5a107": "{count, plural, one {Försökte läsa {count} tråd} other {Försökte läsa {count} trådar}}",
   "a259da1772c6478b": "{count, plural, one {Läste trådar {count} gång} other {Läste trådar {count} gånger}}",

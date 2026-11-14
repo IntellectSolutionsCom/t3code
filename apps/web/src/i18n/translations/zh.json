@@ -275,6 +275,8 @@
   "0141195cbbe0e4ca": "{count, plural, other {尝试使用设备控制 {count} 次}}",
   "4d411db1abd4feff": "{count, plural, other {已检查编排能力 {count} 次}}",
   "44ea53e1df760a86": "{count, plural, other {尝试检查编排能力 {count} 次}}",
+  "f218a4ca6e1387ed": "{count, plural, one {Read provider usage limits {count} time} other {Read provider usage limits {count} times}}",
+  "a70f5d6a76f92a1d": "{count, plural, one {Tried to read provider usage limits {count} time} other {Tried to read provider usage limits {count} times}}",
   "b5ab4f13edefadf7": "{count, plural, other {已读取 {count} 个会话}}",
   "e1eaf0526bf5a107": "{count, plural, other {尝试读取 {count} 个会话}}",
   "a259da1772c6478b": "{count, plural, other {已读取会话 {count} 次}}",

@@ -275,6 +275,8 @@
   "0141195cbbe0e4ca": "{count, plural, one {Intentó usar los controles del dispositivo {count} vez} other {Intentó usar los controles del dispositivo {count} veces}}",
   "4d411db1abd4feff": "{count, plural, one {Consultó las capacidades de orquestación {count} vez} other {Consultó las capacidades de orquestación {count} veces}}",
   "44ea53e1df760a86": "{count, plural, one {Intentó consultar las capacidades de orquestación {count} vez} other {Intentó consultar las capacidades de orquestación {count} veces}}",
+  "f218a4ca6e1387ed": "{count, plural, one {Read provider usage limits {count} time} other {Read provider usage limits {count} times}}",
+  "a70f5d6a76f92a1d": "{count, plural, one {Tried to read provider usage limits {count} time} other {Tried to read provider usage limits {count} times}}",
   "b5ab4f13edefadf7": "{count, plural, one {Leyó {count} hilo} other {Leyó {count} hilos}}",
   "e1eaf0526bf5a107": "{count, plural, one {Intentó leer {count} hilo} other {Intentó leer {count} hilos}}",
   "a259da1772c6478b": "{count, plural, one {Leyó hilos {count} vez} other {Leyó hilos {count} veces}}",
