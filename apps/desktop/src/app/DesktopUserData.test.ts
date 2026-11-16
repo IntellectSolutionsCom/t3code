@@ -9,8 +9,7 @@ import { EDITION_PACKAGE_NAME } from "@t3tools/shared/edition";
 
 import { clearStaleGpuCaches, resolveUserDataPath } from "./DesktopUserData.ts";
 
-// Our folder copies the key from upstream's current folder, or from its older "t3code".
-it.effect.each(["t3code", "t3code-v2"])(
+it.effect.each(["t3code", "T3 Code (Alpha)"])(
   "preserves Windows credential keys from %s without copying browser databases",
   (sourceName) =>
     Effect.gen(function* () {
@@ -20,7 +19,7 @@ it.effect.each(["t3code", "t3code-v2"])(
       const source = path.join(directory, sourceName);
       const destination = path.join(directory, EDITION_PACKAGE_NAME);
       const state = '{"os_crypt":{"encrypted_key":"test-encrypted-key"}}';
-      yield* fs.makeDirectory(path.join(directory, "t3code-v2"), { recursive: true });
+      yield* fs.makeDirectory(path.join(directory, "T3 Code (Alpha)"), { recursive: true });
       yield* fs.makeDirectory(path.join(source, "IndexedDB"), { recursive: true });
       yield* fs.writeFileString(path.join(source, "Local State"), state);
       yield* fs.writeFileString(path.join(source, "IndexedDB", "LOCK"), "V1 owns this database");
