@@ -1,5 +1,5 @@
 import { AuthMcpClientAccess } from "@t3tools/contracts";
-import { EDITION_NAME } from "@t3tools/shared/edition";
+import { EDITION_APP_BASE_NAME, EDITION_NAME } from "@t3tools/shared/edition";
 import { useId } from "react";
 
 import { accessConfig } from "../auth/ConnectAgentSurface";
@@ -57,7 +57,7 @@ export function LinkAccessPicker({
       <p className="text-xs text-muted-foreground">
         {selected.description} An agent never gets more access there than its own mode here. Below
         full access, it can change only threads this link started, not that machine's own threads,
-        projects or settings. If that machine runs T3 Code {EDITION_NAME}, it can still let agents
+        projects or settings. If that machine runs {EDITION_APP_BASE_NAME}, it can still let agents
         here send messages to any of its threads, under Settings → {EDITION_NAME} there.
       </p>
     </div>

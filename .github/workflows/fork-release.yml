@@ -261,9 +261,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-publish
-          cp "release/T3-Code-$V-amd64.deb" release/latest-linux.yml "release-cli/t3-$V-linux-x64.tar.gz" release-publish/
+          cp "release/T3-Crew-$V-amd64.deb" release/latest-linux.yml "release-cli/t3-$V-linux-x64.tar.gz" release-publish/
           cd release-publish
-          sha256sum "t3-$V-linux-x64.tar.gz" "T3-Code-$V-amd64.deb" > SHA256SUMS
+          sha256sum "t3-$V-linux-x64.tar.gz" "T3-Crew-$V-amd64.deb" > SHA256SUMS
           cat SHA256SUMS
           ls -l
 
@@ -272,8 +272,8 @@ jobs:
           set -euo pipefail
           fail() { echo "::error::$*"; exit 1; }
           owner="${GITHUB_REPOSITORY%%/*}" repo="${GITHUB_REPOSITORY#*/}"
-          deb="release-publish/T3-Code-$V-amd64.deb" archive="release-publish/t3-$V-linux-x64.tar.gz"
-          for field in Package:t3code "Version:$V" Architecture:amd64; do
+          deb="release-publish/T3-Crew-$V-amd64.deb" archive="release-publish/t3-$V-linux-x64.tar.gz"
+          for field in Package:t3-crew "Version:$V" Architecture:amd64; do
             [[ "$(dpkg-deb -f "$deb" "${field%%:*}")" == "${field#*:}" ]] || fail "deb ${field%%:*} is not ${field#*:}"
             echo "ok: deb ${field%%:*} = ${field#*:}"
           done
@@ -290,7 +290,7 @@ jobs:
           echo "ok: app.asar package.json version = $V"
           feed=release-publish/latest-linux.yml
           [[ "$(sed -n 's/^version: //p' "$feed")" == "$V" ]] || fail "latest-linux.yml version is not $V"
-          [[ "$(sed -n 's/^path: //p' "$feed")" == "T3-Code-$V-amd64.deb" ]] || fail "latest-linux.yml path is not the deb"
+          [[ "$(sed -n 's/^path: //p' "$feed")" == "T3-Crew-$V-amd64.deb" ]] || fail "latest-linux.yml path is not the deb"
           [[ "$(sed -n 's/^sha512: //p' "$feed")" == "$(openssl dgst -sha512 -binary "$deb" | base64 -w0)" ]] || fail "latest-linux.yml sha512 does not match the deb"
           echo "ok: latest-linux.yml version, path and sha512 match the deb"
           hits="$(grep -rlF --exclude-dir=client -- "\"$GITHUB_REPOSITORY\"" apps/server/dist | wc -l || true)"
@@ -308,7 +308,7 @@ jobs:
           [[ "$version_out" =~ (^|[^[:alnum:]_])v([^[:space:]]+)[[:space:]]*$ && "${BASH_REMATCH[2]}" == "$V" ]] || fail "t3 --version printed: $version_out"
           echo "ok: t3 --version ends with v$V"
           (cd release-publish && sha256sum -c SHA256SUMS)
-          [[ "$(awk '{print $2}' release-publish/SHA256SUMS | LC_ALL=C sort | tr '\n' ' ')" == "T3-Code-$V-amd64.deb t3-$V-linux-x64.tar.gz " ]] || fail "SHA256SUMS lists other files"
+          [[ "$(awk '{print $2}' release-publish/SHA256SUMS | LC_ALL=C sort | tr '\n' ' ')" == "T3-Crew-$V-amd64.deb t3-$V-linux-x64.tar.gz " ]] || fail "SHA256SUMS lists other files"
           echo "ok: SHA256SUMS passes and lists exactly the archive and the deb"
           if [[ -n "${T3CODE_CLERK_PUBLISHABLE_KEY:-}" ]]; then
             grep -rqF -- "$T3CODE_CLERK_PUBLISHABLE_KEY" apps/server/dist/client || fail "the Clerk publishable key is not in the web bundle"
@@ -325,7 +325,7 @@ jobs:
       - name: Launch check
         run: |
           set -euo pipefail
-          app="$(find "$RUNNER_TEMP/deb-root/opt" -mindepth 2 -maxdepth 2 -type f -name t3code)"
+          app="$(find "$RUNNER_TEMP/deb-root/opt" -mindepth 2 -maxdepth 2 -type f -name t3-crew)"
           xvfb-run -a node scripts/smoke-desktop-app.ts --artifacts-dir "$RUNNER_TEMP/desktop-launch-check" --executable "$app"
 
       - name: Upload launch check evidence
@@ -472,7 +472,7 @@ jobs:
           set -euo pipefail
           ls -l release
           mkdir -p release-publish
-          cp "release/T3-Code-$V-x64.exe" "release/T3-Code-$V-x64.exe.blockmap" release/latest.yml "release-cli/t3-$V-win32-x64.zip" release-publish/
+          cp "release/T3-Crew-$V-x64.exe" "release/T3-Crew-$V-x64.exe.blockmap" release/latest.yml "release-cli/t3-$V-win32-x64.zip" release-publish/
           ls -l release-publish
 
       - name: Verify release assets
@@ -480,15 +480,15 @@ jobs:
           set -euo pipefail
           fail() { echo "::error::$*"; exit 1; }
           owner="${GITHUB_REPOSITORY%%/*}" repo="${GITHUB_REPOSITORY#*/}"
-          exe="release-publish/T3-Code-$V-x64.exe" zip="release-publish/t3-$V-win32-x64.zip"
+          exe="release-publish/T3-Crew-$V-x64.exe" zip="release-publish/t3-$V-win32-x64.zip"
           [[ "$(head -c 2 "$exe" | tr -d '\0')" == MZ ]] || fail "the installer is not a Windows executable"
           echo "ok: installer $(basename "$exe"), $(stat -c %s "$exe") bytes"
           feed=release-publish/latest.yml
           sha512="$(openssl dgst -sha512 -binary "$exe" | base64 -w0)"
           [[ "$(sed -n 's/^version: //p' "$feed")" == "$V" ]] || fail "latest.yml version is not $V"
-          [[ "$(sed -n 's/^path: //p' "$feed")" == "T3-Code-$V-x64.exe" ]] || fail "latest.yml path is not the installer"
+          [[ "$(sed -n 's/^path: //p' "$feed")" == "T3-Crew-$V-x64.exe" ]] || fail "latest.yml path is not the installer"
           [[ "$(sed -n 's/^sha512: //p' "$feed")" == "$sha512" ]] || fail "latest.yml sha512 does not match the installer"
-          grep -qxF "  - url: T3-Code-$V-x64.exe" "$feed" || fail "latest.yml files[] does not name the installer"
+          grep -qxF "  - url: T3-Crew-$V-x64.exe" "$feed" || fail "latest.yml files[] does not name the installer"
           grep -qxF "    sha512: $sha512" "$feed" || fail "latest.yml files[] sha512 does not match the installer"
           echo "ok: latest.yml version, path, files[] and sha512 match the installer"
           stages=("${TMPDIR:-/tmp}"/t3code-desktop-win-stage-*/app/dist/win-unpacked)
@@ -658,7 +658,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $installer = Get-Item "release-windows/T3-Code-$env:V-x64.exe"
+          $installer = Get-Item "release-windows/T3-Crew-$env:V-x64.exe"
           $apps = @(Get-ChildItem verify/win-unpacked -Filter *.exe -File)
           if ($apps.Count -ne 1) { Write-Host "::error::Expected one exe at the top of the unpacked app, found: $($apps.Name -join ', ')"; exit 1 }
           Expand-Archive "release-windows/t3-$env:V-win32-x64.zip" -DestinationPath "$env:RUNNER_TEMP/cli"
@@ -703,13 +703,13 @@ jobs:
           cd release-publish
           sha256sum -c SHA256SUMS
           echo "ok: the Linux job's SHA256SUMS still matches its files"
-          binaries=("t3-$V-linux-x64.tar.gz" "T3-Code-$V-amd64.deb" "t3-$V-win32-x64.zip" "T3-Code-$V-x64.exe")
+          binaries=("t3-$V-linux-x64.tar.gz" "T3-Crew-$V-amd64.deb" "t3-$V-win32-x64.zip" "T3-Crew-$V-x64.exe")
           sha256sum "${binaries[@]}" > SHA256SUMS
           cat SHA256SUMS
           sha256sum -c SHA256SUMS
           [[ "$(awk '{print $2}' SHA256SUMS | LC_ALL=C sort | tr '\n' ' ')" == "$(printf '%s\n' "${binaries[@]}" | LC_ALL=C sort | tr '\n' ' ')" ]] || fail "SHA256SUMS lists other files"
           echo "ok: SHA256SUMS passes and lists exactly the two archives, the deb and the installer"
-          expected="$(printf '%s\n' "${binaries[@]}" "T3-Code-$V-x64.exe.blockmap" latest-linux.yml latest.yml SHA256SUMS | LC_ALL=C sort | tr '\n' ' ')"
+          expected="$(printf '%s\n' "${binaries[@]}" "T3-Crew-$V-x64.exe.blockmap" latest-linux.yml latest.yml SHA256SUMS | LC_ALL=C sort | tr '\n' ' ')"
           [[ "$(ls -1 | LC_ALL=C sort | tr '\n' ' ')" == "$expected" ]] || fail "the release would hold: $(ls -1 | tr '\n' ' ')"
           echo "ok: the release holds exactly the eight files"
           ls -l
@@ -808,7 +808,7 @@ jobs:
           cat "$RUNNER_TEMP/notes.md"
           gh release create "v$V" --verify-tag --draft \
             --title "T3 Code $V (fork build, $GITHUB_REPOSITORY)" --notes-file "$RUNNER_TEMP/notes.md" \
-            "T3-Code-$V-amd64.deb" latest-linux.yml "t3-$V-linux-x64.tar.gz" \
-            "T3-Code-$V-x64.exe" "T3-Code-$V-x64.exe.blockmap" latest.yml "t3-$V-win32-x64.zip" SHA256SUMS
+            "T3-Crew-$V-amd64.deb" latest-linux.yml "t3-$V-linux-x64.tar.gz" \
+            "T3-Crew-$V-x64.exe" "T3-Crew-$V-x64.exe.blockmap" latest.yml "t3-$V-win32-x64.zip" SHA256SUMS
           gh release edit "v$V" --draft=false --latest
           echo "ok: published v$V"
