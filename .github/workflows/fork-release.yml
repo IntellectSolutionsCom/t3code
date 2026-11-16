@@ -24,6 +24,7 @@ jobs:
     timeout-minutes: 150
     outputs:
       tag_object: ${{ steps.preflight.outputs.tag_object }}
+      version: ${{ steps.preflight.outputs.version }}
     env:
       T3CODE_TELEMETRY_CHANNEL: dev
       T3CODE_DESKTOP_UPDATE_REPOSITORY: ${{ github.repository }}
@@ -101,6 +102,7 @@ jobs:
           if [[ "$top" != "$V" ]]; then echo "::error::$V is not above every release (highest: $top)."; exit 1; fi
           echo "ok: $V is above all ${#scheme[@]} scheme releases compared (${#released[@]} published releases)"
           echo "V=$V" >> "$GITHUB_ENV"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
 
       # checkout's credential cleanup fails on the orphaned gitlinks in .repos.
       - name: Checkout
@@ -209,6 +211,17 @@ jobs:
       - name: Build JS bundle
         run: vp run build:desktop:bundle
 
+      # Before branding: the Windows job brands its own copy, as this job does below.
+      - name: Upload JS bundle for Windows
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: js-bundle
+          path: |
+            apps/server/dist
+            apps/desktop/dist-electron
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Build resource monitor
         run: cargo build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target x86_64-unknown-linux-gnu
 
@@ -228,6 +241,16 @@ jobs:
 
       - name: Smoke-test CLI archive
         run: node scripts/smoke-cli-archive.ts --archive release-cli/* --expect-version "$V"
+
+      # The Windows desktop embeds it as its WSL runtime.
+      - name: Upload Linux CLI archive for Windows
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: cli-linux-x64
+          path: release-cli/t3-*-linux-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
       - name: Build desktop artifact
         env:
@@ -314,6 +337,383 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Upload Linux release assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-assets-linux
+          path: release-publish/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  # Packaged on Linux as upstream does (no wine: electron-builder edits resources
+  # in JavaScript, and upstream's patch reads the NSIS uninstaller on Linux).
+  # Unsigned: no signing variables reach this job.
+  build-windows:
+    name: Build Windows x64
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      V: ${{ needs.build.outputs.version }}
+      T3CODE_TELEMETRY_CHANNEL: dev
+      T3CODE_DESKTOP_UPDATE_REPOSITORY: ${{ github.repository }}
+    steps:
+      # checkout's credential cleanup fails on the orphaned gitlinks in .repos.
+      - name: Checkout
+        env:
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git -c checkout.workers=0 checkout --detach FETCH_HEAD
+
+      # >>> T3 Connect: delete this step to build with T3 Connect off. Nothing else depends on it.
+      - name: T3 Connect public config from .env.example
+        run: |
+          set -euo pipefail
+          for name in CLERK_PUBLISHABLE_KEY CLERK_JWT_TEMPLATE CLERK_CLI_OAUTH_CLIENT_ID RELAY_URL; do
+            value="$(sed -n "s|^T3CODE_${name}=||p" .env.example)"
+            if [[ -z "$value" ]]; then echo "::error::.env.example has no T3CODE_${name}."; exit 1; fi
+            echo "T3CODE_${name}=$value" | tee -a "$GITHUB_ENV"
+          done
+      # <<< T3 Connect
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1
+        env:
+          VP_DOWNLOAD_TIMEOUT: "120"
+        with:
+          node-version-file: package.json
+          cache: false
+          run-install: false
+
+      - name: Install dependencies
+        run: vp install --filter=t3... --filter=@t3tools/web... --filter=@t3tools/desktop... --filter=@t3tools/scripts...
+
+      - name: Setup Rust for Windows
+        run: |
+          set -euo pipefail
+          rustup update stable
+          rustup target add x86_64-pc-windows-msvc
+          rustc --version
+
+      # Built from crates.io: the fork allows only its three pinned actions.
+      - name: Install cargo-xwin
+        env:
+          CARGO_XWIN_VERSION: 0.23.1
+        run: |
+          set -euo pipefail
+          cargo install cargo-xwin --version "$CARGO_XWIN_VERSION" --locked
+          cargo xwin --version
+
+      - name: Align package versions to release version
+        run: node scripts/update-release-package-versions.ts "$V"
+
+      # The artifact root is apps/, so extracting into apps restores both build paths.
+      - name: Download JS bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: js-bundle
+          path: apps
+
+      - name: Build resource monitor
+        run: cargo xwin build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target x86_64-pc-windows-msvc
+
+      - name: Apply web client branding
+        run: node scripts/apply-web-brand-assets.ts production apps/server/dist/client
+
+      # tsdown fetches the target Node once with no retry; seed its cache with a
+      # retried, checksum-verified copy instead, as upstream's release does.
+      - name: Install target Node.js for the CLI executable
+        run: |
+          set -euo pipefail
+          version="$(node -p 'require("./package.json").engines.node')"
+          name="node-v$version-win-x64"
+          dir="$RUNNER_TEMP/node-download"
+          mkdir -p "$dir"
+          fetch=(curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 --speed-limit 102400 --speed-time 30)
+          "${fetch[@]}" -o "$dir/$name.zip" "https://nodejs.org/dist/v$version/$name.zip"
+          "${fetch[@]}" -o "$dir/SHASUMS256.txt" "https://nodejs.org/dist/v$version/SHASUMS256.txt"
+          (cd "$dir" && grep " $name.zip\$" SHASUMS256.txt | sha256sum -c -)
+          dest="${XDG_CACHE_HOME:-$HOME/.cache}/tsdown/node/v$version/win-x64"
+          mkdir -p "$dest"
+          unzip -p "$dir/$name.zip" "$name/node.exe" > "$dest/node.exe"
+
+      - name: Build CLI single-executable
+        run: node apps/server/scripts/cli.ts build-exe --verbose --target win-x64
+
+      - name: Build CLI archive
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cli-resource-monitor/win32-x64"
+          cp native/resource-monitor/target/x86_64-pc-windows-msvc/release/t3-resource-monitor.exe "$RUNNER_TEMP/cli-resource-monitor/win32-x64/"
+          node scripts/build-cli-archive.ts --platform win --arch x64 --version "$V" \
+            --resource-monitor-dir "$RUNNER_TEMP/cli-resource-monitor" --output-dir release-cli
+
+      - name: Download Linux CLI archive for WSL
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: cli-linux-x64
+          path: wsl-runtime
+
+      - name: Build desktop artifact
+        env:
+          T3CODE_DESKTOP_REUSE_RESOURCE_MONITOR: true
+        run: |
+          vp run dist:desktop:artifact --platform win --target nsis --arch x64 --build-version "$V" \
+            --skip-build --keep-stage --verbose --wsl-runtime "$GITHUB_WORKSPACE/wsl-runtime/t3-$V-linux-x64.tar.gz"
+
+      - name: Collect release assets
+        run: |
+          set -euo pipefail
+          ls -l release
+          mkdir -p release-publish
+          cp "release/T3-Code-$V-x64.exe" "release/T3-Code-$V-x64.exe.blockmap" release/latest.yml "release-cli/t3-$V-win32-x64.zip" release-publish/
+          ls -l release-publish
+
+      - name: Verify release assets
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+          owner="${GITHUB_REPOSITORY%%/*}" repo="${GITHUB_REPOSITORY#*/}"
+          exe="release-publish/T3-Code-$V-x64.exe" zip="release-publish/t3-$V-win32-x64.zip"
+          [[ "$(head -c 2 "$exe" | tr -d '\0')" == MZ ]] || fail "the installer is not a Windows executable"
+          echo "ok: installer $(basename "$exe"), $(stat -c %s "$exe") bytes"
+          feed=release-publish/latest.yml
+          sha512="$(openssl dgst -sha512 -binary "$exe" | base64 -w0)"
+          [[ "$(sed -n 's/^version: //p' "$feed")" == "$V" ]] || fail "latest.yml version is not $V"
+          [[ "$(sed -n 's/^path: //p' "$feed")" == "T3-Code-$V-x64.exe" ]] || fail "latest.yml path is not the installer"
+          [[ "$(sed -n 's/^sha512: //p' "$feed")" == "$sha512" ]] || fail "latest.yml sha512 does not match the installer"
+          grep -qxF "  - url: T3-Code-$V-x64.exe" "$feed" || fail "latest.yml files[] does not name the installer"
+          grep -qxF "    sha512: $sha512" "$feed" || fail "latest.yml files[] sha512 does not match the installer"
+          echo "ok: latest.yml version, path, files[] and sha512 match the installer"
+          stages=("${TMPDIR:-/tmp}"/t3code-desktop-win-stage-*/app/dist/win-unpacked)
+          (( ${#stages[@]} == 1 )) && [[ -d "${stages[0]}" ]] || fail "expected one unpacked app, found: ${stages[*]}"
+          app="${stages[0]}"
+          echo "UNPACKED_APP=$app" >> "$GITHUB_ENV"
+          update_yml="$app/resources/app-update.yml"
+          for line in "owner: $owner" "repo: $repo" "provider: github"; do
+            grep -qxF "$line" "$update_yml" || fail "app-update.yml lacks '$line'"
+            echo "ok: app-update.yml has '$line'"
+          done
+          # Unsigned: with no publisherName the updater installs without a publisher check.
+          ! grep -q '^publisherName' "$update_yml" || fail "app-update.yml names a publisher in an unsigned build"
+          echo "ok: app-update.yml names no publisher"
+          asar="$app/resources/app.asar"
+          asar_version="$(node -e 'const b=require("fs").readFileSync(process.argv[1]),h=JSON.parse(b.subarray(16,16+b.readUInt32LE(12))).files["package.json"],o=8+b.readUInt32LE(4)+Number(h.offset);console.log(JSON.parse(b.subarray(o,o+h.size)).version)' "$asar")"
+          [[ "$asar_version" == "$V" ]] || fail "app.asar package.json version is $asar_version"
+          echo "ok: app.asar package.json version = $V"
+          [[ "$(sha256sum < "$app/resources/wsl-runtime.tar.gz" | cut -d' ' -f1)" == "$(sha256sum < "wsl-runtime/t3-$V-linux-x64.tar.gz" | cut -d' ' -f1)" ]] \
+            || fail "resources/wsl-runtime.tar.gz is not this run's Linux archive"
+          echo "ok: the WSL runtime is this run's Linux archive"
+          [[ -f "$app/resources/resource-monitor/t3-resource-monitor.exe" ]] || fail "the app has no resources/resource-monitor/t3-resource-monitor.exe"
+          echo "ok: the app has its resource monitor"
+          cli="$RUNNER_TEMP/cli-root"
+          mkdir -p "$cli" && unzip -q "$zip" -d "$cli"
+          t3="$cli/t3-$V-win32-x64/t3.exe"
+          [[ -f "$t3" ]] || fail "the archive has no t3-$V-win32-x64/t3.exe"
+          grep -qaF -- "\"$GITHUB_REPOSITORY\"" "$t3" || fail "\"$GITHUB_REPOSITORY\" not found in the archive's t3.exe"
+          echo "ok: \"$GITHUB_REPOSITORY\" in the archive's t3.exe"
+          monitor="$(cd "$cli" && find "t3-$V-win32-x64/resource-monitor" -type f)"
+          [[ "$monitor" == "t3-$V-win32-x64/resource-monitor/win32-x64/t3-resource-monitor.exe" ]] || fail "archive resource-monitor/ holds: $monitor"
+          echo "ok: archive resource-monitor/ holds only win32-x64/t3-resource-monitor.exe"
+          if [[ -n "${T3CODE_RELAY_URL:-}" ]]; then
+            grep -qaF -- "$T3CODE_RELAY_URL" "$t3" || fail "the relay URL is not in the archive's t3.exe"
+            echo "ok: T3 Connect on, the relay URL is in the archive's t3.exe"
+          fi
+
+      # What a signed release would sign, for a provider that bills per signature.
+      # electron-builder signs every .exe, .dll and .node it packs (signExts), and the
+      # installer and its uninstaller; the CLI archive signs t3.exe.
+      - name: Count files a signed release would sign
+        run: |
+          set -euo pipefail
+          is_pe() { [[ "$(head -c 2 "$1" | tr -d '\0')" == MZ ]]; }
+          list="$RUNNER_TEMP/signable.txt" pe="$RUNNER_TEMP/pe.txt"
+          (cd "$UNPACKED_APP" && find . -type f \( -iname '*.exe' -o -iname '*.dll' -o -iname '*.node' \) | LC_ALL=C sort) > "$list"
+          : > "$pe"
+          while IFS= read -r -d '' file; do
+            if is_pe "$file"; then echo "${file#"$UNPACKED_APP"/}" >> "$pe"; fi
+          done < <(find "$UNPACKED_APP" -type f -print0)
+          cli_pe=0
+          while IFS= read -r -d '' file; do
+            if is_pe "$file"; then echo "cli: ${file#"$RUNNER_TEMP/cli-root/"}" >> "$pe"; cli_pe=$((cli_pe + 1)); fi
+          done < <(find "$RUNNER_TEMP/cli-root" -type f -print0)
+          app_count="$(wc -l < "$list")"
+          echo "::group::App files with .exe, .dll or .node ($app_count)"; cat "$list"; echo "::endgroup::"
+          echo "::group::Every Windows executable file in the release, outside the installer"; cat "$pe"; echo "::endgroup::"
+          upstream=$((app_count + 2 + 1))
+          every=$(( $(wc -l < "$pe") + 2 ))
+          echo "ok: a signed release would sign $upstream files with upstream's setup: $app_count in the app, the installer, its uninstaller and t3.exe"
+          echo "ok: the release holds $every Windows executable files: $(( every - 2 - cli_pe )) in the app, $cli_pe in the CLI archive, the installer and its uninstaller"
+
+      - name: Stage verification inputs
+        run: |
+          set -euo pipefail
+          mkdir -p verify
+          tar -C "$(dirname "$UNPACKED_APP")" -cf verify/unpacked.tar "$(basename "$UNPACKED_APP")"
+          esbuild=scripts/node_modules/.bin/esbuild
+          banner="import{createRequire as __cr}from'node:module';const require=__cr(import.meta.url);"
+          # build-desktop-artifact.ts's own import.meta.main guard must not run its CLI inside the bundle.
+          "$esbuild" scripts/verify-windows-desktop-artifact.ts --bundle --platform=node --format=esm \
+            --target=node24 --define:import.meta.main=false --banner:js="$banner" \
+            --outfile=verify/verify-windows-desktop-artifact.mjs
+          "$esbuild" scripts/smoke-cli-archive.ts --bundle --platform=node --format=esm \
+            --target=node24 --banner:js="$banner" --outfile=verify/smoke-cli-archive.mjs
+
+      - name: Upload verification inputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: verify-win-x64
+          path: verify/*
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 1
+
+      - name: Upload Windows release assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-assets-windows
+          path: release-publish/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  # Native checks only; nothing here is published.
+  verify-windows:
+    name: Verify Windows x64
+    needs: [build, build-windows]
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      V: ${{ needs.build.outputs.version }}
+    steps:
+      - name: Download verification inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: verify-win-x64
+          path: verify
+
+      - name: Download Windows release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-assets-windows
+          path: release-windows
+
+      - name: Verify packaged natives
+        run: |
+          set -euo pipefail
+          tar -C verify -xf verify/unpacked.tar
+          node verify/verify-windows-desktop-artifact.mjs \
+            --app-dir "$(cygpath -w "$PWD/verify/win-unpacked")" \
+            --arch x64 --build-version "$V" --verbose
+
+      - name: Smoke-test CLI archive
+        run: node verify/smoke-cli-archive.mjs --archive "release-windows/t3-$V-win32-x64.zip" --expect-version "$V"
+
+      # cargo-xwin links this binary on Linux, and nothing else runs it before users do.
+      - name: Smoke-test resource monitor
+        env:
+          MONITOR: verify/win-unpacked/resources/resource-monitor/t3-resource-monitor.exe
+        run: |
+          node --input-type=module <<'EOF'
+          import { spawn } from "node:child_process";
+          const monitor = spawn(process.env.MONITOR, { stdio: ["pipe", "pipe", "inherit"] });
+          monitor.stdout.setEncoding("utf8");
+          let output = "";
+          const exited = new Promise((resolve) => monitor.on("close", resolve));
+          const hello = await new Promise((resolve, reject) => {
+            monitor.on("error", reject);
+            monitor.on("close", () => reject(new Error(`Resource monitor exited before hello: ${output}`)));
+            monitor.stdout.on("data", (chunk) => {
+              output += chunk;
+              const end = output.indexOf("\n");
+              if (end !== -1) resolve(JSON.parse(output.slice(0, end)));
+            });
+          });
+          if (hello.type !== "hello" || hello.arch !== "x86_64") {
+            throw new Error(`Unexpected hello: ${JSON.stringify(hello)}`);
+          }
+          const send = (message) => monitor.stdin.write(`${JSON.stringify({ version: hello.version, ...message })}\n`);
+          send({ type: "configure", rootPid: process.pid, sampleIntervalMs: 1000 });
+          send({ type: "sampleNow", requestId: "verify" });
+          monitor.stdin.end();
+          const exitCode = await exited;
+          const sample = output
+            .split("\n")
+            .filter((line) => line.trim())
+            .map((line) => JSON.parse(line))
+            .find((message) => message.requestId === "verify");
+          if (exitCode !== 0 || sample?.type !== "snapshot" || !sample.processes.some((p) => p.pid === process.pid)) {
+            throw new Error(`Resource monitor exited ${exitCode} with: ${output}`);
+          }
+          console.log(`ok: the resource monitor sampled ${sample.scannedProcessCount} processes`);
+          EOF
+
+      - name: Check version resources and signatures
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Get-Item "release-windows/T3-Code-$env:V-x64.exe"
+          $apps = @(Get-ChildItem verify/win-unpacked -Filter *.exe -File)
+          if ($apps.Count -ne 1) { Write-Host "::error::Expected one exe at the top of the unpacked app, found: $($apps.Name -join ', ')"; exit 1 }
+          Expand-Archive "release-windows/t3-$env:V-win32-x64.zip" -DestinationPath "$env:RUNNER_TEMP/cli"
+          $t3 = Get-Item "$env:RUNNER_TEMP/cli/t3-$env:V-win32-x64/t3.exe"
+          foreach ($file in @($installer) + $apps) {
+            $version = $file.VersionInfo.ProductVersion
+            if (-not $version -or -not $version.StartsWith($env:V)) { Write-Host "::error::$($file.Name) has product version '$version', not $env:V"; exit 1 }
+            Write-Host "ok: $($file.Name) product version $version"
+          }
+          # t3.exe carries Node's own version resource, so only its signature state is checked.
+          foreach ($file in @($installer) + $apps + @($t3)) {
+            $status = (Get-AuthenticodeSignature $file.FullName).Status
+            if ($status -ne 'NotSigned') { Write-Host "::error::$($file.Name) signature status is $status, not NotSigned"; exit 1 }
+            Write-Host "ok: $($file.Name) is not signed, as this build intends"
+          }
+
+  # One SHA256SUMS over every binary of the release, from the bytes that get published.
+  assemble:
+    name: Assemble release assets
+    needs: [build, build-windows, verify-windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      V: ${{ needs.build.outputs.version }}
+    steps:
+      - name: Download Linux release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-assets-linux
+          path: release-publish
+
+      - name: Download Windows release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-assets-windows
+          path: release-publish
+
+      - name: Write and check SHA256SUMS
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+          cd release-publish
+          sha256sum -c SHA256SUMS
+          echo "ok: the Linux job's SHA256SUMS still matches its files"
+          binaries=("t3-$V-linux-x64.tar.gz" "T3-Code-$V-amd64.deb" "t3-$V-win32-x64.zip" "T3-Code-$V-x64.exe")
+          sha256sum "${binaries[@]}" > SHA256SUMS
+          cat SHA256SUMS
+          sha256sum -c SHA256SUMS
+          [[ "$(awk '{print $2}' SHA256SUMS | LC_ALL=C sort | tr '\n' ' ')" == "$(printf '%s\n' "${binaries[@]}" | LC_ALL=C sort | tr '\n' ' ')" ]] || fail "SHA256SUMS lists other files"
+          echo "ok: SHA256SUMS passes and lists exactly the two archives, the deb and the installer"
+          expected="$(printf '%s\n' "${binaries[@]}" "T3-Code-$V-x64.exe.blockmap" latest-linux.yml latest.yml SHA256SUMS | LC_ALL=C sort | tr '\n' ' ')"
+          [[ "$(ls -1 | LC_ALL=C sort | tr '\n' ' ')" == "$expected" ]] || fail "the release would hold: $(ls -1 | tr '\n' ' ')"
+          echo "ok: the release holds exactly the eight files"
+          ls -l
+
       - name: Upload release assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -325,7 +725,7 @@ jobs:
 
   publish:
     name: Publish release
-    needs: build
+    needs: [build, assemble]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -408,6 +808,7 @@ jobs:
           cat "$RUNNER_TEMP/notes.md"
           gh release create "v$V" --verify-tag --draft \
             --title "T3 Code $V (fork build, $GITHUB_REPOSITORY)" --notes-file "$RUNNER_TEMP/notes.md" \
-            "T3-Code-$V-amd64.deb" latest-linux.yml "t3-$V-linux-x64.tar.gz" SHA256SUMS
+            "T3-Code-$V-amd64.deb" latest-linux.yml "t3-$V-linux-x64.tar.gz" \
+            "T3-Code-$V-x64.exe" "T3-Code-$V-x64.exe.blockmap" latest.yml "t3-$V-win32-x64.zip" SHA256SUMS
           gh release edit "v$V" --draft=false --latest
           echo "ok: published v$V"
