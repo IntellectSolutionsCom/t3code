@@ -164,13 +164,13 @@ describe("DesktopAppIdentity", () => {
     ),
   );
 
-  it.effect("keeps using the legacy development profile", () =>
+  it.effect("keeps its development profile apart from upstream's legacy one", () =>
     withIdentity(
       Effect.gen(function* () {
         const identity = yield* DesktopAppIdentity.DesktopAppIdentity;
         assert.equal(
           yield* identity.resolveUserDataPath,
-          "/Users/alice/Library/Application Support/T3 Code (Dev)",
+          `/Users/alice/Library/Application Support/${EDITION_PACKAGE_NAME}-dev`,
         );
       }),
       {
