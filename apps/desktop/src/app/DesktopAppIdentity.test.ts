@@ -14,6 +14,7 @@ import * as DesktopAppIdentity from "./DesktopAppIdentity.ts";
 import * as DesktopAssets from "./DesktopAssets.ts";
 import * as DesktopConfig from "./DesktopConfig.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
+import { EDITION_APP_BASE_NAME, EDITION_PACKAGE_NAME } from "@t3tools/shared/edition";
 
 const defaultEnvironmentInput = {
   dirname: "/repo/apps/desktop/dist-electron",
@@ -154,7 +155,10 @@ describe("DesktopAppIdentity", () => {
         const identity = yield* DesktopAppIdentity.DesktopAppIdentity;
         const userDataPath = yield* identity.resolveUserDataPath;
 
-        assert.equal(userDataPath, "/Users/alice/Library/Application Support/t3code-v2");
+        assert.equal(
+          userDataPath,
+          `/Users/alice/Library/Application Support/${EDITION_PACKAGE_NAME}`,
+        );
       }),
       { legacyPathExists: true },
     ),
@@ -200,9 +204,12 @@ describe("DesktopAppIdentity", () => {
 
         const runtimeName = calls.setName[0];
         assert.isDefined(runtimeName);
-        assert.equal(runtimeName, `T3 Code ${stage}`);
+        assert.equal(runtimeName, `${EDITION_APP_BASE_NAME} ${stage}`);
         assert.match(runtimeName.replaceAll(" ", ""), /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/);
-        assert.equal(calls.setAboutPanelOptions[0]?.applicationName, `T3 Code (${stage})`);
+        assert.equal(
+          calls.setAboutPanelOptions[0]?.applicationName,
+          `${EDITION_APP_BASE_NAME} (${stage})`,
+        );
       }),
       { calls, environment },
     );

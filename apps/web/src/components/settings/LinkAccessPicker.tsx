@@ -1,5 +1,5 @@
 import { AuthMcpClientAccess } from "@t3tools/contracts";
-import { EDITION_NAME } from "@t3tools/shared/edition";
+import { EDITION_APP_BASE_NAME, EDITION_NAME } from "@t3tools/shared/edition";
 import { T, useMessages } from "gt-react";
 import { useId } from "react";
 
@@ -63,9 +63,11 @@ export function LinkAccessPicker({
           change only threads this link started, not that machine's own threads, projects or
           settings.
         </T>
-        {" If that machine runs T3 Code "}{EDITION_NAME}
+        {" If that machine runs "}
+        {EDITION_APP_BASE_NAME}
         {", it can still let agents here send messages to any of its threads, under Settings → "}
-        {EDITION_NAME}{" there."}
+        {EDITION_NAME}
+        {" there."}
       </p>
     </div>
   );
