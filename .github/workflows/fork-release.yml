@@ -160,7 +160,7 @@ jobs:
           {
             echo
             echo "## Full changelog"
-            echo "A fork build of T3 Code from $GITHUB_REPOSITORY. It is not an official T3 Code release."
+            echo "T3 Crew, an edition of T3 Code built from $GITHUB_REPOSITORY. It is not an official T3 Code release."
             echo
             echo "- Upstream base: $base"
             echo "- Commit: $GITHUB_SHA"
@@ -800,14 +800,14 @@ jobs:
           {
             echo
             echo "## Full changelog"
-            echo "A fork build of T3 Code from $GITHUB_REPOSITORY. It is not an official T3 Code release."
+            echo "T3 Crew, an edition of T3 Code built from $GITHUB_REPOSITORY. It is not an official T3 Code release."
             echo
             echo "- Upstream base: $base"
             echo "- Commit: $GITHUB_SHA"
           } >> "$RUNNER_TEMP/notes.md"
           cat "$RUNNER_TEMP/notes.md"
           gh release create "v$V" --verify-tag --draft \
-            --title "T3 Code $V (fork build, $GITHUB_REPOSITORY)" --notes-file "$RUNNER_TEMP/notes.md" \
+            --title "T3 Crew $V (an edition of T3 Code, $GITHUB_REPOSITORY)" --notes-file "$RUNNER_TEMP/notes.md" \
             "T3-Crew-$V-amd64.deb" latest-linux.yml "t3-$V-linux-x64.tar.gz" \
             "T3-Crew-$V-x64.exe" "T3-Crew-$V-x64.exe.blockmap" latest.yml "t3-$V-win32-x64.zip" SHA256SUMS
           gh release edit "v$V" --draft=false --latest
