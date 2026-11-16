@@ -47,7 +47,7 @@ import * as DesktopClerk from "./DesktopClerk.ts";
 import * as DesktopWebLinks from "./DesktopWebLinks.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 import * as DesktopPreReadyFileSystem from "./DesktopPreReadyFileSystem.ts";
-import { EDITION_PACKAGE_NAME } from "@t3tools/shared/edition";
+import { EDITION_DESKTOP_SECRETS_DIR_NAME, EDITION_PACKAGE_NAME } from "@t3tools/shared/edition";
 
 const ignoreWebLinks = DesktopWebLinks.DesktopWebLinks.of({
   receive: () => Effect.void,
@@ -175,7 +175,15 @@ describe("DesktopClerk", () => {
         "createClerkBridge",
       ]);
       assert.deepEqual(storageMock.mock.calls, [
-        [{ path: NodePath.join(NodePath.resolve(clerkStateDir), "clerk") }],
+        [
+          {
+            path: NodePath.join(
+              NodePath.resolve(clerkStateDir),
+              EDITION_DESKTOP_SECRETS_DIR_NAME,
+              "clerk",
+            ),
+          },
+        ],
       ]);
       assert.notStrictEqual(createClerkBridgeMock.mock.calls[0]?.[0]?.storage, storageAdapter);
     },

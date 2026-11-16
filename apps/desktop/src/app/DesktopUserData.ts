@@ -42,8 +42,7 @@ export const resolveUserDataPath = Effect.fn("desktop.userData.resolveUserDataPa
     const path = yield* Path.Path;
     const names = input.isDevelopment
       ? { current: `${EDITION_PACKAGE_NAME}-dev`, legacy: "T3 Code (Dev)" }
-      : // Upstream's folder: copying its Local State shares the Windows safeStorage key.
-        { current: EDITION_PACKAGE_NAME, legacy: "t3code-v2" };
+      : { current: EDITION_PACKAGE_NAME, legacy: "T3 Code (Alpha)" };
     const destinationPath = path.join(input.appDataDirectory, names.current);
     const legacyPath = path.join(input.appDataDirectory, names.legacy);
     const inspect = (resourcePath: string) =>
