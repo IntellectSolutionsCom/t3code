@@ -41,7 +41,8 @@ export const resolveUserDataPath = Effect.fn("desktop.userData.resolveUserDataPa
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const names = input.isDevelopment
-      ? { current: `${EDITION_PACKAGE_NAME}-dev`, legacy: "T3 Code (Dev)" }
+      ? // No legacy folder: upstream's dev build owns "T3 Code (Dev)".
+        { current: `${EDITION_PACKAGE_NAME}-dev`, legacy: `${EDITION_PACKAGE_NAME}-dev` }
       : { current: EDITION_PACKAGE_NAME, legacy: "T3 Code (Alpha)" };
     const destinationPath = path.join(input.appDataDirectory, names.current);
     const legacyPath = path.join(input.appDataDirectory, names.legacy);
