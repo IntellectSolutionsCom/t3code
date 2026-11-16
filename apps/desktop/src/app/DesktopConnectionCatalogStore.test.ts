@@ -12,6 +12,8 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 
+import { EDITION_DESKTOP_SECRETS_DIR_NAME } from "@t3tools/shared/edition";
+
 import * as ElectronSafeStorage from "../electron/ElectronSafeStorage.ts";
 import * as DesktopSavedEnvironments from "../settings/DesktopSavedEnvironments.ts";
 import * as DesktopConfig from "./DesktopConfig.ts";
@@ -114,6 +116,37 @@ describe("DesktopConnectionCatalogStore", () => {
     ),
   );
 
+  // Upstream's app keeps these under its own key in the same state dir.
+  it.effect("neither reads nor overwrites upstream's catalog and saved environments", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const fileSystem = yield* FileSystem.FileSystem;
+      const baseDir = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "t3-desktop-connection-catalog-test-",
+      });
+      const upstreamFiles = {
+        "connection-catalog.json": '{"version":1,"encryptedCatalog":"dXBzdHJlYW0="}\n',
+        "saved-environments.json": '{"version":1,"records":[{"environmentId":"upstream"}]}\n',
+      };
+      yield* fileSystem.makeDirectory(path.join(baseDir, "userdata"), { recursive: true });
+      for (const [name, contents] of Object.entries(upstreamFiles)) {
+        yield* fileSystem.writeFileString(path.join(baseDir, "userdata", name), contents);
+      }
+      const store = yield* DesktopConnectionCatalogStore.DesktopConnectionCatalogStore.pipe(
+        Effect.provide(layerFor(baseDir)),
+      );
+
+      assert.deepStrictEqual(yield* store.get, Option.none());
+      assert.isTrue(yield* store.set('{"schemaVersion":1,"targets":[]}'));
+      for (const [name, contents] of Object.entries(upstreamFiles)) {
+        assert.equal(
+          yield* fileSystem.readFileString(path.join(baseDir, "userdata", name)),
+          contents,
+        );
+      }
+    }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+  );
+
   it.effect("does not persist when secure storage is unavailable", () =>
     withStore(
       Effect.gen(function* () {
@@ -164,7 +197,12 @@ describe("DesktopConnectionCatalogStore", () => {
             lastConnectedAt: null,
           },
         ];
-        yield* fileSystem.makeDirectory(environment.stateDir, { recursive: true });
+        yield* fileSystem.makeDirectory(
+          `${environment.stateDir}/${EDITION_DESKTOP_SECRETS_DIR_NAME}`,
+          {
+            recursive: true,
+          },
+        );
         yield* fileSystem.writeFileString(
           environment.savedEnvironmentRegistryPath,
           yield* encodeLegacySavedEnvironments({
@@ -249,8 +287,17 @@ describe("DesktopConnectionCatalogStore", () => {
         const environment = yield* DesktopEnvironment.DesktopEnvironment;
         const fileSystem = yield* FileSystem.FileSystem;
         const store = yield* DesktopConnectionCatalogStore.DesktopConnectionCatalogStore;
-        const catalogPath = path.join(environment.stateDir, "connection-catalog.json");
-        yield* fileSystem.makeDirectory(environment.stateDir, { recursive: true });
+        const catalogPath = path.join(
+          environment.stateDir,
+          EDITION_DESKTOP_SECRETS_DIR_NAME,
+          "connection-catalog.json",
+        );
+        yield* fileSystem.makeDirectory(
+          path.join(environment.stateDir, EDITION_DESKTOP_SECRETS_DIR_NAME),
+          {
+            recursive: true,
+          },
+        );
         yield* fileSystem.writeFileString(catalogPath, "{not-json");
 
         const error = yield* store.get.pipe(Effect.flip);
@@ -286,14 +333,17 @@ describe("DesktopConnectionCatalogStore", () => {
         DesktopConnectionCatalogStore.DesktopConnectionCatalogStoreProtectionError,
       );
       assert.equal(error.operation, "decrypt-catalog");
-      assert.equal(error.catalogPath, path.join(baseDir, "userdata", "connection-catalog.json"));
+      assert.equal(
+        error.catalogPath,
+        path.join(baseDir, "userdata", EDITION_DESKTOP_SECRETS_DIR_NAME, "connection-catalog.json"),
+      );
       assert.instanceOf(error.cause, ElectronSafeStorage.ElectronSafeStorageDecryptError);
       const decryptError = error.cause as ElectronSafeStorage.ElectronSafeStorageDecryptError;
       assert.instanceOf(decryptError.cause, Error);
       assert.equal(decryptError.cause.message, "invalid encrypted catalog");
       assert.equal(
         error.message,
-        `Desktop connection catalog protection failed during decrypt-catalog at ${path.join(baseDir, "userdata", "connection-catalog.json")}.`,
+        `Desktop connection catalog protection failed during decrypt-catalog at ${path.join(baseDir, "userdata", EDITION_DESKTOP_SECRETS_DIR_NAME, "connection-catalog.json")}.`,
       );
       assert.notEqual(error.message, decryptError.message);
       yield* Ref.set(failDecrypt, false);
@@ -322,7 +372,8 @@ describe("DesktopConnectionCatalogStore", () => {
         const environment = yield* DesktopEnvironment.DesktopEnvironment;
         const fileSystem = yield* FileSystem.FileSystem;
         const store = yield* DesktopConnectionCatalogStore.DesktopConnectionCatalogStore;
-        const catalogPath = path.join(environment.stateDir, "connection-catalog.json");
+        const catalogDir = path.join(environment.stateDir, EDITION_DESKTOP_SECRETS_DIR_NAME);
+        const catalogPath = path.join(catalogDir, "connection-catalog.json");
         assert.isTrue(
           yield* store.set(
             '{"schemaVersion":1,"targets":[{"_tag":"FutureConnectionTarget","environmentId":"remote"}],"profiles":[],"credentials":[],"remoteDpopTokens":[],"disabledEnvironmentIds":[]}',
@@ -333,7 +384,7 @@ describe("DesktopConnectionCatalogStore", () => {
         yield* store.get;
         assert.isTrue(yield* store.set(emptyCatalog));
 
-        assert.isNotEmpty(yield* savedFilesHolding(environment.stateDir, original));
+        assert.isNotEmpty(yield* savedFilesHolding(catalogDir, original));
       }),
     ),
   );
@@ -349,17 +400,17 @@ describe("DesktopConnectionCatalogStore", () => {
       const store = yield* DesktopConnectionCatalogStore.DesktopConnectionCatalogStore.pipe(
         Effect.provide(layerFor(baseDir, true, failDecrypt)),
       );
-      const stateDir = path.join(baseDir, "userdata");
+      const catalogDir = path.join(baseDir, "userdata", EDITION_DESKTOP_SECRETS_DIR_NAME);
       assert.isTrue(yield* store.set('{"schemaVersion":1,"targets":[]}'));
       const original = yield* fileSystem.readFileString(
-        path.join(stateDir, "connection-catalog.json"),
+        path.join(catalogDir, "connection-catalog.json"),
       );
 
       yield* Ref.set(failDecrypt, true);
       yield* store.get.pipe(Effect.flip);
       assert.isTrue(yield* store.set(emptyCatalog));
 
-      assert.isNotEmpty(yield* savedFilesHolding(stateDir, original));
+      assert.isNotEmpty(yield* savedFilesHolding(catalogDir, original));
     }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
   );
 });
