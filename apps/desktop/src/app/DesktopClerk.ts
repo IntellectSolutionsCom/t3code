@@ -10,6 +10,7 @@ import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 
 import { codexAuthDeliveryUrl, readCodexAuthHandoff } from "@t3tools/shared/codexAuthHandoff";
+import { EDITION_DESKTOP_SECRETS_DIR_NAME } from "@t3tools/shared/edition";
 import { receiveCodexAuthCallback, CodexAuthCallbackError } from "./CodexAuthCallback.ts";
 import * as ElectronShell from "../electron/ElectronShell.ts";
 import { providerAuthReturnUrl } from "@t3tools/shared/providerAuthReturnUrl";
@@ -142,7 +143,7 @@ export const make = Effect.gen(function* () {
     Effect.try({
       try: () =>
         createDesktopClerkBridge(
-          path.resolve(environment.stateDir, "clerk"),
+          path.resolve(environment.stateDir, EDITION_DESKTOP_SECRETS_DIR_NAME, "clerk"),
           environment.isDevelopment,
         ),
       catch: (cause) =>

@@ -17,7 +17,11 @@ import { resolveLinuxDesktopEntryName } from "./DesktopEarlyElectronStartup.ts";
 import { resolveDesktopBaseDir, resolveDesktopStateDir } from "./DesktopStatePaths.ts";
 import { isNightlyDesktopVersion } from "../updates/updateChannels.ts";
 import type { OtlpProtocol } from "@t3tools/shared/observability";
-import { EDITION_APP_BASE_NAME, EDITION_APP_ID } from "@t3tools/shared/edition";
+import {
+  EDITION_APP_BASE_NAME,
+  EDITION_APP_ID,
+  EDITION_DESKTOP_SECRETS_DIR_NAME,
+} from "@t3tools/shared/edition";
 
 export interface MakeDesktopEnvironmentInput {
   readonly dirname: string;
@@ -201,7 +205,11 @@ const make = Effect.fn("desktop.environment.make")(function* (
     stateDir,
     desktopSettingsPath: path.join(stateDir, "desktop-settings.json"),
     clientSettingsPath: path.join(stateDir, "client-settings.json"),
-    savedEnvironmentRegistryPath: path.join(stateDir, "saved-environments.json"),
+    savedEnvironmentRegistryPath: path.join(
+      stateDir,
+      EDITION_DESKTOP_SECRETS_DIR_NAME,
+      "saved-environments.json",
+    ),
     serverSettingsPath: path.join(stateDir, "settings.json"),
     logDir: path.join(stateDir, "logs"),
     browserArtifactsDir: path.join(stateDir, "browser-artifacts"),

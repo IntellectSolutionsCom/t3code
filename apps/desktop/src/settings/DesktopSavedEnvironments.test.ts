@@ -12,6 +12,7 @@ import * as DesktopConfig from "../app/DesktopConfig.ts";
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as ElectronSafeStorage from "../electron/ElectronSafeStorage.ts";
 import * as DesktopSavedEnvironments from "./DesktopSavedEnvironments.ts";
+import { EDITION_DESKTOP_SECRETS_DIR_NAME } from "@t3tools/shared/edition";
 
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
@@ -45,7 +46,9 @@ const encodeSavedEnvironmentRegistryDocumentProbe = Schema.encodeEffect(
 const seedSavedEnvironmentRegistry = Effect.fn(function* (encryptedBearerToken?: string) {
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
   const fileSystem = yield* FileSystem.FileSystem;
-  yield* fileSystem.makeDirectory(environment.stateDir, { recursive: true });
+  yield* fileSystem.makeDirectory(`${environment.stateDir}/${EDITION_DESKTOP_SECRETS_DIR_NAME}`, {
+    recursive: true,
+  });
   const encoded = yield* encodeSavedEnvironmentRegistryDocumentProbe({
     version: 1,
     records: [
@@ -159,7 +162,12 @@ describe("DesktopSavedEnvironments", () => {
         const environment = yield* DesktopEnvironment.DesktopEnvironment;
         const fileSystem = yield* FileSystem.FileSystem;
         const savedEnvironments = yield* DesktopSavedEnvironments.DesktopSavedEnvironments;
-        yield* fileSystem.makeDirectory(environment.stateDir, { recursive: true });
+        yield* fileSystem.makeDirectory(
+          `${environment.stateDir}/${EDITION_DESKTOP_SECRETS_DIR_NAME}`,
+          {
+            recursive: true,
+          },
+        );
         yield* fileSystem.writeFileString(
           environment.savedEnvironmentRegistryPath,
           `{

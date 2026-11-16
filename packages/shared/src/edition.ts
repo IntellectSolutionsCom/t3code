@@ -12,3 +12,6 @@ export const EDITION_PACKAGE_NAME = "t3-crew";
 // Desktop ids and window classes follow D-Bus naming, which has no hyphen.
 export const EDITION_LINUX_DESKTOP_ID = "com.intellect_solutions.Crew";
 export const EDITION_ARTIFACT_NAME_STEM = "T3-Crew";
+// The desktop's app-key-encrypted files go in this folder of the shared state dir, so the
+// edition and upstream's app never read or overwrite each other's.
+export const EDITION_DESKTOP_SECRETS_DIR_NAME = "t3-crew";
