@@ -139,16 +139,14 @@ export const make = Effect.gen(function* () {
     if (handleOpenUrl(url)) event.preventDefault();
   });
 
+  const clerkStateDir = path.join(environment.stateDir, EDITION_DESKTOP_SECRETS_DIR_NAME);
   yield* Effect.acquireRelease(
     Effect.try({
       try: () =>
-        createDesktopClerkBridge(
-          path.resolve(environment.stateDir, EDITION_DESKTOP_SECRETS_DIR_NAME, "clerk"),
-          environment.isDevelopment,
-        ),
+        createDesktopClerkBridge(path.resolve(clerkStateDir, "clerk"), environment.isDevelopment),
       catch: (cause) =>
         new DesktopClerkBridgeInitializationError({
-          stateDir: environment.stateDir,
+          stateDir: clerkStateDir,
           isDevelopment: environment.isDevelopment,
           cause,
         }),
@@ -158,7 +156,7 @@ export const make = Effect.gen(function* () {
         try: () => bridge.cleanup(),
         catch: (cause) =>
           new DesktopClerkBridgeCleanupError({
-            stateDir: environment.stateDir,
+            stateDir: clerkStateDir,
             isDevelopment: environment.isDevelopment,
             cause,
           }),
