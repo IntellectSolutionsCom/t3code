@@ -1,12 +1,17 @@
 // @effect-diagnostics nodeBuiltinImport:off - greps the tracked source with git.
 import * as NodeChildProcess from "node:child_process";
 
-import { EDITION_NAME } from "@t3tools/shared/edition";
+import { EDITION_LINUX_DESKTOP_ID, EDITION_NAME } from "@t3tools/shared/edition";
 import { describe, expect, it } from "vite-plus/test";
 
 import { EDITION_NAME_ALLOWED_WORDS } from "./editionNameAllowList";
 
-const OWN_FILES = ["packages/shared/src/edition.ts", "apps/web/src/editionNameAllowList.ts"];
+const OWN_FILES = [
+  "packages/shared/src/edition.ts",
+  "apps/web/src/editionNameAllowList.ts",
+  // The edition's AppStream file carries its id and name as data, not through code.
+  `apps/desktop/resources/linux/${EDITION_LINUX_DESKTOP_ID}.metainfo.xml`,
+];
 
 function trackedLinesNaming(name: string): ReadonlyArray<string> {
   const root = NodeChildProcess.execFileSync("git", ["rev-parse", "--show-toplevel"], {
