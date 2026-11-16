@@ -9,7 +9,11 @@ import * as Sink from "effect/Sink";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { awaitCliNotarization, signMacArchiveContents } from "./build-cli-archive.ts";
+import {
+  awaitCliNotarization,
+  signMacArchiveContents,
+  signWindowsExecutable,
+} from "./build-cli-archive.ts";
 
 const signedEnv = {
   T3CODE_CLI_MAC_SIGN_IDENTITY: "Developer ID Application: Test (TEAM)",
@@ -211,6 +215,43 @@ it.layer(NodeServices.layer)("build-cli-archive notarization", (it) => {
       ).pipe(Effect.flip);
       assert.equal(error._tag, "CliArchiveNotarizationRejectedError");
       assert.isTrue(notarySubcommands(stub.calls)[0]?.includes("--wait"));
+    }).pipe(Effect.scoped),
+  );
+});
+
+/** A PE32+ header whose certificate entry points inside the file, as Node's --build-sea leaves it. */
+const staleAuthenticodePe = () => {
+  const bytes = new Uint8Array(0x400);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(0x3c, 0x80, true);
+  view.setUint32(0x80, 0x00004550, true);
+  view.setUint16(0x80 + 24, 0x20b, true);
+  const securityEntry = 0x80 + 24 + 112 + 4 * 8;
+  view.setUint32(securityEntry, 0x200, true);
+  view.setUint32(securityEntry + 4, 0x10, true);
+  return { bytes, securityEntry };
+};
+
+it.layer(NodeServices.layer)("build-cli-archive Windows signing", (it) => {
+  it.effect("clears the stale certificate entry when the build is unsigned", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-cli-win-" });
+      const executablePath = path.join(root, "t3.exe");
+      const { bytes, securityEntry } = staleAuthenticodePe();
+      yield* fs.writeFile(executablePath, bytes);
+
+      yield* withStubs(
+        signWindowsExecutable(executablePath),
+        stubSpawner(() => ({ exitCode: 0 })),
+        {},
+      );
+
+      const written = yield* fs.readFile(executablePath);
+      const view = new DataView(written.buffer, written.byteOffset, written.byteLength);
+      assert.equal(view.getUint32(securityEntry, true), 0);
+      assert.equal(view.getUint32(securityEntry + 4, true), 0);
     }).pipe(Effect.scoped),
   );
 });

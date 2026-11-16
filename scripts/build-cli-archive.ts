@@ -548,18 +548,19 @@ const stripStaleAuthenticodeEntry = Effect.fn("stripStaleAuthenticodeEntry")(fun
   );
 });
 
-const signWindowsExecutable = Effect.fn("signWindowsExecutable")(function* (
+export const signWindowsExecutable = Effect.fn("signWindowsExecutable")(function* (
   executablePath: string,
 ) {
   const signing = yield* WindowsSigningConfig;
   const endpoint = Option.getOrUndefined(signing.endpoint);
   const accountName = Option.getOrUndefined(signing.accountName);
   const profile = Option.getOrUndefined(signing.certificateProfileName);
+  // Unsigned too: Windows would read the stale entry as a broken signature.
+  yield* stripStaleAuthenticodeEntry(executablePath);
   if (!endpoint || !accountName || !profile) {
     yield* Effect.log("[cli-archive] Windows signing disabled (missing Azure Trusted Signing).");
     return;
   }
-  yield* stripStaleAuthenticodeEntry(executablePath);
   if ((yield* HostProcess.Platform) !== "win32") {
     yield* signWithJsign(executablePath);
     yield* Effect.log("[cli-archive] Signed t3.exe (Azure Trusted Signing via jsign).");
