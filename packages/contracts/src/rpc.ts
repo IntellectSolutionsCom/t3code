@@ -446,8 +446,11 @@ import {
 import { T3fThreadBadgesSetRpc, T3fThreadBadgesSubscribeRpc } from "./t3f/threadBadges.ts";
 import {
   T3fNativeSessionAdoptRpc,
+  T3fNativeSessionHandOutRpc,
   T3fNativeSessionIdentifyRpc,
   T3fNativeSessionListRpc,
+  T3fNativeSessionSubscribeOutRpc,
+  T3fNativeSessionTakeBackRpc,
 } from "./t3f/nativeSessions.ts";
 
 export const WS_METHODS = {
@@ -2322,6 +2325,9 @@ export const WsRpcGroup = RpcGroup.make(
   T3fNativeSessionIdentifyRpc,
   T3fNativeSessionListRpc,
   T3fNativeSessionAdoptRpc,
+  T3fNativeSessionHandOutRpc,
+  T3fNativeSessionTakeBackRpc,
+  T3fNativeSessionSubscribeOutRpc,
   WsServerDiscoverSourceControlRpc,
   WsServerCheckSecretSourceRpc,
   WsServerSearchAcpRegistryRpc,

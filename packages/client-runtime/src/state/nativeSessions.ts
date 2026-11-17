@@ -1,10 +1,14 @@
 import {
+  handOutRefusal,
+  PROVIDER_DISPLAY_NAMES,
   T3F_NATIVE_SESSION_WS_METHODS,
   type OrchestrationV2ProviderThread,
   type ProjectId,
+  type ProviderDriverKind,
   type ProviderThreadId,
   type T3fNativeSession,
   type T3fNativeSessionIdentifyResult,
+  type T3fNativeSessionOutThread,
   type ThreadId,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
@@ -12,7 +16,13 @@ import type { Atom } from "effect/reactivity";
 
 import type { EnvironmentRegistry } from "../connection/registry.ts";
 import { request } from "../rpc/client.ts";
-import { createEnvironmentQueryAtomFamily, createEnvironmentRpcCommand } from "./runtime.ts";
+import type { ThreadStructure } from "./models.ts";
+import {
+  type AtomCommandResult,
+  createEnvironmentQueryAtomFamily,
+  createEnvironmentRpcCommand,
+  createEnvironmentRpcSubscriptionAtomFamily,
+} from "./runtime.ts";
 
 export type NativeSessionIdentify =
   | ({ readonly supported: true } & T3fNativeSessionIdentifyResult)
@@ -67,6 +77,73 @@ export const nativeSessionRow = (input: {
     : { nativeId: input.fallbackNativeId, name: null, command: null, commandNote: null };
 };
 
+export const outThread = (
+  threads: ReadonlyArray<T3fNativeSessionOutThread> | null | undefined,
+  threadId: ThreadId,
+): T3fNativeSessionOutThread | null =>
+  threads?.find((thread) => thread.threadId === threadId) ?? null;
+
+/** Why the thread cannot be handed out now, as far as the client's projection shows. */
+export const handOutBlocker = (
+  projection: Pick<ThreadStructure, "thread" | "runs" | "providerThreads"> | null,
+): string | null =>
+  projection === null
+    ? null
+    : (handOutRefusal(projection.thread.id, projection.runs, projection.providerThreads) ?? null);
+
+/** A refused hand-out leaves its command on the clipboard, and T3 Code still holds the session. */
+export const handOutRefusedDescription = (reason: string) =>
+  `${reason} Don't run the copied command until the thread is handed out.`;
+
+export const nativeClientName = (driver: ProviderDriverKind) =>
+  `${PROVIDER_DISPLAY_NAMES[driver] ?? driver}'s client`;
+
+export interface TakeBackConfirmation {
+  readonly title: string;
+  readonly description: string;
+  readonly confirmLabel: string;
+}
+
+/**
+ * Codex refuses a second writer on its session, so taking one back while its client is still
+ * open fails safely. Other providers would let both write, so the person closes it first.
+ */
+const takeBackConfirmation = (driver: ProviderDriverKind): TakeBackConfirmation | null =>
+  driver === "codex"
+    ? null
+    : {
+        title: "Take the session back?",
+        description: `Close it in ${nativeClientName(driver)} first. T3 Code and the terminal would both write to the same session.`,
+        confirmLabel: "Take back",
+      };
+
+export interface TakeBackInput {
+  readonly out: T3fNativeSessionOutThread;
+  readonly confirm: (confirmation: TakeBackConfirmation) => Promise<boolean>;
+  readonly takeBack: () => Promise<AtomCommandResult<unknown, unknown>>;
+  /** The session may have been renamed in its own client while it was out. */
+  readonly refreshSession: () => void;
+}
+
+/** Resolves true once the thread is back, false when the person cancels or the server refuses. */
+export async function takeBackThread(input: TakeBackInput): Promise<boolean> {
+  const confirmation = takeBackConfirmation(input.out.driver);
+  if (confirmation !== null && !(await input.confirm(confirmation))) return false;
+  if ((await input.takeBack())._tag !== "Success") return false;
+  input.refreshSession();
+  return true;
+}
+
+/**
+ * The one way a client sends to a thread that is out. The server refuses that send, so the
+ * thread is taken back first and the message follows; nothing is queued behind the mark.
+ */
+export async function takeBackAndSend<A>(
+  input: TakeBackInput & { readonly send: () => Promise<A> },
+): Promise<A | undefined> {
+  return (await takeBackThread(input)) ? input.send() : undefined;
+}
+
 export function createNativeSessionAtoms<R, E>(
   runtime: Atom.AtomRuntime<EnvironmentRegistry | R, E>,
 ) {
@@ -85,6 +162,27 @@ export function createNativeSessionAtoms<R, E>(
       idleTtlMs: 0,
       execute: (input: { readonly projectId: ProjectId }) =>
         request(T3F_NATIVE_SESSION_WS_METHODS.list, input),
+    }),
+    /** Only for servers whose capabilities say they can hand a thread out. */
+    out: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
+      label: "environment-data:t3f:native-sessions:out",
+      tag: T3F_NATIVE_SESSION_WS_METHODS.subscribeOut,
+    }),
+    handOut: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:t3f:native-sessions:hand-out",
+      tag: T3F_NATIVE_SESSION_WS_METHODS.handOut,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) => `${environmentId}:${input.threadId}`,
+      },
+    }),
+    takeBack: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:t3f:native-sessions:take-back",
+      tag: T3F_NATIVE_SESSION_WS_METHODS.takeBack,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) => `${environmentId}:${input.threadId}`,
+      },
     }),
     adopt: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:t3f:native-sessions:adopt",

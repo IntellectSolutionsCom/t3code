@@ -92,6 +92,8 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [T3F_WS_METHODS.linkMessageGrantsSet]: AuthAccessWriteScope,
   [T3F_WS_METHODS.threadBadgesSet]: AuthOrchestrationOperateScope,
   [T3F_NATIVE_SESSION_WS_METHODS.adopt]: AuthOrchestrationOperateScope,
+  [T3F_NATIVE_SESSION_WS_METHODS.handOut]: AuthOrchestrationOperateScope,
+  [T3F_NATIVE_SESSION_WS_METHODS.takeBack]: AuthOrchestrationOperateScope,
 } as const;
 export type ClientGuardedRpcTag = keyof typeof CLIENT_GUARDED_RPC_SCOPES;
 

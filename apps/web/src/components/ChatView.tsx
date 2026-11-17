@@ -268,6 +268,7 @@ import { collectInlineContextIds } from "../lib/composerContextReferences";
 import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
 import { useKnownTerminalSessions, useThreadRunningTerminalIds } from "../state/terminalSessions";
 import { useEnvironmentQueryRefresh } from "../state/query";
+import { useSendTakingBack } from "../state/nativeSessions";
 import { useEnvironmentScope } from "~/state/session";
 import { primaryServerKeybindingsAtom, serverEnvironment } from "../state/server";
 import { hostEnvironmentIdAtom } from "../state/primaryEnvironment";
@@ -353,6 +354,7 @@ import { useProactivePanels } from "../hooks/useProactivePanels";
 import { useIncrementalTimelineEntries } from "../hooks/useIncrementalTimelineEntries";
 import { useRightPanelSurfaceClose } from "../hooks/useRightPanelSurfaceClose";
 import { ComposerBannerStack, type ComposerBannerStackItem } from "./chat/ComposerBannerStack";
+import { useNativeSessionOutBanner } from "./chat/useNativeSessionOutBanner";
 import { modelFallbackBannerItem } from "./chat/ComposerUsageLimits";
 import { ComposerSurface } from "./chat/ComposerSurface";
 import { resolveThreadSyncPhase } from "../threadSync";
@@ -1386,6 +1388,7 @@ export default function ChatView(props: ChatViewProps) {
         return environment ? [environment] : [];
       })
     : EMPTY_AUTO_UPDATE_ENVIRONMENTS;
+  const nativeSessionOutBannerItems = useNativeSessionOutBanner(activeThreadRef);
   const systemComposerBannerItems = useSystemComposerBanners({
     activeEnvironment,
     activeEnvironmentUnavailable,
@@ -2786,6 +2789,7 @@ export default function ChatView(props: ChatViewProps) {
         ...projectCloneItems,
         ...freshSessionItems,
         ...systemComposerBannerItems,
+        ...nativeSessionOutBannerItems,
       ];
     }
     return [
@@ -2797,6 +2801,7 @@ export default function ChatView(props: ChatViewProps) {
       ...projectCloneItems,
       ...freshSessionItems,
       ...systemComposerBannerItems,
+      ...nativeSessionOutBannerItems,
       branchMismatchBannerItem(
         {
           mismatchKey: activeBranchMismatchKey,
@@ -3138,12 +3143,13 @@ export default function ChatView(props: ChatViewProps) {
     });
   };
   const onWorktreeSetupWorkLocallyStable = useStableCallback(onWorktreeSetupWorkLocally);
-  const onComposerSendStable = useStableCallback(onSend);
+  const sendTakingBack = useSendTakingBack(activeThreadRef, onSend);
+  const onComposerSendStable = useStableCallback(sendTakingBack);
   const sendPreviewAnnotation = (
     annotation: PreviewAnnotationPayload,
     image: ComposerImageAttachment | null,
   ) => {
-    void onSend(undefined, "auto", "foreground", { annotation, image });
+    void sendTakingBack(undefined, "auto", "foreground", { annotation, image });
   };
   const sendPreviewAnnotationStable = useStableCallback(sendPreviewAnnotation);
   const onComposerResumeStable = useStableCallback(onResume);

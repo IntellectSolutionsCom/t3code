@@ -288,6 +288,14 @@ export function layerWithRegistry<Error>(
     readonly wrapProjectionStore?: (
       store: ProjectionStore.ProjectionStoreV2Shape,
     ) => ProjectionStore.ProjectionStoreV2Shape;
+    /** Puts a layer over the session manager that every service uses. */
+    readonly wrapProviderSessionManager?: (
+      manager: ProviderSessionManager.ProviderSessionManagerV2Shape,
+    ) => Effect.Effect<
+      ProviderSessionManager.ProviderSessionManagerV2Shape,
+      never,
+      ProjectionStore.ProjectionStoreV2
+    >;
     readonly managedPolicy?: ManagedPolicyDocument;
   } = {},
 ): Layer.Layer<
@@ -400,7 +408,7 @@ export function layerWithRegistry<Error>(
   const layerCommandOutputHubProvided = CommandOutputRecorder.layer.pipe(
     Layer.provide(Layer.merge(layerEventSinkProvided, layerStores)),
   );
-  const layerProviderSessionManagerProvided = ProviderSessionManager.layerWithOptions({
+  const layerProviderSessionManagerBase = ProviderSessionManager.layerWithOptions({
     configureMcp: false,
   }).pipe(
     Layer.provide(
@@ -417,6 +425,17 @@ export function layerWithRegistry<Error>(
       ),
     ),
   );
+  const wrapProviderSessionManager = options.wrapProviderSessionManager;
+  const layerProviderSessionManagerProvided =
+    wrapProviderSessionManager === undefined
+      ? layerProviderSessionManagerBase
+      : Layer.effect(
+          ProviderSessionManager.ProviderSessionManagerV2,
+          Effect.flatMap(
+            ProviderSessionManager.ProviderSessionManagerV2,
+            wrapProviderSessionManager,
+          ),
+        ).pipe(Layer.provide(Layer.merge(layerProviderSessionManagerBase, layerStores)));
   const layerProviderSwitchServiceProvided = ProviderSwitchService.layer.pipe(
     Layer.provide(layerProvidedRegistry),
   );
