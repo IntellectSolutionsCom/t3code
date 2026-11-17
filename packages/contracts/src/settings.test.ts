@@ -332,6 +332,14 @@ describe("ClientSettings notifications", () => {
   });
 });
 
+describe("ClientSettings Boring sidebar", () => {
+  it("is on until the user chooses, and keeps an explicit choice", () => {
+    expect(decodeClientSettings({}).boringSidebarEnabled).toBe(true);
+    expect(decodeClientSettings({ boringSidebarEnabled: false }).boringSidebarEnabled).toBe(false);
+    expect(decodeClientSettings({ boringSidebarEnabled: true }).boringSidebarEnabled).toBe(true);
+  });
+});
+
 describe("ClientSettings quit confirmation", () => {
   it.each([
     [true, "hold"],
