@@ -17,4 +17,10 @@ export const EDITION_SETTINGS_SEARCH_ITEMS = [
     desktopOnly: true,
     nonMacOnly: true,
   },
+  {
+    id: "native-session-label",
+    title: "Show the session name above the composer",
+    to: "/settings/edition",
+    searchTerms: ["native session name label composer provider client terminal resume thread"],
+  },
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;

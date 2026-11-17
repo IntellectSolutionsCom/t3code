@@ -28,6 +28,7 @@ import {
   SettingsRow,
   SettingsSection,
 } from "./settingsLayout";
+import { NativeSessionLabelSettings } from "./NativeSessionLabelSettings";
 import { settingsScopeEnvironmentLabel } from "./settingsScopeAxis";
 import { searchableSetting } from "./settingsSearch";
 import { useAccessEnvironment } from "./useAccessEnvironment";
@@ -87,6 +88,7 @@ export function EditionSettingsPanel() {
         />
       )}
       {isElectron && !isMacPlatform(navigator.platform) ? <CloseButtonSettings /> : null}
+      <NativeSessionLabelSettings />
     </SettingsPageContainer>
   );
 }
