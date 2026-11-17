@@ -93,6 +93,7 @@ import type { SidebarThreadSummary } from "../../types";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import { cn } from "~/lib/utils";
 import { textDirection } from "~/textDirection";
+import { ThreadBadgeMark, useBadgedTitle } from "~/t3f/ThreadBadgeMark";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import {
   animateSidebarLayoutChanges,
@@ -1094,7 +1095,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     ) : null;
 
   const accessibility = resolveSidebarRowAccessibility({
-    title: thread.title,
+    title: useBadgedTitle(thread),
     statusLabel: pendingSync ? gt("Pending") : (topStatus?.label ?? null),
     projectDisplayName: props.projectDisplayName,
     isActive: props.isActive,
@@ -1385,6 +1386,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                 </span>
               )}
               {draftIndicator}
+              <ThreadBadgeMark threadRef={threadRef} />
               {title}
               {multiline ? titleLineIcons : null}
               {pinIndicator}
@@ -1741,6 +1743,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               {props.sweepAction !== null ? dragDestination : null}
             </div>
             <div className="mt-1 flex min-w-0 items-center gap-1.5">
+              <ThreadBadgeMark threadRef={threadRef} />
               {title}
               {isRegeneratingTitle ? (
                 <span role="status" className="sr-only">
@@ -1800,7 +1803,7 @@ export const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props
   const thread =
     useThreadShell(scopeThreadRef(props.thread.environmentId, props.thread.id)) ?? props.thread;
   const accessibility = resolveSidebarRowAccessibility({
-    title: thread.title,
+    title: useBadgedTitle(thread),
     statusLabel: null,
     projectDisplayName: props.projectDisplayName,
     isActive: props.isRouteActive,
@@ -1931,6 +1934,7 @@ export const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props
           ) : null}
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="flex min-w-0 items-center gap-2.5">
+              <ThreadBadgeMark threadRef={threadRef} />
               <span
                 ref={isRegeneratingTitle ? observeVisibleAnimation : undefined}
                 className={cn(
