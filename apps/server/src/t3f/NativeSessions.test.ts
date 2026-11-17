@@ -15,9 +15,14 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
+import * as SqlClient from "effect/sql/SqlClient";
 
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
+import * as AgentSessionImporter from "../project/AgentSessionImporter.ts";
+import * as AgentSessionScanner from "../project/AgentSessionScanner.ts";
 import * as ProjectService from "../project/ProjectService.ts";
+import * as AcpRegistrySessions from "../provider/AcpRegistrySessions.ts";
+import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as NativeSessions from "./NativeSessions.ts";
 
@@ -59,7 +64,16 @@ const layer = (input: {
     activeProviderThreadId: input.active?.id ?? null,
     deletedAt: null,
   } as unknown as OrchestrationV2ThreadShell;
-  return NativeSessions.layer.pipe(
+  return Layer.effect(NativeSessions.NativeSessions, NativeSessions.make).pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        Layer.mock(ProviderInstanceRegistry.ProviderInstanceRegistry)({}),
+        Layer.mock(AgentSessionScanner.AgentSessionScanner)({}),
+        Layer.mock(AgentSessionImporter.AgentSessionImporter)({}),
+        Layer.mock(AcpRegistrySessions.AcpRegistrySessions)({}),
+        Layer.succeed(SqlClient.SqlClient, {} as never),
+      ),
+    ),
     Layer.provide(
       Layer.mock(ThreadManagementService.ThreadManagementService)({
         getThreadShell: (id) => Effect.succeed(id === threadId ? shell : null),

@@ -9,7 +9,7 @@ import { connectionAtomRuntime } from "../connection/runtime";
 import { useQuietThreadProjection } from "./entities";
 import { useEnvironmentQuery } from "./query";
 
-const nativeSessionEnvironment = createNativeSessionAtoms(connectionAtomRuntime);
+export const nativeSessionEnvironment = createNativeSessionAtoms(connectionAtomRuntime);
 
 /** The thread's own provider session, or null before its provider opens one. */
 export function useNativeSession(ref: ScopedThreadRef | null) {

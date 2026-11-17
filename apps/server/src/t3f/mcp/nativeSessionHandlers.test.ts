@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { EnvironmentId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Sink from "effect/Sink";
@@ -22,23 +22,28 @@ const outsideClient: McpInvocationContext.McpInvocationScope = {
 };
 
 // Discovery hides the tool from outside clients; the call must be refused as well.
-it.effect("refuses an outside client that names a thread", () =>
-  Effect.gen(function* () {
-    const built = yield* NativeSessionToolkit;
-    const { result } = yield* built
-      .handle("t3_native_session", { action: "identify", threadId: ThreadId.make("thread-1") })
-      .pipe(Stream.unwrap, Stream.run(Sink.last()), Effect.flatMap(Effect.fromOption));
-    expect(result).toMatchObject({ code: "thread_credential_required" });
-  }).pipe(
-    Effect.provide(
-      Layer.mergeAll(
-        McpToolAccess.HandlersLayer.layer(NativeSessionHandlers.layer),
-        Layer.mock(ThreadManagement.ThreadManagementService)({}),
-        Layer.mock(NativeSessions.NativeSessions)({
-          identify: () => Effect.succeed({ session: null }),
-        }),
+it.effect.each(["identify", "list", "adopt"] as const)(
+  "refuses an outside client to %s",
+  (action) =>
+    Effect.gen(function* () {
+      const built = yield* NativeSessionToolkit;
+      const { result } = yield* built
+        .handle("t3_native_session", {
+          action,
+          threadId: ThreadId.make("thread-1"),
+          providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+          nativeId: "session-1",
+        })
+        .pipe(Stream.unwrap, Stream.run(Sink.last()), Effect.flatMap(Effect.fromOption));
+      expect(result).toMatchObject({ code: "thread_credential_required" });
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          McpToolAccess.HandlersLayer.layer(NativeSessionHandlers.layer),
+          Layer.mock(ThreadManagement.ThreadManagementService)({}),
+          Layer.mock(NativeSessions.NativeSessions)({}),
+        ),
       ),
+      Effect.provideService(McpInvocationContext.McpInvocationContext, outsideClient),
     ),
-    Effect.provideService(McpInvocationContext.McpInvocationContext, outsideClient),
-  ),
 );

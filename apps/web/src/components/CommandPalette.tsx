@@ -106,7 +106,10 @@ import { useDesktopLocalBootstraps } from "../connection/useDesktopLocalBootstra
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { useOpenPanelPullRequestUrl } from "../hooks/useOpenPanelPullRequestUrl";
 import { copyThreadReference } from "../lib/copyThreadReference";
-import { useNativeSessionPaletteItems } from "./commandPaletteNativeSession";
+import {
+  loadNativeSessionPaletteItems,
+  useNativeSessionPaletteItems,
+} from "./commandPaletteNativeSession";
 import {
   queueWorkspaceFocusFromPalette,
   restoreWorkspaceFocusFromPalette,
@@ -1869,6 +1872,7 @@ function OpenCommandPaletteDialog(props: {
         });
       },
     });
+    actionItems.push(...loadNativeSessionPaletteItems(contextualProjectGroup));
   }
 
   const rootGroups = buildRootGroups({ actionItems, recentThreadItems }, messages);
