@@ -1,8 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import {
   AuthAccessReadScope,
+  AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   mcpClientScopes,
+  ProjectId,
+  ProviderInstanceId,
   T3F_NATIVE_SESSION_WS_METHODS,
   ThreadId,
   WsRpcGroup,
@@ -13,57 +16,81 @@ import * as RpcTest from "effect/rpc/RpcTest";
 
 import * as RpcAuthorization from "../auth/RpcAuthorization.ts";
 
-const identify = T3F_NATIVE_SESSION_WS_METHODS.identify;
+const { identify, list, adopt } = T3F_NATIVE_SESSION_WS_METHODS;
+type NativeSessionTag = typeof identify | typeof list | typeof adopt;
+const tags: ReadonlyArray<string> = [identify, list, adopt];
 const group = WsRpcGroup.omit(
   ...[...WsRpcGroup.requests.keys()].filter(
-    (tag): tag is Exclude<keyof typeof RpcAuthorization.RPC_REQUIRED_SCOPES, typeof identify> =>
-      tag !== identify,
+    (tag): tag is Exclude<keyof typeof RpcAuthorization.RPC_REQUIRED_SCOPES, NativeSessionTag> =>
+      !tags.includes(tag),
   ),
 );
 
-const call = (scopes: Parameters<typeof RpcAuthorization.layer>[0]) =>
+const projectId = ProjectId.make("project-1");
+
+const call = (tag: NativeSessionTag, scopes: Parameters<typeof RpcAuthorization.layer>[0]) =>
   Effect.gen(function* () {
     const handled: Array<string> = [];
+    const record = <A>(value: A) => Effect.sync(() => handled.push(tag)).pipe(Effect.as(value));
     const client = yield* RpcTest.makeClient(group).pipe(
       Effect.provide(
-        Layer.merge(
-          group.toLayerHandler(identify, () =>
-            Effect.sync(() => handled.push("identify")).pipe(Effect.as({ session: null })),
+        Layer.mergeAll(
+          group.toLayerHandler(identify, () => record({ session: null })),
+          group.toLayerHandler(list, () => record({ sessions: [], unlisted: [] })),
+          group.toLayerHandler(adopt, () =>
+            record({ threadId: ThreadId.make("thread-1"), created: true }),
           ),
           RpcAuthorization.layer(scopes),
         ),
       ),
     );
-    const exit = yield* client[identify]({ threadId: ThreadId.make("thread-1") }).pipe(Effect.exit);
+    const request =
+      tag === identify
+        ? Effect.asVoid(client[identify]({ threadId: ThreadId.make("thread-1") }))
+        : tag === list
+          ? Effect.asVoid(client[list]({ projectId }))
+          : Effect.asVoid(
+              client[adopt]({
+                projectId,
+                providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+                nativeId: "5a3356c8-4ff1-46f9-908c-637454f147c4",
+              }),
+            );
+    const exit = yield* Effect.exit(request);
     return { exit, handled };
   }).pipe(Effect.scoped);
 
-describe("identifying a native session", () => {
-  it.effect("is refused before the handler runs to a session that cannot read threads", () =>
-    Effect.gen(function* () {
-      const { exit, handled } = yield* call([AuthAccessReadScope]);
-      expect(exit).toMatchObject({
-        _tag: "Failure",
-        cause: {
-          reasons: [
-            {
-              error: {
-                _tag: "EnvironmentAuthorizationError",
-                requiredPermission: AuthOrchestrationReadScope,
-              },
-            },
-          ],
-        },
-      });
-      expect(handled).toEqual([]);
-    }),
+describe("native session requests", () => {
+  it.effect.each([
+    { tag: identify, refused: [AuthAccessReadScope], required: AuthOrchestrationReadScope },
+    { tag: list, refused: [AuthAccessReadScope], required: AuthOrchestrationReadScope },
+    { tag: adopt, refused: mcpClientScopes("read-only"), required: AuthOrchestrationOperateScope },
+  ] as const)(
+    "$tag is refused before its handler runs without $required",
+    ({ tag, refused, required }) =>
+      Effect.gen(function* () {
+        const { exit, handled } = yield* call(tag, refused);
+        expect(exit).toMatchObject({
+          _tag: "Failure",
+          cause: {
+            reasons: [
+              { error: { _tag: "EnvironmentAuthorizationError", requiredPermission: required } },
+            ],
+          },
+        });
+        expect(handled).toEqual([]);
+      }),
   );
 
-  it.effect("is answered for a read-only agent session", () =>
+  it.effect.each([
+    { tag: identify, scopes: mcpClientScopes("read-only") },
+    { tag: list, scopes: mcpClientScopes("read-only") },
+    { tag: adopt, scopes: mcpClientScopes("approval-required") },
+  ] as const)("$tag is answered for an agent session that holds its scope", ({ tag, scopes }) =>
     Effect.gen(function* () {
-      const { exit, handled } = yield* call(mcpClientScopes("read-only"));
+      const { exit, handled } = yield* call(tag, scopes);
       expect(exit._tag).toBe("Success");
-      expect(handled).toEqual(["identify"]);
+      expect(handled).toEqual([tag]);
     }),
   );
 });

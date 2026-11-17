@@ -2851,6 +2851,8 @@ export const layerWsRpc = (
           peerClientPairing.requestForLink(input, currentSession),
         [T3F_NATIVE_SESSION_WS_METHODS.identify]: ({ threadId }) =>
           nativeSessions.identify(threadId),
+        [T3F_NATIVE_SESSION_WS_METHODS.list]: ({ projectId }) => nativeSessions.list(projectId),
+        [T3F_NATIVE_SESSION_WS_METHODS.adopt]: (input) => nativeSessions.adopt(input),
         [T3F_WS_METHODS.linkMessageGrantsList]: () => linkMessageGrants.list,
         [T3F_WS_METHODS.linkMessageGrantsSet]: (input) =>
           linkMessageGrants.set(input, currentSessionId),

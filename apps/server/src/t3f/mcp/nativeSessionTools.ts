@@ -1,7 +1,12 @@
 import {
   OrchestratorMcpFailure,
+  ProjectId,
+  ProviderInstanceId,
+  T3fNativeSessionAdoptResult,
   T3fNativeSessionIdentifyResult,
+  T3fNativeSessionListResult,
   ThreadId,
+  TrimmedNonEmptyString,
 } from "@t3tools/contracts";
 import { McpSchema, Tool, Toolkit } from "effect/ai";
 import * as Schema from "effect/Schema";
@@ -12,12 +17,19 @@ import * as NativeSessions from "../NativeSessions.ts";
 
 const NativeSessionTool = Tool.make("t3_native_session", {
   description:
-    "A thread's own provider session. `identify`: provider, native session id, the name the provider's own client shows, folder, and a terminal command that continues the session in that client (null with `commandNote` where not yet verified). Omit `threadId` for this thread. `session` is null before the first turn.",
+    "Provider sessions behind threads. `identify`: a thread's provider, native session id, the name its own client shows, folder, and a terminal command that continues it there (null with `commandNote` where not yet verified); omit `threadId` for this thread; `session` is null before the first turn. `list`: sessions that ran in a project's folder, including ones started outside T3 Code; `threadId` is the thread already on one. `adopt`: loads a listed session (`providerInstanceId`, `nativeId`) into a new thread, or returns the thread already on it. `projectId` defaults to this thread's project.",
   parameters: Schema.Struct({
-    action: Schema.Literal("identify"),
+    action: Schema.Literals(["identify", "list", "adopt"]),
     threadId: Schema.optional(ThreadId),
+    projectId: Schema.optional(ProjectId),
+    providerInstanceId: Schema.optional(ProviderInstanceId),
+    nativeId: Schema.optional(TrimmedNonEmptyString),
   }),
-  success: T3fNativeSessionIdentifyResult,
+  success: Schema.Union([
+    T3fNativeSessionIdentifyResult,
+    T3fNativeSessionListResult,
+    T3fNativeSessionAdoptResult,
+  ]),
   failure: OrchestratorMcpFailure,
   failureMode: "return",
   dependencies: [
@@ -26,8 +38,8 @@ const NativeSessionTool = Tool.make("t3_native_session", {
     NativeSessions.NativeSessions,
   ],
 })
-  .annotate(Tool.Title, "Identify a thread's native session")
-  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Title, "Native provider sessions")
+  .annotate(Tool.Readonly, false)
   .annotate(Tool.Destructive, false)
   .annotate(Tool.Idempotent, true)
   .annotate(Tool.OpenWorld, false)

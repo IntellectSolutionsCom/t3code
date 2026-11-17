@@ -17,6 +17,7 @@ import { PeerLinkLinkPairingInput } from "./peerLink.ts";
 import { ORCHESTRATION_V2_WS_METHODS } from "./orchestrationV2.ts";
 import { WS_METHODS } from "./rpc.ts";
 import { T3F_WS_METHODS } from "./t3f/linkMessageGrants.ts";
+import { T3F_NATIVE_SESSION_WS_METHODS } from "./t3f/nativeSessions.ts";
 
 /** Incremental client enforcement; the server still authorizes every request. */
 export const CLIENT_GUARDED_RPC_SCOPES = {
@@ -109,6 +110,7 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   // Also needs operate (below): pairing hands out only scopes the pairer holds.
   [T3F_WS_METHODS.linkMessageGrantsSet]: AuthAccessWriteScope,
   [T3F_WS_METHODS.threadBadgesSet]: AuthOrchestrationOperateScope,
+  [T3F_NATIVE_SESSION_WS_METHODS.adopt]: AuthOrchestrationOperateScope,
 } as const;
 export type ClientGuardedRpcTag = keyof typeof CLIENT_GUARDED_RPC_SCOPES;
 
