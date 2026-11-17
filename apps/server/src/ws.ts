@@ -2853,6 +2853,10 @@ export const layerWsRpc = (
           nativeSessions.identify(threadId),
         [T3F_NATIVE_SESSION_WS_METHODS.list]: ({ projectId }) => nativeSessions.list(projectId),
         [T3F_NATIVE_SESSION_WS_METHODS.adopt]: (input) => nativeSessions.adopt(input),
+        [T3F_NATIVE_SESSION_WS_METHODS.handOut]: ({ threadId }) => nativeSessions.handOut(threadId),
+        [T3F_NATIVE_SESSION_WS_METHODS.takeBack]: ({ threadId }) =>
+          nativeSessions.takeBack(threadId).pipe(Effect.as({})),
+        [T3F_NATIVE_SESSION_WS_METHODS.subscribeOut]: () => nativeSessions.outThreads,
         [T3F_WS_METHODS.linkMessageGrantsList]: () => linkMessageGrants.list,
         [T3F_WS_METHODS.linkMessageGrantsSet]: (input) =>
           linkMessageGrants.set(input, currentSessionId),

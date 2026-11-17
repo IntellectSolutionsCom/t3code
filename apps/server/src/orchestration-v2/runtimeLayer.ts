@@ -68,6 +68,7 @@ import * as SecretRequests from "../secrets/SecretRequests.ts";
 import * as FeedbackStore from "../feedback/FeedbackStore.ts";
 import * as WorkspaceFolders from "../workspace/WorkspaceFolders.ts";
 import * as TaskFolderStore from "../workspace/TaskFolderStore.ts";
+import * as NativeSessionGate from "../t3f/nativeSessionGate.ts";
 
 export const layerEventInfrastructure = Layer.mergeAll(
   OrchestrationEventStore.layer,
@@ -162,6 +163,8 @@ const layerProviderSessionManagerProvided = ProviderSessionManager.layer.pipe(
       ProviderInstallationGate.layer,
     ),
   ),
+  NativeSessionGate.layerOver,
+  Layer.provide(ProjectionStore.layer),
 );
 
 const layerProviderAuthServiceProvided = ProviderAuthService.layer.pipe(
