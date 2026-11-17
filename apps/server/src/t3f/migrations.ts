@@ -4,12 +4,16 @@ import * as SqlClient from "effect/sql/SqlClient";
 import type * as SqlError from "effect/sql/SqlError";
 
 import Migration0001 from "./migrations/0001_LinkMessageGrants.ts";
+import Migration0002 from "./migrations/0002_ThreadBadges.ts";
 
 /**
  * The fork's schema, on a ledger of its own so upstream's ledger and its checks never see it.
  * Ids only grow: a later change appends one entry and never renames, reorders or edits one.
  */
-const forkMigrationEntries = [[1, "LinkMessageGrants", Migration0001]] as const;
+const forkMigrationEntries = [
+  [1, "LinkMessageGrants", Migration0001],
+  [2, "ThreadBadges", Migration0002],
+] as const;
 
 export const forkMigrationManifest = forkMigrationEntries.map(([id, name]) => [id, name] as const);
 

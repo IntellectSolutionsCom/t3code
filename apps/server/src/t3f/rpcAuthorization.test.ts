@@ -3,8 +3,10 @@ import {
   AuthAccessReadScope,
   AuthAccessWriteScope,
   AuthOrchestrationOperateScope,
+  AuthOrchestrationReadScope,
   AuthSessionId,
   mcpClientScopes,
+  ThreadId,
   T3F_WS_METHODS,
   WsRpcGroup,
 } from "@t3tools/contracts";
@@ -61,4 +63,51 @@ describe("setting a link message grant", () => {
       expect(handled).toEqual([]);
     }).pipe(Effect.scoped),
   );
+});
+
+describe("thread badge RPCs", () => {
+  const badgeGroup = WsRpcGroup.omit(
+    ...[...WsRpcGroup.requests.keys()].filter(
+      (
+        tag,
+      ): tag is Exclude<
+        keyof typeof RpcAuthorization.RPC_REQUIRED_SCOPES,
+        typeof T3F_WS_METHODS.threadBadgesSet
+      > => tag !== T3F_WS_METHODS.threadBadgesSet,
+    ),
+  );
+
+  it.effect("refuses setting to a session that may only read, before the handler runs", () =>
+    Effect.gen(function* () {
+      const handled: Array<string> = [];
+      const client = yield* RpcTest.makeClient(badgeGroup).pipe(
+        Effect.provide(
+          Layer.merge(
+            badgeGroup.toLayerHandler(T3F_WS_METHODS.threadBadgesSet, () =>
+              Effect.sync(() => handled.push("set")).pipe(Effect.as({ badge: null })),
+            ),
+            RpcAuthorization.layer([AuthOrchestrationReadScope]),
+          ),
+        ),
+      );
+      const refused = yield* client[T3F_WS_METHODS.threadBadgesSet]({
+        threadId: ThreadId.make("thread"),
+        badge: null,
+      }).pipe(Effect.flip);
+      expect(refused).toMatchObject({
+        _tag: "EnvironmentAuthorizationError",
+        requiredPermission: AuthOrchestrationOperateScope,
+      });
+      expect(handled).toEqual([]);
+    }).pipe(Effect.scoped),
+  );
+
+  it("needs read to watch badges and operate to change them", () => {
+    expect(RpcAuthorization.requiredScopeForRpcMethod(T3F_WS_METHODS.threadBadgesSubscribe)).toBe(
+      AuthOrchestrationReadScope,
+    );
+    expect(RpcAuthorization.requiredScopeForRpcMethod(T3F_WS_METHODS.threadBadgesSet)).toBe(
+      AuthOrchestrationOperateScope,
+    );
+  });
 });

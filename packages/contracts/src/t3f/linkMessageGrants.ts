@@ -7,6 +7,8 @@ import { AuthSessionId } from "../baseSchemas.ts";
 export const T3F_WS_METHODS = {
   linkMessageGrantsList: "t3f.linkMessageGrants.list",
   linkMessageGrantsSet: "t3f.linkMessageGrants.set",
+  threadBadgesSubscribe: "t3f.threadBadges.subscribe",
+  threadBadgesSet: "t3f.threadBadges.set",
 } as const;
 
 /** A linked environment's session here, and whether its agents may send messages to threads here. */

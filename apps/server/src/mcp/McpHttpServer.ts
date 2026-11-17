@@ -77,6 +77,7 @@ import * as AttachmentHandlers from "./toolkits/attachment/handlers.ts";
 import { ThreadToolkit } from "./toolkits/thread/tools.ts";
 import { WorkflowToolkit } from "./toolkits/workflow/tools.ts";
 import * as WorkflowHandlers from "./toolkits/workflow/handlers.ts";
+import * as ThreadBadgeTools from "../t3f/threadBadgeToolkit.ts";
 import * as ThreadHandlers from "./toolkits/thread/handlers.ts";
 import * as ThreadMetadataMcpService from "./ThreadMetadataMcpService.ts";
 import * as McpSessionRegistry from "./McpSessionRegistry.ts";
@@ -1418,6 +1419,11 @@ const layerWorkflowToolkit = toolkitRegistration(WorkflowToolkit, WorkflowHandle
 
 export const layerMessageToolkit = toolkitRegistration(MessageToolkit, MessageHandlers.layer);
 
+const layerThreadBadgeToolkit = toolkitRegistration(
+  ThreadBadgeTools.ThreadBadgeToolkit,
+  ThreadBadgeTools.layer,
+);
+
 const layerWorktreeToolkitRegistration = toolkitRegistration(
   WorktreeToolkit,
   WorktreeHandlers.layer,
@@ -1512,6 +1518,7 @@ export const layerTools = Layer.mergeAll(
   layerOrchestratorToolkit,
   layerThreadToolkit,
   layerWorkflowToolkit,
+  layerThreadBadgeToolkit,
   layerAttachmentToolkit,
   layerProjectRegistration,
   layerFeedbackToolkit,

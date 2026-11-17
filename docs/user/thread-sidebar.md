@@ -254,6 +254,16 @@ On web and desktop, right-click a pull request link in a thread and choose
 same link to return to the branch PR, if one exists.
 The linked pull request participates in automatic settlement.
 
+## Badge a thread
+
+A badge puts one emoji and a short label beside a thread's title, so you can tell
+related threads apart at a glance. Choose **Thread settings…** from a thread's menu,
+the title menu or the command palette, then pick a symbol from the grid or type or
+paste an emoji. Give it a label. Rows show the symbol; the header shows both, and
+the label is read out with the row's name.
+**Clear badge** removes it. Agents can read, set and clear badges too. Badges need a server
+that keeps them, and this app offers them only for those servers. Web and desktop only.
+
 ## Find and reference work
 
 On web and desktop, open the command palette with `Cmd/Ctrl+K` to search threads

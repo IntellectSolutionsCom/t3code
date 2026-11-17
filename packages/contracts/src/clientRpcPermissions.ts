@@ -108,6 +108,7 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.agentFeedbackAnswerRequest]: AuthOrchestrationOperateScope,
   // Also needs operate (below): pairing hands out only scopes the pairer holds.
   [T3F_WS_METHODS.linkMessageGrantsSet]: AuthAccessWriteScope,
+  [T3F_WS_METHODS.threadBadgesSet]: AuthOrchestrationOperateScope,
 } as const;
 export type ClientGuardedRpcTag = keyof typeof CLIENT_GUARDED_RPC_SCOPES;
 
