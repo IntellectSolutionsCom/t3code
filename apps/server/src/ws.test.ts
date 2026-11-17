@@ -111,6 +111,7 @@ import * as RpcAuthorization from "./auth/RpcAuthorization.ts";
 import * as PeerLinkRequests from "./peer/PeerLinkRequests.ts";
 import * as PeerThreadRelay from "./peer/PeerThreadRelay.ts";
 import * as PeerClientPairing from "./peer/PeerClientPairing.ts";
+import * as NativeSessions from "./t3f/NativeSessions.ts";
 import * as PeerLinks from "./peer/PeerLinks.ts";
 import * as LinkMessageGrants from "./t3f/LinkMessageGrants.ts";
 import * as ThreadBadges from "./t3f/ThreadBadges.ts";
@@ -872,6 +873,7 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(PeerClientPairing.PeerClientPairing)({}),
   Layer.mock(LinkMessageGrants.LinkMessageGrants)({}),
   Layer.mock(ThreadBadges.ThreadBadges)({}),
+  Layer.mock(NativeSessions.NativeSessions)({}),
   Layer.mock(PortScanner.PortDiscovery)({ trackAgent: () => () => undefined }),
   Layer.mock(PreviewManager.PreviewManager)({}),
   Layer.mock(ProcessDiagnostics.ProcessDiagnostics)({}),

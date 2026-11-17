@@ -350,6 +350,16 @@ Select a server to open it in the browser panel. **Stop** ends the server's job
 and keeps the agent, the terminal, and T3 Code running. Stop needs terminal
 access to the environment and is not available on Windows.
 
+Once the agent starts, the **Native session** row shows the provider's own
+session id. On mobile it is in the thread settings sheet. If the session has a
+different name in the provider's own client, the row shows that name, and
+**Use as title** renames the thread to match. For Claude, Codex, and Pi it
+also shows a terminal command that continues the session in that provider's
+own client; run it on the machine the row names. Other providers show only the
+id for now. Don't send to the thread from T3 Code while you work in the
+session elsewhere, or the two clients write to it at once. You can also copy
+the id or command from the command palette.
+
 To choose what the thread details card shows, right-click the card or open
 **Settings → Appearance → Thread details**. Hidden rows keep their keyboard
 shortcuts, such as Open in editor and project scripts. **Reset to default** brings

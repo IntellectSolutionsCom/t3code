@@ -104,6 +104,7 @@ import * as PeerClientPairingHttp from "./peer/http.ts";
 import * as PeerLinkRequests from "./peer/PeerLinkRequests.ts";
 import * as LinkMessageGrants from "./t3f/LinkMessageGrants.ts";
 import * as ThreadBadges from "./t3f/ThreadBadges.ts";
+import * as NativeSessions from "./t3f/NativeSessions.ts";
 import * as PeerLinks from "./peer/PeerLinks.ts";
 import * as PeerMcpClient from "./peer/PeerMcpClient.ts";
 import * as PeerThreadRelay from "./peer/PeerThreadRelay.ts";
@@ -945,7 +946,7 @@ const layerMakeRoutes = Layer.mergeAll(
   // Links agents ask for: shown in a thread from /mcp, answered over WebSocket.
   Layer.provide(PeerLinkRequests.layer),
   Layer.provide(LinkMessageGrants.layer),
-  Layer.provide(ThreadBadges.layer),
+  Layer.provide(Layer.mergeAll(ThreadBadges.layer, NativeSessions.layer)),
   // Share the service so HTTP/WS clients single-flight reads and invalidate each other's cached patches.
   Layer.provide(layerPullRequestService),
   Layer.provide(layerThreadIssueService),

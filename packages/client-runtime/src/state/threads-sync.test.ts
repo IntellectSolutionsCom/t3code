@@ -5,6 +5,9 @@ import {
   MessageId,
   NodeId,
   ORCHESTRATION_V2_WS_METHODS,
+  ProviderDriverKind,
+  ProviderInstanceId,
+  ProviderThreadId,
   RuntimeRequestId,
   RunId,
   ThreadId,
@@ -380,6 +383,47 @@ const PROJECTION_WITH_QUESTION = {
   turnItems: [QUESTION_CARD],
 };
 
+const IMPORTED_PROVIDER_THREAD = {
+  id: ProviderThreadId.make("imported-provider-thread"),
+  driver: ProviderDriverKind.make("claudeAgent"),
+  providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+  providerSessionId: null,
+  appThreadId: THREAD_ID,
+  ownerNodeId: null,
+  nativeThreadRef: {
+    driver: ProviderDriverKind.make("claudeAgent"),
+    nativeId: "native-session",
+    strength: "strong" as const,
+  },
+  nativeConversationHeadRef: null,
+  nativeMetadata: null,
+  contextUsage: null,
+  goal: null,
+  status: "idle" as const,
+  firstRunOrdinal: null,
+  lastRunOrdinal: null,
+  handoffIds: [],
+  forkedFrom: null,
+  pendingBackgroundTasks: [],
+  createdAt: v2Now,
+  updatedAt: v2Now,
+};
+
+const IMPORTED_PROJECTION = {
+  ...BASE_PROJECTION,
+  thread: { ...BASE_PROJECTION.thread, activeProviderThreadId: IMPORTED_PROVIDER_THREAD.id },
+  providerThreads: [IMPORTED_PROVIDER_THREAD],
+};
+
+// Each cache shape replay cannot repair: its complete form, and what an older bounded cache lacks.
+const UNREPAIRABLE_CACHES = {
+  "pending question card": [
+    PROJECTION_WITH_QUESTION,
+    { ...PROJECTION_WITH_QUESTION, turnItems: [] },
+  ],
+  "active provider thread": [IMPORTED_PROJECTION, { ...IMPORTED_PROJECTION, providerThreads: [] }],
+} as const;
+
 const questionResolved = (sequence: number): OrchestrationV2ThreadStreamItem => ({
   kind: "event",
   sequence,
@@ -423,60 +467,54 @@ const deleted = (sequence = 3): OrchestrationV2ThreadStreamItem => {
 };
 
 describe("EnvironmentThreads", () => {
-  it.effect.each([
-    ["disk", false],
-    ["retained", false],
-    ["disk", true],
-    ["retained", true],
-  ] as const)(
-    "recovers a %s cache only when its pending question card is missing: %s",
-    ([cacheKind, hasCard]) =>
-      Effect.gen(function* () {
-        const projection = {
-          ...PROJECTION_WITH_QUESTION,
-          turnItems: hasCard ? [QUESTION_CARD] : [],
-        };
-        const schema = Schema.fromJsonString(StoredOrchestrationThreadSnapshot);
-        const encoded = yield* Schema.encodeEffect(schema)({
-          schemaVersion: ORCHESTRATION_THREAD_CACHE_SCHEMA_VERSION,
-          environmentId: TARGET.environmentId,
-          threadId: THREAD_ID,
-          snapshot: { snapshotSequence: CACHED_SNAPSHOT_SEQUENCE, projection },
-        });
-        const stored = yield* Schema.decodeEffect(schema)(encoded);
-        const h = yield* makeHarness({
-          loadCached: Effect.succeedSome(stored.snapshot),
-          ...(cacheKind === "retained"
-            ? {
-                resumeCache: {
-                  owner: undefined,
-                  snapshot: {
-                    state: {
-                      ...EMPTY_ENVIRONMENT_THREAD_STATE,
-                      data: Option.some(projection),
-                      status: "live",
-                    },
-                    sequence: CACHED_SNAPSHOT_SEQUENCE,
-                    persisted: true,
+  it.effect.each(
+    (["disk", "retained"] as const).flatMap((cacheKind) =>
+      (Object.keys(UNREPAIRABLE_CACHES) as Array<keyof typeof UNREPAIRABLE_CACHES>).flatMap((gap) =>
+        [false, true].map((complete) => [cacheKind, gap, complete] as const),
+      ),
+    ),
+  )("recovers a %s cache only when its %s is missing: %s", ([cacheKind, gap, complete]) =>
+    Effect.gen(function* () {
+      const [fresh, lacking] = UNREPAIRABLE_CACHES[gap];
+      const projection = complete ? fresh : lacking;
+      const schema = Schema.fromJsonString(StoredOrchestrationThreadSnapshot);
+      const encoded = yield* Schema.encodeEffect(schema)({
+        schemaVersion: ORCHESTRATION_THREAD_CACHE_SCHEMA_VERSION,
+        environmentId: TARGET.environmentId,
+        threadId: THREAD_ID,
+        snapshot: { snapshotSequence: CACHED_SNAPSHOT_SEQUENCE, projection },
+      });
+      const stored = yield* Schema.decodeEffect(schema)(encoded);
+      const h = yield* makeHarness({
+        loadCached: Effect.succeedSome(stored.snapshot),
+        ...(cacheKind === "retained"
+          ? {
+              resumeCache: {
+                owner: undefined,
+                snapshot: {
+                  state: {
+                    ...EMPTY_ENVIRONMENT_THREAD_STATE,
+                    data: Option.some(projection),
+                    status: "live",
                   },
+                  sequence: CACHED_SNAPSHOT_SEQUENCE,
+                  persisted: true,
                 },
-              }
-            : {}),
-          httpSnapshot: {
-            _tag: "present",
-            snapshot: {
-              snapshotSequence: CACHED_SNAPSHOT_SEQUENCE,
-              projection: PROJECTION_WITH_QUESTION,
-            },
-          },
-          completionMarker: true,
-        });
-        yield* Queue.offer(h.inputs, synchronized());
-        const state = yield* awaitThreadState(h.observed, (value) => value.status === "live");
-        expect(yield* Ref.get(h.loaderCalls)).toBe(hasCard ? 0 : 1);
-        expect(Option.getOrThrow(state.data)).toEqual(PROJECTION_WITH_QUESTION);
-        expect(yield* Ref.get(h.lastSubscribeAfterSequence)).toBe(CACHED_SNAPSHOT_SEQUENCE);
-      }),
+              },
+            }
+          : {}),
+        httpSnapshot: {
+          _tag: "present",
+          snapshot: { snapshotSequence: CACHED_SNAPSHOT_SEQUENCE, projection: fresh },
+        },
+        completionMarker: true,
+      });
+      yield* Queue.offer(h.inputs, synchronized());
+      const state = yield* awaitThreadState(h.observed, (value) => value.status === "live");
+      expect(yield* Ref.get(h.loaderCalls)).toBe(complete ? 0 : 1);
+      expect(Option.getOrThrow(state.data)).toEqual(fresh);
+      expect(yield* Ref.get(h.lastSubscribeAfterSequence)).toBe(CACHED_SNAPSHOT_SEQUENCE);
+    }),
   );
 
   it.effect("discards an oversized version-4 cache and requests a fresh bounded snapshot", () =>
