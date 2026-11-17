@@ -46,6 +46,7 @@ import { ScheduledTaskService } from "../scheduledTasks/ScheduledTaskService.ts"
 import { SecretRequests } from "../secrets/SecretRequests.ts";
 import { FeedbackStore } from "../feedback/FeedbackStore.ts";
 import { AnalyticsService } from "../telemetry/AnalyticsService.ts";
+import { ThreadBadges } from "../t3f/ThreadBadges.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import { SourceControlRepositoryService } from "../sourceControl/SourceControlRepositoryService.ts";
 import { GitVcsDriver } from "../vcs/GitVcsDriver.ts";
@@ -90,6 +91,7 @@ const toolHandlerServices = Layer.mergeAll(
   Layer.mock(SecretRequests)({}),
   Layer.mock(FeedbackStore)({}),
   NodeSqliteClient.layer({ filename: ":memory:" }),
+  Layer.mock(ThreadBadges)({}),
   ServerConfig.layerTest(process.cwd(), { prefix: "t3-agent-context-budget-" }),
   Layer.mock(ServerEnvironment)({}),
   Layer.mock(ServerSecretStore)({}),

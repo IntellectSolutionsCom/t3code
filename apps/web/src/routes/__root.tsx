@@ -19,6 +19,7 @@ import { AppSidebarLayout } from "../components/AppSidebarLayout";
 import { CommandPalette } from "../components/CommandPalette";
 import { CustomSnoozeDialogHost } from "../components/CustomSnoozeDialog";
 import { GuestShareDialogHost } from "../components/chat/GuestShareControls";
+import { ThreadSettingsDialogHost } from "../t3f/ThreadSettingsDialog";
 import { UseInAnotherAppDialogHost } from "../components/mcp/UseInAnotherAppDialog";
 import { AddProjectToMachineDialogHost } from "../components/AddProjectToMachineDialog";
 import { ConfirmDialogHost } from "../components/ConfirmDialogHost";
@@ -203,6 +204,7 @@ function RootRouteBranch() {
       <WorktreeLayoutApprovalDialogHost />
       <CustomSnoozeDialogHost />
       <GuestShareDialogHost />
+      <ThreadSettingsDialogHost />
       <ProjectCloneToastCoordinator />
       <ConnectDeviceApprovalCoordinator />
       <AddProjectToMachineDialogHost />

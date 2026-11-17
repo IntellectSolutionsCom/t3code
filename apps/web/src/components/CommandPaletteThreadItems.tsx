@@ -25,6 +25,7 @@ import {
   type ProviderInstanceEntry,
 } from "../providerInstances";
 import { useDelegatedUnderParent, useVisibleThreadShells } from "../state/entities";
+import { ThreadBadgeMark } from "../t3f/ThreadBadgeMark";
 import {
   useEnvironmentProviders,
   useEnvironments,
@@ -129,6 +130,7 @@ export function useCommandPaletteThreadItems(input: {
       renderLeadingContent: (thread) => <ThreadRowLeadingStatus thread={thread} />,
       renderTrailingContent: (thread) => (
         <>
+          <ThreadBadgeMark threadRef={scopeThreadRef(thread.environmentId, thread.id)} />
           <ThreadSearchPullRequestNumber
             thread={thread}
             query={threadSearchQuery}

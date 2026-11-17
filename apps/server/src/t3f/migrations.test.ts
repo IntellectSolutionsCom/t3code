@@ -16,19 +16,22 @@ it.layer(SqlitePersistence.layerMemory)("fork migrations", (it) => {
   it.effect("run once on a ledger of their own and leave upstream's equal to its manifest", () =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
-      assert.deepEqual(yield* ledger(sql, "t3f_migrations"), [[1, "LinkMessageGrants"]]);
+      assert.deepEqual(yield* ledger(sql, "t3f_migrations"), [
+        [1, "LinkMessageGrants"],
+        [2, "ThreadBadges"],
+      ]);
       assert.deepEqual(yield* ledger(sql, "t3f_migrations"), forkMigrationManifest);
       assert.deepEqual(yield* ledger(sql, "effect_sql_migrations"), migrationManifest);
 
       assert.deepEqual(yield* runForkMigrations(), []);
-      assert.deepEqual(yield* ledger(sql, "t3f_migrations"), [[1, "LinkMessageGrants"]]);
+      assert.deepEqual(yield* ledger(sql, "t3f_migrations"), forkMigrationManifest);
       const tables = yield* sql<{ readonly name: string }>`
         SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 't3f\_%' ESCAPE '\\'
         ORDER BY name
       `;
       assert.deepEqual(
         tables.map((table) => table.name),
-        ["t3f_link_message_grants", "t3f_link_sessions", "t3f_migrations"],
+        ["t3f_link_message_grants", "t3f_link_sessions", "t3f_migrations", "t3f_thread_badges"],
       );
     }),
   );
@@ -53,5 +56,15 @@ it.effect("refuse a history that records one of their ids under another name or 
       [2, "Other", noop],
     ]).pipe(Effect.flip);
     assert.include(skipped.message, "1_LinkMessageGrants (recorded: nothing)");
+
+    // A build that fills an id below one a later build recorded: the gap is refused, not skipped.
+    yield* sql`DELETE FROM t3f_migrations`;
+    yield* sql`INSERT INTO t3f_migrations (migration_id, name) VALUES (1, 'LinkMessageGrants'), (3, 'Third')`;
+    const gap = yield* runForkMigrations([
+      [1, "LinkMessageGrants", noop],
+      [2, "ThreadBadges", noop],
+      [3, "Third", noop],
+    ]).pipe(Effect.flip);
+    assert.include(gap.message, "2_ThreadBadges (recorded: nothing)");
   }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
 );
