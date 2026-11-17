@@ -4481,6 +4481,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
               : sql<PayloadRow>`
             SELECT payload_json FROM orchestration_v2_projection_provider_threads
             WHERE (thread_id = ${threadId} AND status = 'active')
+              OR provider_thread_id = (SELECT active_provider_thread_id FROM orchestration_v2_projection_threads WHERE thread_id = ${threadId})
               OR provider_thread_id IN (SELECT value FROM json_each(${cohortProviderThreadIds}))
               OR owner_node_id IN (SELECT value FROM json_each(${cohortNodeIds}))
               OR (thread_id = ${threadId}
