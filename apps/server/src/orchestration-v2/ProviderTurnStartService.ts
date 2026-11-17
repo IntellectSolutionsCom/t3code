@@ -38,6 +38,8 @@ import * as GitWorkflowService from "../git/GitWorkflowService.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderAuthService from "../provider/ProviderAuthService.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import * as PeerLinks from "../peer/PeerLinks.ts";
+import { withLinkedSenderAtDelivery } from "../t3f/linkedSender.ts";
 import { makeRestoreMissingWorktree } from "../workspace/restoreMissingWorktree.ts";
 import * as EventSink from "./EventSink.ts";
 import * as ProviderUsageAnalytics from "../telemetry/ProviderUsageAnalytics.ts";
@@ -177,6 +179,7 @@ export const layer: Layer.Layer<
   | GitWorkflowService.GitWorkflowService
   | ProjectService.ProjectService
   | ProviderAuthService.ProviderAuthService
+  | PeerLinks.PeerLinks
   | ProjectionStore.ProjectionStoreV2
   | ProviderSessionManager.ProviderSessionManagerV2
   | RunExecutionService.RunExecutionServiceV2
@@ -191,6 +194,7 @@ export const layer: Layer.Layer<
     const idAllocator = yield* IdAllocator.IdAllocatorV2;
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const peerLinks = yield* PeerLinks.PeerLinks;
     const projects = yield* ProjectService.ProjectService;
     const providerAuth = yield* ProviderAuthService.ProviderAuthService;
     const projectionStore = yield* ProjectionStore.ProjectionStoreV2;
@@ -1876,7 +1880,12 @@ export const layer: Layer.Layer<
         loadUnsettledWork: runControls.loadUnsettledWork,
         message: {
           messageId: message.id,
-          text: userText,
+          text: yield* withLinkedSenderAtDelivery(
+            peerLinks,
+            providerMessage,
+            userText,
+            providerMessage.attachments.length,
+          ),
           attachments: providerMessage.attachments,
           createdBy: message.createdBy,
           creationSource: message.creationSource,

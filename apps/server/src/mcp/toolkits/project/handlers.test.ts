@@ -10,6 +10,7 @@ import {
   type Project as ProjectRecord,
   type ModelSelection,
   type RuntimeMode,
+  type OrchestrationV2LinkedSender,
   type OrchestrationV2ThreadShell,
   ThreadId,
 } from "@t3tools/contracts";
@@ -59,6 +60,8 @@ const clientLaunchHarness = (input: {
   readonly workspaceRoot?: string;
   readonly checkWorktreeBase?: ThreadLaunch.ThreadLaunchService["Service"]["checkWorktreeBase"];
   readonly hostedAppUrl?: string;
+  /** The caller is a linked environment's agent that passed its thread. */
+  readonly linkedSender?: OrchestrationV2LinkedSender;
   /** The orchestrator refuses the new thread's mode, as under a managed ceiling. */
   readonly refusedByCeiling?: true;
 }) => {
@@ -101,6 +104,9 @@ const clientLaunchHarness = (input: {
         label: "Claude Code",
         access: input.runtimeModeCeiling,
         hostedAppUrl: input.hostedAppUrl,
+        ...(input.linkedSender === undefined
+          ? {}
+          : { linked: true, senderThread: input.linkedSender }),
       },
       issuedAt: 0,
       capabilities: new Set(["orchestration" as const]),
@@ -287,6 +293,36 @@ it.effect(
         code: "invalid_request",
         message: "Example Corp limits threads to Supervised.",
       });
+    }),
+);
+
+it.effect(
+  "a launch from a linked agent that passed its thread still names the link in its text",
+  () =>
+    Effect.gen(function* () {
+      const launched: Array<ThreadLaunch.ThreadLaunchInput> = [];
+      const { projectId, dependencies } = clientLaunchHarness({
+        runtimeModeCeiling: "full-access",
+        launched,
+        linkedSender: {
+          environmentId: EnvironmentId.make("environment:mac"),
+          threadId: ThreadId.make("thread:orc"),
+          title: "orc lead",
+        },
+      });
+      const toolkit = yield* ProjectToolkit.pipe(
+        Effect.provide(
+          McpToolAccess.HandlersLayer.layer(ProjectHandlers.layer).pipe(
+            Layer.provide(dependencies),
+          ),
+        ),
+      );
+      yield* toolkit
+        .handle("t3_thread_launch", { projectId, title: "Fix", message: "Fix the bug" })
+        .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
+      expect(launched[0]?.initialMessage?.text).toBe(
+        '[Message from an agent on linked environment "Claude Code". This is agent-authored coordination, not a message from the human user.]\n\nFix the bug',
+      );
     }),
 );
 

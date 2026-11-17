@@ -18,6 +18,8 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import * as PeerLinks from "../peer/PeerLinks.ts";
+import { withLinkedSenderAtDelivery } from "../t3f/linkedSender.ts";
 import * as EventSink from "./EventSink.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ProviderSessionManager from "./ProviderSessionManager.ts";
@@ -114,12 +116,14 @@ export const layer: Layer.Layer<
   ProviderTurnControlServiceV2,
   never,
   | EventSink.EventSinkV2
+  | PeerLinks.PeerLinks
   | ProjectionStore.ProjectionStoreV2
   | ProviderSessionManager.ProviderSessionManagerV2
 > = Layer.effect(
   ProviderTurnControlServiceV2,
   Effect.gen(function* () {
     const eventSink = yield* EventSink.EventSinkV2;
+    const peerLinks = yield* PeerLinks.PeerLinks;
     const projections = yield* ProjectionStore.ProjectionStoreV2;
     const sessions = yield* ProviderSessionManager.ProviderSessionManagerV2;
 
@@ -458,10 +462,15 @@ export const layer: Layer.Layer<
                 messageId: message.id,
                 text: withProviderMessageOrigin(
                   message,
-                  projectComposerContextForProvider({
-                    text: message.text,
-                    records: message.context?.records ?? [],
-                  }),
+                  yield* withLinkedSenderAtDelivery(
+                    peerLinks,
+                    message,
+                    projectComposerContextForProvider({
+                      text: message.text,
+                      records: message.context?.records ?? [],
+                    }),
+                    message.attachments.length,
+                  ),
                   loaded.session.value.driver,
                 ),
                 attachments: message.attachments,

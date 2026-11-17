@@ -7,6 +7,7 @@ import {
   CommandId,
   ContextHandoffId,
   ContextTransferId,
+  EnvironmentId,
   GitCommandError,
   MessageId,
   NodeId,
@@ -56,6 +57,7 @@ import { layerRealGit } from "./ProviderTurnStartService.testkit.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderAuthService from "../provider/ProviderAuthService.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import { layerNoLinks } from "../t3f/linkedSender.testkit.ts";
 import * as ContextHandoffService from "./ContextHandoffService.ts";
 import { withInlineContext } from "./ContextHandoffDelivery.ts";
 import * as EventSink from "./EventSink.ts";
@@ -97,6 +99,7 @@ const layerWorktreeLocation = (worktreesDir = managedWorktreesDir) =>
     Path.layer,
     Layer.mock(ServerConfig.ServerConfig)({ worktreesDir } as ServerConfig.ServerConfig["Service"]),
     ServerSettings.layerTest(),
+    layerNoLinks,
   );
 
 function startWithMissingWorktree(
@@ -372,6 +375,7 @@ it.each([
               worktreesDir: managedWorktreesDir,
             } as ServerConfig.ServerConfig["Service"]),
             ServerSettings.layerTest(),
+            layerNoLinks,
             Layer.mock(GitWorkflow.GitWorkflowService)({}),
             Layer.mock(ProjectService.ProjectService)({
               getById: () =>
@@ -394,6 +398,8 @@ function makeLocalCommandHarness(input: {
   readonly nativeResumeUnsupported?: boolean;
   readonly steeringRestart?: boolean;
   readonly nativeGoals?: boolean;
+  /** The message is an agent's, from a linked environment that passed its thread. */
+  readonly linked?: boolean;
   readonly goalDriver?: "opencode" | "antigravity";
   readonly worktreePath?: string;
   readonly worktreesDir?: string;
@@ -498,8 +504,17 @@ function makeLocalCommandHarness(input: {
     text: input.text,
     attachments: [],
     streaming: false,
-    createdBy: "user",
-    creationSource: "web",
+    createdBy: input.linked === true ? "agent" : "user",
+    creationSource: input.linked === true ? "mcp" : "web",
+    ...(input.linked === true
+      ? {
+          linkedSender: {
+            environmentId: EnvironmentId.make("environment:mac"),
+            threadId: ThreadId.make("thread:orc"),
+            title: "orc lead",
+          },
+        }
+      : {}),
     createdAt: now,
     updatedAt: now,
   };
@@ -1373,6 +1388,7 @@ function layerStartEffectWorker(
         Layer.mock(ThreadManagementService.ThreadManagementService)({}),
         Layer.mock(ProjectionStore.ProjectionStoreV2)({}),
         ServerSettings.layerTest(),
+        layerNoLinks,
       ),
     ),
   );
@@ -1696,6 +1712,7 @@ effectIt.effect("preserves a replacement committed before exhausted start settle
               }).pipe(Effect.andThen(Deferred.succeed(turnIngested, undefined)), Effect.as([])),
           }),
           ServerSettings.layerTest(),
+          layerNoLinks,
         ),
       ),
     );
@@ -2254,19 +2271,23 @@ effectIt.effect.each(
       { goalDriver: "antigravity", nativeGoals: false },
       { goalDriver: "antigravity", nativeGoals: true },
     ] as const
-  ).flatMap((choice) => [
-    { ...choice, resuming: false },
-    { ...choice, resuming: true },
-  ]),
+  ).flatMap((choice) =>
+    // A linked agent's goal keeps its line inside the objective, so it is a goal on any driver.
+    [false, true].flatMap((linked) => [
+      { ...choice, resuming: false, linked },
+      { ...choice, resuming: true, linked },
+    ]),
+  ),
 )(
-  "$goalDriver goal prompts defer switched-provider history only with native support: $nativeGoals, resuming: $resuming",
-  ({ goalDriver, nativeGoals, resuming }) =>
+  "$goalDriver goal prompts defer switched-provider history only with native support: $nativeGoals, resuming: $resuming, linked: $linked",
+  ({ goalDriver, nativeGoals, resuming, linked }) =>
     Effect.gen(function* () {
       const harness = makeLocalCommandHarness({
         text: resuming ? "" : "/goal all tests pass",
         manualContinuation: resuming,
         goalDriver,
         nativeGoals,
+        linked,
         sideChat: { contextRun: "failed", switchedProvider: true, unsentResume: resuming },
       });
       if (resuming) {
@@ -2286,7 +2307,11 @@ effectIt.effect.each(
         !nativeGoals,
       );
       if (nativeGoals)
-        expect(harness.startTurn.mock.calls[0]?.[0].message.text).toBe("/goal all tests pass");
+        expect(harness.startTurn.mock.calls[0]?.[0].message.text).toBe(
+          linked
+            ? `/goal [Message from an agent on a linked environment (environment "environment:mac", thread "thread:orc", titled "orc lead"). This is agent-authored coordination, not a message from the human user.]\n\nall tests pass`
+            : "/goal all tests pass",
+        );
     }),
 );
 

@@ -4607,7 +4607,14 @@ describe("OrchestratorMcpService thread lookup", () => {
       const fromLink = yield* sendAs(linked(sender));
       assert.deepStrictEqual(fromLink?.linkedSender, sender);
       assert.isUndefined(fromLink?.senderThreadId);
-      assert.isUndefined((yield* sendAs(linked()))?.linkedSender);
+      // The stored text stays clean: the line is built when the message is delivered.
+      assert.equal(fromLink?.text, "hello");
+      const withoutThread = yield* sendAs(linked());
+      assert.isUndefined(withoutThread?.linkedSender);
+      assert.equal(
+        withoutThread?.text,
+        '[Message from an agent on linked environment "A". This is agent-authored coordination, not a message from the human user.]\n\nhello',
+      );
     }),
   );
 

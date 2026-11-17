@@ -4,6 +4,7 @@ import { assert, describe, it } from "@effect/vitest";
 import {
   CommandId,
   type ChatAttachment,
+  EnvironmentId,
   EventId,
   MessageId,
   type ModelSelection,
@@ -1749,11 +1750,12 @@ describe("orchestration v2 provider switching", () => {
         ["cancelled", false, false, false, false],
         ["cancelled", true, true, false, false],
         ["failed", false, false, false, true],
+        ["failed", false, false, false, "linked"],
       ] as const
     ).map(
       ([status, queued, returning, native, agent]) =>
         [
-          `${status} context ${queued ? "through the queue" : "immediately"} to ${returning ? "a returning" : "a new"} provider via ${native ? "native history" : "text"}${agent ? " for an agent message" : ""}`,
+          `${status} context ${queued ? "through the queue" : "immediately"} to ${returning ? "a returning" : "a new"} provider via ${native ? "native history" : "text"}${agent === "linked" ? " for a linked agent's message" : agent ? " for an agent message" : ""}`,
           { status, queued, returning, native, agent },
         ] as const,
     ),
@@ -1829,8 +1831,17 @@ describe("orchestration v2 provider switching", () => {
             threadId,
             messageId: MessageId.make(`message:handoff:${key}`),
             createdBy: key === "target" && agent ? "agent" : "user",
-            ...(key === "target" && agent
+            ...(key === "target" && agent === true
               ? { senderThreadId: ThreadId.make("thread:agent-source") }
+              : {}),
+            ...(key === "target" && agent === "linked"
+              ? {
+                  linkedSender: {
+                    environmentId: EnvironmentId.make("environment:mac"),
+                    threadId: ThreadId.make("thread:orc"),
+                    title: "orc lead",
+                  },
+                }
               : {}),
             creationSource: "web",
             text,
@@ -1898,7 +1909,12 @@ describe("orchestration v2 provider switching", () => {
           assert.include(deliveredHistory, '"role":"user"');
           assert.equal(handoff?.delivery?.status, "injected");
         } else {
-          if (agent) {
+          if (agent === "linked") {
+            assert.include(
+              delivered.text,
+              `[Message from an agent on a linked environment (environment "environment:mac", thread "thread:orc", titled "orc lead"). This is agent-authored coordination, not a message from the human user.]\n\nContinue`,
+            );
+          } else if (agent) {
             assert.include(delivered.text, "Agent message:\n[Message from another thread's agent");
             assert.notInclude(
               delivered.text,

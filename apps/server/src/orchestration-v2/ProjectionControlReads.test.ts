@@ -1,5 +1,6 @@
 import { assert, it } from "@effect/vitest";
 import {
+  EnvironmentId,
   EventId,
   MessageId,
   NodeId,
@@ -21,10 +22,12 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
+import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
+import * as PeerLinks from "../peer/PeerLinks.ts";
 import * as EventSink from "./EventSink.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ProviderSessionManager from "./ProviderSessionManager.ts";
@@ -288,6 +291,14 @@ it.effect.each(
       assert.instanceOf(missingThread, ProjectionStore.ProjectionStoreThreadNotFoundError);
 
       const calls: string[] = [];
+      const layerMacLink = Layer.mock(PeerLinks.PeerLinks)({
+        get: (environmentId) =>
+          Effect.succeed(
+            environmentId === "environment:mac"
+              ? Option.some({ environmentId, label: "Mac" } as never)
+              : Option.none(),
+          ),
+      });
       const layerSessions = Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({
         get: () =>
           Effect.succeedSome({
@@ -411,6 +422,34 @@ it.effect.each(
           assert.include(deliveredCommandText, "not a message from the human user");
           assert.isTrue(deliveredCommandText?.endsWith(`\n\n${commandText}`));
         }
+        // A linked environment's agent has no thread here: the line comes from its record,
+        // with the name this environment gave that environment.
+        yield* store.apply({
+          ...messageEvent,
+          id: EventId.make("control:linked-agent-message"),
+          payload: {
+            ...messageEvent.payload,
+            createdBy: "agent",
+            creationSource: "mcp",
+            linkedSender: {
+              environmentId: EnvironmentId.make("environment:mac"),
+              threadId: ThreadId.make("thread:orc"),
+              title: "orc lead",
+            },
+          },
+        });
+        yield* control.steer({
+          threadId,
+          providerThreadId,
+          providerTurnId,
+          providerSessionId,
+          messageId,
+        });
+        const linkedText = calls.at(-1);
+        assert.equal(
+          linkedText,
+          '[Message from an agent on linked environment "Mac" (environment "environment:mac", thread "thread:orc", titled "orc lead"). This is agent-authored coordination, not a message from the human user.]\n\nUse the smaller fix.',
+        );
         const wrongSession = ProviderSessionId.make("session:wrong");
         assert.equal(
           (yield* Effect.exit(
@@ -434,7 +473,7 @@ it.effect.each(
           ))._tag,
           "Failure",
         );
-        assert.lengthOf(calls, 5);
+        assert.lengthOf(calls, 6);
         const confirmed = yield* Effect.forkChild(interrupt);
         yield* Queue.take(pulls);
         const ingest = (sequence: number, event: OrchestrationV2DomainEvent) =>
@@ -466,13 +505,14 @@ it.effect.each(
           "reply",
           agentText,
           deliveredCommandText,
+          linkedText,
           "interrupt",
           "interrupt",
         ]);
       }).pipe(
         Effect.provide(
           Layer.merge(ProviderTurnControlService.layer, RuntimeRequestService.layer).pipe(
-            Layer.provide(Layer.merge(layerSessions, layerEvents)),
+            Layer.provide(Layer.mergeAll(layerSessions, layerEvents, layerMacLink)),
           ),
         ),
       );

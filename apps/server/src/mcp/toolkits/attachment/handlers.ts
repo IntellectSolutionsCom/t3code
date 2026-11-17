@@ -12,7 +12,7 @@ import * as Upload from "../../../assets/AttachmentUpload.ts";
 import * as Claims from "../../../orchestration-v2/AttachmentClaims.ts";
 import * as ThreadMessageIntake from "../../../orchestration-v2/ThreadMessageIntake.ts";
 import * as McpToolAccess from "../../McpToolAccess.ts";
-import { withLinkedSenderLine } from "../../linkOrigin.ts";
+import { linkedSenderRecord, withLinkedSenderLine } from "../../../t3f/linkedSender.ts";
 import { newCommandId, readThread, unavailable } from "../../threadAccess.ts";
 import { AttachmentToolkit } from "./tools.ts";
 
@@ -108,7 +108,8 @@ export const layer = McpToolAccess.toLayer(
               commandId,
               messageId,
               ...(caller === undefined ? {} : { senderThreadId: caller.id }),
-              text: withLinkedSenderLine(context, input.message ?? "", attachments.length),
+              ...linkedSenderRecord(context),
+              text: withLinkedSenderLine(context, input.message ?? "", attachments.length, true),
               attachments,
               mode: "auto",
               createdBy: "agent",
