@@ -10,9 +10,11 @@ import {
   type T3fNativeSessionAdoptResult,
   type T3fNativeSessionIdentifyResult,
   type T3fNativeSessionListResult,
+  type T3fNativeSessionOutThreads,
   type ThreadId,
 } from "@t3tools/contracts";
 import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
+import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -21,7 +23,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
 
+import * as RuntimeLayer from "../orchestration-v2/runtimeLayer.ts";
+import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecutor.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as AcpRegistrySessions from "../provider/AcpRegistrySessions.ts";
@@ -29,6 +34,8 @@ import { resolveClaudeHomePath } from "../provider/Drivers/ClaudeHome.ts";
 import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { makeAdoption } from "./nativeSessionAdoption.ts";
+import { makeHandout } from "./nativeSessionHandout.ts";
+import * as NativeSessionOut from "./NativeSessionOut.ts";
 import { hasVerifiedCommand, nativeSessionCommand } from "./nativeSessionCommand.ts";
 import { claudeSessionName, codexSessionName, piSessionName } from "./nativeSessionNames.ts";
 
@@ -46,6 +53,14 @@ export class NativeSessions extends Context.Service<
     readonly adopt: (
       input: T3fNativeSessionAdoptInput,
     ) => Effect.Effect<T3fNativeSessionAdoptResult, T3fNativeSessionError>;
+    /** Releases the thread's session so its provider's own client can continue it. */
+    readonly handOut: (
+      threadId: ThreadId,
+    ) => Effect.Effect<T3fNativeSessionIdentifyResult, T3fNativeSessionError>;
+    /** Lets T3 Code send to the thread again; a thread that is not out is left as it is. */
+    readonly takeBack: (threadId: ThreadId) => Effect.Effect<void, T3fNativeSessionError>;
+    /** This environment's out threads now, then after each change. */
+    readonly outThreads: Stream.Stream<T3fNativeSessionOutThreads>;
   }
 >()("t3/t3f/NativeSessions") {}
 
@@ -80,6 +95,7 @@ const threadNotFound = (threadId: ThreadId) =>
   });
 
 export const make = Effect.gen(function* () {
+  const handout = yield* makeHandout;
   const threads = yield* ThreadManagementService.ThreadManagementService;
   const projects = yield* ProjectService.ProjectService;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
@@ -216,6 +232,10 @@ export const make = Effect.gen(function* () {
       Effect.orElseSucceed(() => null),
     );
     const platform = yield* HostProcess.Platform;
+    const mark = yield* handout.mark(threadId);
+    if (mark !== undefined && mark.nativeId !== nativeId) {
+      yield* handout.dropMark(threadId).pipe(Effect.ignore);
+    }
     const command = nativeSessionCommand({
       driver: active.driver,
       nativeId,
@@ -232,15 +252,34 @@ export const make = Effect.gen(function* () {
         cwd,
         command,
         commandNote: hasVerifiedCommand(active.driver) ? null : COMMAND_NOTE,
+        out: mark?.nativeId === nativeId ? { since: mark.since } : null,
       },
     };
   });
 
   const { list, adopt } = yield* makeAdoption;
-  return NativeSessions.of({ identify, list, adopt });
+  return NativeSessions.of({
+    identify,
+    list,
+    adopt,
+    handOut: Effect.fn("NativeSessions.handOut")(function* (threadId: ThreadId) {
+      yield* handout.handOut(threadId);
+      return yield* identify(threadId);
+    }),
+    takeBack: handout.takeBack,
+    outThreads: handout.outThreads,
+  });
 });
 
 // Upstream provides the ACP session service per connection; this layer also serves tools.
 export const layer = Layer.effect(NativeSessions, make).pipe(
-  Layer.provide(AcpRegistrySessions.layer),
+  Layer.provide(
+    Layer.mergeAll(
+      AcpRegistrySessions.layer,
+      NativeSessionOut.layer,
+      ThreadCommandExecutor.layer,
+      RuntimeLayer.layerEventSink,
+      IdAllocator.layer,
+    ),
+  ),
 );

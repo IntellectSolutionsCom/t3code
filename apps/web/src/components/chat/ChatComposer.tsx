@@ -259,6 +259,7 @@ import { assistantCitationNavigation } from "../../lib/assistantCitationNavigati
 import { Button } from "../ui/button";
 import { Spinner } from "../ui/spinner";
 import { useManagedPolicy } from "../../state/managedPolicy";
+import { useNativeSessionOut } from "../../state/nativeSessions";
 import { hasProviderSetup } from "./ProviderStatusBanner";
 import { type AppModelOption, getAppModelOptionsForInstance } from "../../modelSelection";
 import type { UnifiedSettings } from "@t3tools/contracts/settings";
@@ -2553,6 +2554,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   );
   // After /clear the next message starts a fresh session that cannot see what the suggestion refers to.
   const freshSessionArmed = useFreshSessionArmed(scopedThreadKey(routeThreadRef));
+  const takesBackFirst = useNativeSessionOut(routeThreadRef) !== null;
   // Offered only where the default placeholder would show, so it never hides a pending question.
   const offeredPromptSuggestion =
     phase !== "running" &&
@@ -4115,6 +4117,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     canResume={showResumeAction}
                     preserveComposerFocusOnPointerDown={isMobileViewport}
                     isEditingQueuedMessage={isEditingQueuedMessage}
+                    takesBackFirst={takesBackFirst}
                     onSubmitMessage={handleSubmitMessageStable}
                     onResume={onResume}
                     onPreviousPendingQuestion={onPreviousActivePendingUserInputQuestion}

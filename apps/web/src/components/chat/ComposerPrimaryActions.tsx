@@ -61,6 +61,8 @@ interface ComposerPrimaryActionsProps {
   canResume?: boolean;
   preserveComposerFocusOnPointerDown?: boolean;
   isEditingQueuedMessage?: boolean;
+  /** The thread is out in its provider's own client; sending takes it back first. */
+  takesBackFirst?: boolean;
   onSubmitMessage?: MouseEventHandler<HTMLButtonElement>;
   onResume?: () => void;
   onPreviousPendingQuestion: () => void;
@@ -254,6 +256,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
   canResume = false,
   preserveComposerFocusOnPointerDown = false,
   isEditingQueuedMessage = false,
+  takesBackFirst = false,
   onSubmitMessage,
   onResume,
   onPreviousPendingQuestion,
@@ -396,11 +399,13 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
       ? gt("Update queued message")
       : compactsBeforeSend
         ? gt("Compact and send")
-        : isQueuing
-          ? gt("Queue message")
-          : isRunning
-            ? gt("Steer message")
-            : gt("Submit message");
+        : takesBackFirst
+          ? "Take back and send"
+          : isQueuing
+            ? gt("Queue message")
+            : isRunning
+              ? gt("Steer message")
+              : gt("Submit message");
   const submitStatus = isEnvironmentUnavailable
     ? gt("Environment disconnected")
     : isSendHeld

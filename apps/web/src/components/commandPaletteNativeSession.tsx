@@ -1,8 +1,17 @@
+import { useAtomValue } from "@effect/atom-react";
 import type { ScopedThreadRef } from "@t3tools/contracts";
-import { FingerprintIcon, HistoryIcon, TerminalIcon } from "lucide-react";
+import { FingerprintIcon, HistoryIcon, LogInIcon, LogOutIcon, TerminalIcon } from "lucide-react";
 
 import { namedClipboardTarget, writeTextToClipboard } from "../hooks/useCopyToClipboard";
-import { useNativeSession } from "../state/nativeSessions";
+import {
+  nativeSessionEnvironment,
+  useCanHandOut,
+  useHandOutBlocker,
+  useNativeSession,
+  useTakeBack,
+} from "../state/nativeSessions";
+import { useAtomCommand } from "../state/use-atom-command";
+import { reportHandOutRefused } from "./chat/ThreadNativeSessionPanel";
 import { type CommandPaletteActionItem, ITEM_ICON_CLASS } from "./CommandPalette.logic";
 import { canLoadNativeSession, openLoadNativeSession } from "./LoadNativeSessionDialog";
 import { stackedThreadToast, toastManager } from "./ui/toast";
@@ -28,8 +37,56 @@ export function useNativeSessionPaletteItems(
   ref: ScopedThreadRef | null,
 ): ReadonlyArray<CommandPaletteActionItem> {
   const session = useNativeSession(ref);
-  if (session === null) return [];
+  const takeBack = useTakeBack(ref);
+  const supportsHandOut = useCanHandOut(ref?.environmentId ?? null);
+  const mayHandOut = useAtomValue(
+    nativeSessionEnvironment.handOut.permissionAtom(ref?.environmentId ?? null),
+  );
+  const handOut = useAtomCommand(
+    nativeSessionEnvironment.handOut,
+    "Could not hand the session out",
+  );
+  const handOutBlocker = useHandOutBlocker(ref);
+  if (ref === null || session === null) return [];
   const { command } = session;
+  const handOutItems: ReadonlyArray<CommandPaletteActionItem> =
+    !supportsHandOut || !mayHandOut
+      ? []
+      : takeBack !== null
+        ? [
+            {
+              kind: "action",
+              value: "action:take-back-native-session",
+              searchTerms: ["take back", "session", "terminal", "native", "provider", "resume"],
+              title: "Take the session back",
+              description: "Send from T3 Code again",
+              icon: <LogInIcon className={ITEM_ICON_CLASS} />,
+              run: async () => {
+                await takeBack.takeBack();
+              },
+            },
+          ]
+        : command === null || handOutBlocker !== null
+          ? []
+          : [
+              {
+                kind: "action",
+                value: "action:hand-out-native-session",
+                searchTerms: ["continue", "terminal", "hand out", "session", "native", "cli"],
+                title: "Continue in terminal",
+                description: "Copies the command and hands the session to its own client",
+                icon: <LogOutIcon className={ITEM_ICON_CLASS} />,
+                run: async () => {
+                  await copy(command, "Command");
+                  reportHandOutRefused(
+                    await handOut({
+                      environmentId: ref.environmentId,
+                      input: { threadId: ref.threadId },
+                    }),
+                  );
+                },
+              },
+            ];
   return [
     {
       kind: "action",
@@ -53,6 +110,7 @@ export function useNativeSessionPaletteItems(
             run: () => copy(command, "Command"),
           },
         ]),
+    ...handOutItems,
   ];
 }
 

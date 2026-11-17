@@ -19,6 +19,7 @@ it.layer(SqlitePersistence.layerMemory)("fork migrations", (it) => {
       assert.deepEqual(yield* ledger(sql, "t3f_migrations"), [
         [1, "LinkMessageGrants"],
         [2, "ThreadBadges"],
+        [3, "NativeSessionOut"],
       ]);
       assert.deepEqual(yield* ledger(sql, "t3f_migrations"), forkMigrationManifest);
       assert.deepEqual(yield* ledger(sql, "effect_sql_migrations"), migrationManifest);
@@ -31,7 +32,13 @@ it.layer(SqlitePersistence.layerMemory)("fork migrations", (it) => {
       `;
       assert.deepEqual(
         tables.map((table) => table.name),
-        ["t3f_link_message_grants", "t3f_link_sessions", "t3f_migrations", "t3f_thread_badges"],
+        [
+          "t3f_link_message_grants",
+          "t3f_link_sessions",
+          "t3f_migrations",
+          "t3f_native_session_out",
+          "t3f_thread_badges",
+        ],
       );
     }),
   );
@@ -42,6 +49,14 @@ it.effect("refuse a history that records one of their ids under another name or 
     const sql = yield* SqlClient.SqlClient;
     const noop = Effect.void;
     yield* runForkMigrations([[1, "LinkMessageGrants", noop]]);
+    assert.deepEqual(
+      yield* runForkMigrations([
+        [1, "LinkMessageGrants", noop],
+        [3, "NativeSessionOut", noop],
+      ]),
+      [[3, "NativeSessionOut"]],
+    );
+    yield* sql`DELETE FROM t3f_migrations WHERE migration_id = 3`;
     yield* sql`INSERT INTO t3f_migrations (migration_id, name) VALUES (2, 'Other')`;
 
     const renamed = yield* runForkMigrations([
