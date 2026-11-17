@@ -90,6 +90,7 @@ import * as RemoteDelegation from "./peer/RemoteDelegation.ts";
 import * as PeerLinkRequests from "./peer/PeerLinkRequests.ts";
 import * as LinkMessageGrants from "./t3f/LinkMessageGrants.ts";
 import * as ThreadBadges from "./t3f/ThreadBadges.ts";
+import * as NativeSessions from "./t3f/NativeSessions.ts";
 import * as PeerLinks from "./peer/PeerLinks.ts";
 import * as PeerMcpClient from "./peer/PeerMcpClient.ts";
 import * as McpSessionRegistry from "./mcp/McpSessionRegistry.ts";
@@ -867,6 +868,7 @@ const layerMakeRoutes = Layer.mergeAll(
   Layer.provide(PeerLinkRequests.layer),
   Layer.provide(LinkMessageGrants.layer),
   Layer.provide(ThreadBadges.layer),
+  Layer.provide(NativeSessions.layer),
   // Share the service so HTTP/WS clients single-flight reads and invalidate each other's cached patches.
   Layer.provide(layerPullRequestService),
   // The same activity instance RunExecutionService reports to, by layer memoization.

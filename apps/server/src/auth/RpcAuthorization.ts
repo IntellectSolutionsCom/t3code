@@ -28,6 +28,7 @@ import {
   EnvironmentAuthorizationError,
   RpcScopeAuthorization,
   T3F_WS_METHODS,
+  T3F_NATIVE_SESSION_WS_METHODS,
   WS_METHODS,
   WsRpcGroup,
 } from "@t3tools/contracts";
@@ -95,6 +96,7 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.peerLinksList]: AuthAccessReadScope,
   [T3F_WS_METHODS.linkMessageGrantsList]: AuthAccessReadScope,
   [T3F_WS_METHODS.threadBadgesSubscribe]: AuthOrchestrationReadScope,
+  [T3F_NATIVE_SESSION_WS_METHODS.identify]: AuthOrchestrationReadScope,
   [WS_METHODS.serverUpdateSettings]: AuthSettingsWriteScope,
   [WS_METHODS.serverSearchAcpRegistry]: AuthOrchestrationReadScope,
   [WS_METHODS.serverPrepareAcpRegistryAgent]: AuthProvidersManageScope,

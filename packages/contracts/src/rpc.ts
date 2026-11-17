@@ -418,6 +418,7 @@ import {
   T3fLinkMessageGrantsSetRpc,
 } from "./t3f/linkMessageGrants.ts";
 import { T3fThreadBadgesSetRpc, T3fThreadBadgesSubscribeRpc } from "./t3f/threadBadges.ts";
+import { T3fNativeSessionIdentifyRpc } from "./t3f/nativeSessions.ts";
 
 export const WS_METHODS = {
   projectsListEntries: "projects.listEntries",
@@ -2156,6 +2157,7 @@ export const WsRpcGroup = RpcGroup.make(
   T3fLinkMessageGrantsSetRpc,
   T3fThreadBadgesSubscribeRpc,
   T3fThreadBadgesSetRpc,
+  T3fNativeSessionIdentifyRpc,
   WsServerDiscoverSourceControlRpc,
   WsServerCheckSecretSourceRpc,
   WsServerSearchAcpRegistryRpc,

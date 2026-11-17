@@ -6558,6 +6558,76 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
     }),
   );
 
+  it.effect("keeps a thread's active provider thread in the window before it runs", () =>
+    Effect.gen(function* () {
+      const projectionStore = yield* ProjectionStore.ProjectionStoreV2;
+      const now = yield* DateTime.now;
+      const threadId = ThreadId.make("thread:bounded-imported");
+      const providerThreadId = ProviderThreadId.make("provider-thread:bounded-imported");
+      yield* projectionStore.apply({
+        id: EventId.make("event:bounded-imported:thread"),
+        type: "thread.created",
+        threadId,
+        occurredAt: now,
+        payload: {
+          createdBy: "system",
+          creationSource: "server",
+          id: threadId,
+          projectId: ProjectId.make("project:bounded-imported"),
+          title: "Imported",
+          providerInstanceId,
+          modelSelection,
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          branch: null,
+          worktreePath: null,
+          activeProviderThreadId: providerThreadId,
+          lineage: { parentThreadId: null, relationshipToParent: null, rootThreadId: threadId },
+          forkedFrom: null,
+          createdAt: now,
+          updatedAt: now,
+          archivedAt: null,
+          settledOverride: null,
+          settledAt: null,
+          lastVisitedAt: null,
+          deletedAt: null,
+        },
+      });
+      yield* projectionStore.apply({
+        id: EventId.make("event:bounded-imported:provider-thread"),
+        type: "provider-thread.updated",
+        threadId,
+        driver,
+        occurredAt: now,
+        payload: {
+          id: providerThreadId,
+          driver,
+          providerInstanceId,
+          providerSessionId: null,
+          appThreadId: threadId,
+          ownerNodeId: null,
+          nativeThreadRef: { driver, nativeId: "native-session", strength: "strong" },
+          nativeConversationHeadRef: null,
+          status: "idle",
+          firstRunOrdinal: null,
+          lastRunOrdinal: null,
+          handoffIds: [],
+          forkedFrom: null,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+
+      const snapshot = yield* projectionStore.getThreadSnapshotWindow(threadId, { rowLimit: 10 });
+
+      assert.strictEqual(snapshot.projection.thread.activeProviderThreadId, providerThreadId);
+      assert.deepEqual(
+        snapshot.projection.providerThreads.map((thread) => thread.id),
+        [providerThreadId],
+      );
+    }),
+  );
+
   it.effect("projects root provider owners into the shell in first-use order", () =>
     Effect.gen(function* () {
       const projectionStore = yield* ProjectionStore.ProjectionStoreV2;

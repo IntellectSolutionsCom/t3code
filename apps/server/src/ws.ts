@@ -10,6 +10,7 @@ import * as PeerLinkRequests from "./peer/PeerLinkRequests.ts";
 import * as PeerLinks from "./peer/PeerLinks.ts";
 import * as LinkMessageGrants from "./t3f/LinkMessageGrants.ts";
 import * as ThreadBadges from "./t3f/ThreadBadges.ts";
+import * as NativeSessions from "./t3f/NativeSessions.ts";
 
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -103,6 +104,7 @@ import {
   type TerminalMetadataStreamEvent,
   type PullRequestRef,
   T3F_WS_METHODS,
+  T3F_NATIVE_SESSION_WS_METHODS,
   WS_METHODS,
   WsRpcGroup,
 } from "@t3tools/contracts";
@@ -1548,6 +1550,7 @@ export const layerWsRpc = (
       const peerLinks = yield* PeerLinks.PeerLinks;
       const linkMessageGrants = yield* LinkMessageGrants.LinkMessageGrants;
       const threadBadges = yield* ThreadBadges.ThreadBadges;
+      const nativeSessions = yield* NativeSessions.NativeSessions;
       const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
       const startup = yield* ServerRuntimeStartup.ServerRuntimeStartup;
       const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
@@ -2667,6 +2670,8 @@ export const layerWsRpc = (
         [WS_METHODS.peerLinksList]: (_input) =>
           peerLinks.list.pipe(Effect.map((links) => ({ links }))),
         [WS_METHODS.peerLinksLink]: (input) => peerLinks.link(input),
+        [T3F_NATIVE_SESSION_WS_METHODS.identify]: ({ threadId }) =>
+          nativeSessions.identify(threadId),
         [WS_METHODS.peerLinksUnlink]: ({ environmentId }) =>
           peerLinks.unlink(environmentId).pipe(Effect.map((removed) => ({ removed }))),
         [T3F_WS_METHODS.linkMessageGrantsList]: () => linkMessageGrants.list,
@@ -3585,6 +3590,7 @@ export const layer = Layer.unwrap(
     const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
     const linkMessageGrants = yield* LinkMessageGrants.LinkMessageGrants;
     const threadBadges = yield* ThreadBadges.ThreadBadges;
+    const nativeSessions = yield* NativeSessions.NativeSessions;
     const sql = yield* SqlClient.SqlClient;
     return HttpRouter.add(
       "GET",
@@ -3682,6 +3688,7 @@ export const layer = Layer.unwrap(
               Layer.provide(Layer.succeed(PeerLinkRequests.PeerLinkRequests, peerLinkRequests)),
               Layer.provide(Layer.succeed(LinkMessageGrants.LinkMessageGrants, linkMessageGrants)),
               Layer.provide(Layer.succeed(ThreadBadges.ThreadBadges, threadBadges)),
+              Layer.provide(Layer.succeed(NativeSessions.NativeSessions, nativeSessions)),
               Layer.provide(
                 SourceControlDiscovery.layer.pipe(
                   Layer.provide(
