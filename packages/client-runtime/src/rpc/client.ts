@@ -6,6 +6,7 @@ import {
   type ClientGuardedRpcTag,
   ORCHESTRATION_V2_WS_METHODS,
   T3F_WS_METHODS,
+  T3F_NATIVE_SESSION_WS_METHODS,
   WS_METHODS,
 } from "@t3tools/contracts";
 import * as Cause from "effect/Cause";
@@ -76,7 +77,8 @@ export type EnvironmentSubscriptionRpcTag =
   | typeof WS_METHODS.subscribeProjectClones
   | typeof WS_METHODS.terminalAttach
   | typeof WS_METHODS.terminalObserve
-  | typeof T3F_WS_METHODS.threadBadgesSubscribe;
+  | typeof T3F_WS_METHODS.threadBadgesSubscribe
+  | typeof T3F_NATIVE_SESSION_WS_METHODS.subscribeOut;
 
 export type EnvironmentStreamCommandRpcTag =
   | typeof WS_METHODS.chatGptHandoffSubscribe

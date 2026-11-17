@@ -59,6 +59,7 @@ import * as ThreadForkService from "./ThreadForkService.ts";
 import * as TurnItemPositionStore from "./TurnItemPositionStore.ts";
 import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 import * as SecretRequests from "../secrets/SecretRequests.ts";
+import * as NativeSessionGate from "../t3f/nativeSessionGate.ts";
 
 export const layerEventInfrastructure = Layer.mergeAll(
   OrchestrationEventStore.layer,
@@ -145,6 +146,8 @@ const layerProviderSessionManagerProvided = ProviderSessionManager.layer.pipe(
       ProviderInstallationGate.layer,
     ),
   ),
+  NativeSessionGate.layerOver,
+  Layer.provide(ProjectionStore.layer),
 );
 
 const layerProviderAuthServiceProvided = ProviderAuthService.layer.pipe(

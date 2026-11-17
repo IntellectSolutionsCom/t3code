@@ -98,6 +98,7 @@ export const RPC_REQUIRED_SCOPES = {
   [T3F_WS_METHODS.threadBadgesSubscribe]: AuthOrchestrationReadScope,
   [T3F_NATIVE_SESSION_WS_METHODS.identify]: AuthOrchestrationReadScope,
   [T3F_NATIVE_SESSION_WS_METHODS.list]: AuthOrchestrationReadScope,
+  [T3F_NATIVE_SESSION_WS_METHODS.subscribeOut]: AuthOrchestrationReadScope,
   [WS_METHODS.serverUpdateSettings]: AuthSettingsWriteScope,
   [WS_METHODS.serverSearchAcpRegistry]: AuthOrchestrationReadScope,
   [WS_METHODS.serverPrepareAcpRegistryAgent]: AuthProvidersManageScope,

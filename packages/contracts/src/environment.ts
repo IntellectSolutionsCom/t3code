@@ -208,6 +208,8 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   linkedThreadRefreshes: Schema.optionalKey(Schema.Boolean),
   /** Serves `t3f.nativeSessions.list` and `adopt`; hide Load a session where it is absent. */
   nativeSessionLoading: Schema.optionalKey(Schema.Boolean),
+  /** Serves `t3f.nativeSessions.handOut`, `takeBack` and `subscribeOut`. */
+  nativeSessionHandout: Schema.optionalKey(Schema.Boolean),
 });
 export type ExecutionEnvironmentCapabilities = typeof ExecutionEnvironmentCapabilities.Type;
 

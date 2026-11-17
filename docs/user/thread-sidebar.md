@@ -331,9 +331,25 @@ different name in the provider's own client, the row shows that name, and
 **Use as title** renames the thread to match. For Claude, Codex, and Pi it
 also shows a terminal command that continues the session in that provider's
 own client; run it on the machine the row names. Other providers show only the
-id for now. Don't send to the thread from T3 Code while you work in the
-session elsewhere, or the two clients write to it at once. You can also copy
-the id or command from the command palette.
+id for now. You can also copy the id or command from the command palette.
+
+To work in the provider's own client, choose **Continue in terminal**. T3 Code
+copies the command and hands the thread out, so the two clients never write to
+the session at once. It can't hand a thread out while a turn runs, messages are
+queued, or background tasks are still running. While the thread is out, the
+composer says which client has it and since when, and T3 Code starts no turn on
+it: a message sent by an agent or another client fails with an error in the
+thread. That message stays in the thread as failed, and the agent sees it as
+history after you take the thread back, so sending it again delivers it twice.
+
+To come back, choose **Take back**, or send a message: Send becomes **Take back
+and send**. Close the session in the terminal first. Codex refuses to resume a
+session its own client still has open; other providers would let both write, so
+T3 Code asks you to confirm. The thread then gets a note that turns made in the
+terminal are not shown here. The agent keeps them while the provider still has
+the session; if the session was removed in the meantime, the agent goes on
+without them. On mobile, the thread settings sheet has the same actions and the
+composer shows the same notice. The command palette offers them too.
 
 To choose what the thread details card shows, right-click the card or open
 **Settings → Appearance → Thread details**. Hidden rows keep their keyboard

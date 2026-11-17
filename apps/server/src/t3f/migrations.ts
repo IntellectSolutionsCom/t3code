@@ -5,6 +5,7 @@ import type * as SqlError from "effect/sql/SqlError";
 
 import Migration0001 from "./migrations/0001_LinkMessageGrants.ts";
 import Migration0002 from "./migrations/0002_ThreadBadges.ts";
+import Migration0003 from "./migrations/0003_NativeSessionOut.ts";
 
 /**
  * The fork's schema, on a ledger of its own so upstream's ledger and its checks never see it.
@@ -13,6 +14,7 @@ import Migration0002 from "./migrations/0002_ThreadBadges.ts";
 const forkMigrationEntries = [
   [1, "LinkMessageGrants", Migration0001],
   [2, "ThreadBadges", Migration0002],
+  [3, "NativeSessionOut", Migration0003],
 ] as const;
 
 export const forkMigrationManifest = forkMigrationEntries.map(([id, name]) => [id, name] as const);

@@ -3,10 +3,13 @@ import {
   ProviderDriverKind,
   ProviderInstanceId,
   T3F_NATIVE_SESSION_WS_METHODS,
+  ThreadId,
 } from "@t3tools/contracts";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import { AsyncResult } from "effect/reactivity";
 
-import { nativeSessionRow, orUnsupported } from "./nativeSessions.ts";
+import { nativeSessionRow, orUnsupported, takeBackAndSend } from "./nativeSessions.ts";
 
 const session = {
   driver: ProviderDriverKind.make("claudeAgent"),
@@ -49,4 +52,52 @@ describe("the native session row", () => {
       })?.name,
     ).toBe(name);
   });
+});
+
+describe("take back and send", () => {
+  it.each([
+    {
+      driver: "codex",
+      confirmed: null,
+      tookBack: true,
+      steps: ["take back", "refresh session", "send"],
+    },
+    {
+      driver: "claudeAgent",
+      confirmed: true,
+      tookBack: true,
+      steps: ["confirm", "take back", "refresh session", "send"],
+    },
+    { driver: "claudeAgent", confirmed: false, tookBack: true, steps: ["confirm"] },
+    { driver: "codex", confirmed: null, tookBack: false, steps: ["take back"] },
+  ])(
+    "$driver, confirmed $confirmed, taken back $tookBack: $steps",
+    async ({ driver, confirmed, tookBack, steps }) => {
+      const done: Array<string> = [];
+      const sent = await takeBackAndSend({
+        out: {
+          threadId: ThreadId.make("thread-1"),
+          driver: ProviderDriverKind.make(driver),
+          since: "2026-03-17T19:12:28.000Z",
+        },
+        confirm: async () => {
+          done.push("confirm");
+          return confirmed === true;
+        },
+        takeBack: async () => {
+          done.push("take back");
+          return tookBack ? AsyncResult.success({}) : AsyncResult.failure(Cause.fail("refused"));
+        },
+        refreshSession: () => {
+          done.push("refresh session");
+        },
+        send: async () => {
+          done.push("send");
+          return "message-1";
+        },
+      });
+      expect(done).toEqual(steps);
+      expect(sent).toBe(steps.includes("send") ? "message-1" : undefined);
+    },
+  );
 });
