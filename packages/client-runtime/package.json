@@ -295,6 +295,10 @@
       "types": "./src/state/linkMessageGrants.ts",
       "default": "./src/state/linkMessageGrants.ts"
     },
+    "./state/threadBadges": {
+      "types": "./src/state/threadBadges.ts",
+      "default": "./src/state/threadBadges.ts"
+    },
     "./state/environmentHttpAuth": {
       "types": "./src/state/environmentHttpAuth.ts",
       "default": "./src/state/environmentHttpAuth.ts"

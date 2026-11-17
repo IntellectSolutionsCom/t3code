@@ -20,6 +20,7 @@ import {
   EnvironmentId,
   ORCHESTRATION_V2_WS_METHODS,
   ScheduledTaskId,
+  T3F_WS_METHODS,
   WS_METHODS,
   type AuthSessionState,
   type PeerLinkSummary,
@@ -221,7 +222,12 @@ describe("command permissions", () => {
     ),
   );
 
-  it.effect.each([WS_METHODS.scheduledTasksDelete, ORCHESTRATION_V2_WS_METHODS.stopWorkflow])(
+  const targetGrantMethods = [
+    WS_METHODS.scheduledTasksDelete,
+    ORCHESTRATION_V2_WS_METHODS.stopWorkflow,
+    T3F_WS_METHODS.threadBadgesSet,
+  ];
+  it.effect.each(targetGrantMethods)(
     "uses the target grant for both availability and execution of %s",
     (method) =>
       Effect.gen(function* () {

@@ -443,6 +443,7 @@ import {
   T3fLinkMessageGrantsListRpc,
   T3fLinkMessageGrantsSetRpc,
 } from "./t3f/linkMessageGrants.ts";
+import { T3fThreadBadgesSetRpc, T3fThreadBadgesSubscribeRpc } from "./t3f/threadBadges.ts";
 
 export const WS_METHODS = {
   projectsListEntries: "projects.listEntries",
@@ -2311,6 +2312,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsPeerLinksAnswerRequestRpc,
   T3fLinkMessageGrantsListRpc,
   T3fLinkMessageGrantsSetRpc,
+  T3fThreadBadgesSubscribeRpc,
+  T3fThreadBadgesSetRpc,
   WsServerDiscoverSourceControlRpc,
   WsServerCheckSecretSourceRpc,
   WsServerSearchAcpRegistryRpc,

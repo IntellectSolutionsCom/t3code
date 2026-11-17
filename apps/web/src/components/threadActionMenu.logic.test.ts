@@ -65,6 +65,18 @@ describe("buildThreadActionMenuItems", () => {
     },
   );
 
+  it("offers Thread settings only where badges are kept, and disables it without permission", () => {
+    const ids = (state: Partial<ThreadActionMenuState>) =>
+      buildThreadActionMenuItems({ ...baseState, ...state }).filter(
+        (item) => item.id === "thread-settings",
+      );
+    expect(ids({})).toEqual([]);
+    expect(ids({ canEditThreadSettings: true }).map((item) => item.disabled)).toEqual([undefined]);
+    expect(
+      ids({ canEditThreadSettings: true, canOperate: false }).map((item) => item.disabled),
+    ).toEqual([true]);
+  });
+
   it("disables archive and turning into a project while the thread is running", () => {
     const items = buildThreadActionMenuItems({
       ...baseState,

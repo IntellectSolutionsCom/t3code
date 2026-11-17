@@ -28,6 +28,7 @@ import { toastManager } from "../ui/toast";
 import { useThreadActionMenu } from "~/hooks/useThreadActionMenu";
 import { readLocalApi } from "~/localApi";
 import { threadEnvironment } from "../../state/threads";
+import { ThreadBadgeMark } from "../../t3f/ThreadBadgeMark";
 import { canShareWithGuestAtom } from "./guestShareAvailability";
 import { useAtomValue } from "@effect/atom-react";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
@@ -408,6 +409,9 @@ export const ChatHeader = memo(function ChatHeader({
                 </T>
               </TooltipPopup>
             </Tooltip>
+          ) : null}
+          {renamingTitle === null && isServerThread ? (
+            <ThreadBadgeMark threadRef={activeThreadRef} showLabel />
           ) : null}
         </WorkspaceBreadcrumbItem>
       </WorkspaceBreadcrumb>
