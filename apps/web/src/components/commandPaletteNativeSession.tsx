@@ -1,9 +1,10 @@
 import type { ScopedThreadRef } from "@t3tools/contracts";
-import { FingerprintIcon, TerminalIcon } from "lucide-react";
+import { FingerprintIcon, HistoryIcon, TerminalIcon } from "lucide-react";
 
 import { writeTextToClipboard } from "../hooks/useCopyToClipboard";
 import { useNativeSession } from "../state/nativeSessions";
 import { type CommandPaletteActionItem, ITEM_ICON_CLASS } from "./CommandPalette.logic";
+import { canLoadNativeSession, openLoadNativeSession } from "./LoadNativeSessionDialog";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 
 const copy = (value: string, what: string) =>
@@ -54,3 +55,31 @@ export function useNativeSessionPaletteItems(
         ]),
   ];
 }
+
+/** Opens the project's provider sessions, to load one into a thread, where its server can. */
+export const loadNativeSessionPaletteItems = (
+  project: Parameters<typeof openLoadNativeSession>[0],
+): ReadonlyArray<CommandPaletteActionItem> =>
+  canLoadNativeSession(project.environmentId)
+    ? [
+        {
+          kind: "action",
+          value: "action:load-native-session",
+          searchTerms: [
+            "load",
+            "session",
+            "import",
+            "resume",
+            "native",
+            "provider",
+            "cli",
+            "claude",
+            "codex",
+          ],
+          title: "Load a session into a thread…",
+          description: project.displayName,
+          icon: <HistoryIcon className={ITEM_ICON_CLASS} />,
+          run: async () => openLoadNativeSession(project),
+        },
+      ]
+    : [];

@@ -2672,6 +2672,8 @@ export const layerWsRpc = (
         [WS_METHODS.peerLinksLink]: (input) => peerLinks.link(input),
         [T3F_NATIVE_SESSION_WS_METHODS.identify]: ({ threadId }) =>
           nativeSessions.identify(threadId),
+        [T3F_NATIVE_SESSION_WS_METHODS.list]: ({ projectId }) => nativeSessions.list(projectId),
+        [T3F_NATIVE_SESSION_WS_METHODS.adopt]: (input) => nativeSessions.adopt(input),
         [WS_METHODS.peerLinksUnlink]: ({ environmentId }) =>
           peerLinks.unlink(environmentId).pipe(Effect.map((removed) => ({ removed }))),
         [T3F_WS_METHODS.linkMessageGrantsList]: () => linkMessageGrants.list,

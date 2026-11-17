@@ -35,6 +35,7 @@ import * as ProcessRunner from "../processRunner.ts";
 import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
 import * as ProviderSessionRuntime from "../persistence/ProviderSessionRuntime.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import type { NativeSessionScan } from "../t3f/nativeSessionFiles.ts";
 import * as AgentSessionScanner from "./AgentSessionScanner.ts";
 
 const makeProjectShell = (workspaceRoot: string): OrchestrationProjectShell => ({
@@ -141,16 +142,26 @@ const runScan = (input: ScannerTestInput) =>
     return yield* scanner.scan;
   }).pipe(Effect.provide(layerScannerTest(input)));
 
-const runRecentThreadOutcomes = (input: ScannerTestInput & { readonly workspaceRoot: string }) =>
+const runRecentThreadOutcomes = (
+  input: ScannerTestInput & {
+    readonly workspaceRoot: string;
+    readonly scan?: NativeSessionScan | undefined;
+  },
+) =>
   Effect.gen(function* () {
     const scanner = yield* AgentSessionScanner.AgentSessionScanner;
-    return yield* scanner.recentThreads(input.workspaceRoot).pipe(
+    return yield* scanner.recentThreads(input.workspaceRoot, [], input.scan).pipe(
       Stream.runCollect,
       Effect.map((outcomes) => Array.from(outcomes)),
     );
   }).pipe(Effect.provide(layerScannerTest(input)));
 
-const runRecentThreads = (input: ScannerTestInput & { readonly workspaceRoot: string }) =>
+const runRecentThreads = (
+  input: ScannerTestInput & {
+    readonly workspaceRoot: string;
+    readonly scan?: NativeSessionScan | undefined;
+  },
+) =>
   runRecentThreadOutcomes(input).pipe(
     Effect.map((outcomes) =>
       outcomes.flatMap((outcome) => (outcome._tag === "Importable" ? [outcome.thread] : [])),
@@ -1470,6 +1481,55 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
   });
 
   describe("recentThreads", () => {
+    it.effect("scans only the named session, whatever its age", () =>
+      Effect.gen(function* () {
+        const path = yield* Path.Path;
+        const nowMs = Date.parse("2026-08-24T12:00:00.000Z");
+        yield* TestClock.setTime(nowMs);
+        const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+        const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+        const workspace = yield* makeTempDir("t3code-workspace-");
+        const oldId = "5a3356c8-4ff1-46f9-908c-637454f147c4";
+        const recentId = "6b4467d9-5002-4a0a-a19d-748565025bd5";
+        for (const [sessionId, ageDays] of [
+          [oldId, 90],
+          [recentId, 1],
+        ] as const) {
+          yield* writeTranscript({
+            filePath: path.join(claudeHomePath, "projects", "-selected", `${sessionId}.jsonl`),
+            contents: `${JSON.stringify({
+              type: "user",
+              cwd: workspace,
+              sessionId,
+              timestamp: "2026-05-01T12:00:00.000Z",
+              message: { role: "user", content: `Prompt ${sessionId}` },
+            })}\n${JSON.stringify({
+              type: "assistant",
+              sessionId,
+              timestamp: "2026-05-01T12:01:00.000Z",
+              message: { role: "assistant", content: [{ type: "text", text: "Done" }] },
+            })}\n`,
+            mtimeMs: nowMs - ageDays * 24 * 60 * 60 * 1000,
+          });
+        }
+        const sessionIds = (scan?: NativeSessionScan) =>
+          runRecentThreads({ claudeHomePath, codexHomePath, workspaceRoot: workspace, scan }).pipe(
+            Effect.map((threads) => threads.map((thread) => thread.providerSessionId)),
+          );
+        const claudeInstance = ProviderInstanceId.make("claudeAgent");
+
+        expect(yield* sessionIds()).toEqual([recentId]);
+        expect(
+          yield* sessionIds({ session: { providerInstanceId: claudeInstance, fileKey: oldId } }),
+        ).toEqual([oldId]);
+        expect(
+          yield* sessionIds({
+            session: { providerInstanceId: ProviderInstanceId.make("codex"), fileKey: oldId },
+          }),
+        ).toEqual([]);
+      }),
+    );
+
     it.effect("imports Codex conversations stored only as zstd-compressed rollouts", () =>
       Effect.gen(function* () {
         const path = yield* Path.Path;

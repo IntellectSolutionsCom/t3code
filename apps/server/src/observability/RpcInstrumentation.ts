@@ -24,6 +24,8 @@ const RPC_AGGREGATES = {
   [ORCHESTRATION_V2_WS_METHODS.stopWorkflow]: "orchestration",
   [ORCHESTRATION_V2_WS_METHODS.forceStopThread]: "orchestration",
   [T3F_NATIVE_SESSION_WS_METHODS.identify]: "orchestration",
+  [T3F_NATIVE_SESSION_WS_METHODS.list]: "orchestration",
+  [T3F_NATIVE_SESSION_WS_METHODS.adopt]: "orchestration",
   [ORCHESTRATION_V2_WS_METHODS.getTurnItem]: "orchestration",
   [ORCHESTRATION_V2_WS_METHODS.getTurnDiff]: "orchestration",
   [ORCHESTRATION_V2_WS_METHODS.getFullThreadDiff]: "orchestration",
