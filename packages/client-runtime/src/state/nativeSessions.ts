@@ -1,6 +1,7 @@
 import {
   T3F_NATIVE_SESSION_WS_METHODS,
   type OrchestrationV2ProviderThread,
+  type ProjectId,
   type ProviderThreadId,
   type T3fNativeSession,
   type T3fNativeSessionIdentifyResult,
@@ -11,7 +12,7 @@ import type { Atom } from "effect/reactivity";
 
 import type { EnvironmentRegistry } from "../connection/registry.ts";
 import { request } from "../rpc/client.ts";
-import { createEnvironmentQueryAtomFamily } from "./runtime.ts";
+import { createEnvironmentQueryAtomFamily, createEnvironmentRpcCommand } from "./runtime.ts";
 
 export type NativeSessionIdentify =
   | ({ readonly supported: true } & T3fNativeSessionIdentifyResult)
@@ -77,6 +78,22 @@ export function createNativeSessionAtoms<R, E>(
         orUnsupported(
           request(T3F_NATIVE_SESSION_WS_METHODS.identify, { threadId: input.threadId }),
         ),
+    }),
+    /** Read afresh each time it mounts: sessions started outside T3 Code appear without notice. */
+    list: createEnvironmentQueryAtomFamily(runtime, {
+      label: "environment-data:t3f:native-sessions:list",
+      idleTtlMs: 0,
+      execute: (input: { readonly projectId: ProjectId }) =>
+        request(T3F_NATIVE_SESSION_WS_METHODS.list, input),
+    }),
+    adopt: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:t3f:native-sessions:adopt",
+      tag: T3F_NATIVE_SESSION_WS_METHODS.adopt,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) =>
+          `${environmentId}:${input.providerInstanceId}:${input.nativeId}`,
+      },
     }),
   };
 }

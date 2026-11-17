@@ -71,6 +71,20 @@ in a new thread's model picker to add or remove them. A regular click returns to
 single model. Choose a base branch and send. Each selection starts a separate thread
 and worktree while you stay in the new thread composer. This requires a Git project.
 
+### Load a session you started elsewhere
+
+To continue a Claude, Codex, or Pi session you ran in that provider's own
+client, pick **Load a session into a thread…** in the command palette, or
+right-click a project folder in the Boring sidebar. The list shows the sessions
+that ran in the project's folder in the last 30 days, plus sessions of ACP
+agents that can list them. **Load** copies the session's history into a new
+thread that continues the same session. A session that already has a thread
+shows **Open thread** instead, and loading it again opens that thread. A session
+whose thread you deleted shows **Its thread was deleted** and can't be loaded
+again; you can still continue it in the provider's own client. After `/clear`,
+the earlier session stays with the thread that holds its history. Loading is not
+available on mobile.
+
 ## Pin and reorder threads
 
 Pin a thread from its menu to keep it above your active work.

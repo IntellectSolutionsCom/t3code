@@ -5,7 +5,11 @@ import {
   type ProviderInstanceConfig,
   ProviderInstanceId,
   T3fNativeSessionError,
+  type ProjectId,
+  type T3fNativeSessionAdoptInput,
+  type T3fNativeSessionAdoptResult,
   type T3fNativeSessionIdentifyResult,
+  type T3fNativeSessionListResult,
   type ThreadId,
 } from "@t3tools/contracts";
 import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
@@ -20,9 +24,11 @@ import * as Schema from "effect/Schema";
 
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import * as ProjectService from "../project/ProjectService.ts";
+import * as AcpRegistrySessions from "../provider/AcpRegistrySessions.ts";
 import { resolveClaudeHomePath } from "../provider/Drivers/ClaudeHome.ts";
 import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import { makeAdoption } from "./nativeSessionAdoption.ts";
 import { hasVerifiedCommand, nativeSessionCommand } from "./nativeSessionCommand.ts";
 import { claudeSessionName, codexSessionName, piSessionName } from "./nativeSessionNames.ts";
 
@@ -32,6 +38,14 @@ export class NativeSessions extends Context.Service<
     readonly identify: (
       threadId: ThreadId,
     ) => Effect.Effect<T3fNativeSessionIdentifyResult, T3fNativeSessionError>;
+    /** Sessions that ran in the project's folder, with the thread already on each. */
+    readonly list: (
+      projectId: ProjectId,
+    ) => Effect.Effect<T3fNativeSessionListResult, T3fNativeSessionError>;
+    /** Loads a session into a new thread, or returns the thread already on it. */
+    readonly adopt: (
+      input: T3fNativeSessionAdoptInput,
+    ) => Effect.Effect<T3fNativeSessionAdoptResult, T3fNativeSessionError>;
   }
 >()("t3/t3f/NativeSessions") {}
 
@@ -65,7 +79,7 @@ const threadNotFound = (threadId: ThreadId) =>
     message: `Thread ${threadId} was not found.`,
   });
 
-const make = Effect.gen(function* () {
+export const make = Effect.gen(function* () {
   const threads = yield* ThreadManagementService.ThreadManagementService;
   const projects = yield* ProjectService.ProjectService;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
@@ -222,7 +236,11 @@ const make = Effect.gen(function* () {
     };
   });
 
-  return NativeSessions.of({ identify });
+  const { list, adopt } = yield* makeAdoption;
+  return NativeSessions.of({ identify, list, adopt });
 });
 
-export const layer = Layer.effect(NativeSessions, make);
+// Upstream provides the ACP session service per connection; this layer also serves tools.
+export const layer = Layer.effect(NativeSessions, make).pipe(
+  Layer.provide(AcpRegistrySessions.layer),
+);
