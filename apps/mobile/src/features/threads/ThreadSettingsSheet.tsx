@@ -18,6 +18,7 @@ import type {
   ProviderOptionDescriptor,
   ProviderOptionSelection,
   RuntimeMode,
+  ScopedThreadRef,
   ServerSettings,
   ThreadId,
 } from "@t3tools/contracts";
@@ -109,6 +110,7 @@ import {
 import { useSearchToolbarInset } from "../../components/ui/useBarInset";
 import type { AppBarSearch } from "../../components/ui/AppBar";
 import { ModelRow, ChoiceRow } from "./ThreadSettingsRows";
+import { NativeSessionThread, ThreadNativeSessionRows } from "./ThreadNativeSessionRows";
 import {
   compatibleRuntimeModeForChoices,
   runtimeModeChoicesForSupportedModes,
@@ -1065,6 +1067,7 @@ function ThreadSettingsOptionsItem(props: {
           isLast
         />
       </View>
+      <ThreadNativeSessionRows />
     </View>
   );
 }
@@ -1484,11 +1487,16 @@ function ThreadSettingsPickerNavigator(props: ThreadSettingsPickerPresentation) 
 }
 
 export function ThreadSettingsPickerScreen(
-  props: ThreadSettingsSessionProps & { readonly onClose: () => void },
+  props: ThreadSettingsSessionProps & {
+    readonly onClose: () => void;
+    readonly threadRef?: ScopedThreadRef | null;
+  },
 ) {
   return (
     <ThreadSettingsSessionProvider {...props}>
-      <ThreadSettingsPickerNavigator onClose={props.onClose} />
+      <NativeSessionThread.Provider value={props.threadRef ?? null}>
+        <ThreadSettingsPickerNavigator onClose={props.onClose} />
+      </NativeSessionThread.Provider>
     </ThreadSettingsSessionProvider>
   );
 }
@@ -1543,6 +1551,7 @@ export function ExistingThreadSettingsRouteScreen({
 
   return (
     <ThreadSettingsPickerScreen
+      threadRef={selectedThreadDetailRef}
       environmentId={selectedThread.environmentId}
       projectId={selectedThread.projectId}
       cwd={selectedThreadCwd}
