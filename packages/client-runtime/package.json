@@ -323,6 +323,10 @@
       "types": "./src/state/threadBadges.ts",
       "default": "./src/state/threadBadges.ts"
     },
+    "./state/nativeSessions": {
+      "types": "./src/state/nativeSessions.ts",
+      "default": "./src/state/nativeSessions.ts"
+    },
     "./state/environmentHttpAuth": {
       "types": "./src/state/environmentHttpAuth.ts",
       "default": "./src/state/environmentHttpAuth.ts"

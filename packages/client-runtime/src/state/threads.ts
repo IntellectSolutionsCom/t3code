@@ -230,6 +230,15 @@ function cachedThreadState(value: EnvironmentThreadState): EnvironmentThreadStat
   };
 }
 
+// Old bounded caches can omit these, and replay alone cannot restore them.
+function hasUnrepairableGap(projection: OrchestrationV2ThreadProjection): boolean {
+  const active = projection.thread.activeProviderThreadId;
+  return (
+    (active !== null && !projection.providerThreads.some((thread) => thread.id === active)) ||
+    hasMissingPendingQuestionCard(projection)
+  );
+}
+
 function hasMissingPendingQuestionCard(projection: OrchestrationV2ThreadProjection): boolean {
   const pending = new Set(
     projection.runtimeRequests
@@ -265,7 +274,7 @@ export const makeEnvironmentThreadState = Effect.fn("EnvironmentThreadState.make
   const retained =
     candidate &&
     Option.isSome(candidate.state.data) &&
-    hasMissingPendingQuestionCard(candidate.state.data.value)
+    hasUnrepairableGap(candidate.state.data.value)
       ? undefined
       : candidate;
   const owner = {};
@@ -285,11 +294,7 @@ export const makeEnvironmentThreadState = Effect.fn("EnvironmentThreadState.make
           ),
         )
       : Option.none<OrchestrationV2ThreadDetailSnapshot>();
-  // Old bounded caches can omit a pending question's card; replay alone cannot restore it.
-  const cached = Option.filter(
-    loaded,
-    (snapshot) => !hasMissingPendingQuestionCard(snapshot.projection),
-  );
+  const cached = Option.filter(loaded, (snapshot) => !hasUnrepairableGap(snapshot.projection));
   const cachedThread = Option.map(cached, (snapshot) => snapshot.projection);
   // Seed the resume cursor from the cached snapshot so a warm cache can catch up
   // via `afterSequence` instead of re-downloading the full thread body.

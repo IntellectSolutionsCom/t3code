@@ -108,6 +108,9 @@ import {
 import * as HtmlHandlers from "./toolkits/html/handlers.ts";
 import { MessageToolkit } from "./toolkits/message/tools.ts";
 import * as MessageHandlers from "./toolkits/message/handlers.ts";
+import * as NativeSessionHandlers from "../t3f/mcp/nativeSessionHandlers.ts";
+import { NativeSessionToolkit } from "../t3f/mcp/nativeSessionTools.ts";
+import * as NativeSessions from "../t3f/NativeSessions.ts";
 import { HtmlPreviewTool, HtmlPreviewToolkit, HtmlRenderToolkit } from "./toolkits/html/tools.ts";
 import { MCP_HTTP_PATH } from "../httpCors.ts";
 import { requestUrl } from "../requestUrl.ts";
@@ -1531,6 +1534,9 @@ export const layerTools = Layer.mergeAll(
   layerDeviceToolkit,
   layerHtmlToolkit,
   layerMessageToolkit,
+  toolkitRegistration(NativeSessionToolkit, NativeSessionHandlers.layer).pipe(
+    Layer.provide(NativeSessions.layer),
+  ),
 );
 
 const layerToolExposure = Layer.effect(
