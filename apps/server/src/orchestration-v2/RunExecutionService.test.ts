@@ -1181,6 +1181,19 @@ it.effect(
           expected: "goal",
           driver: ProviderDriverKind.make("claudeAgent"),
         },
+        {
+          text: "/goal finish the work",
+          attachments: [],
+          expected: "goal",
+          driver: ProviderDriverKind.make("opencode"),
+          nativeGoals: true,
+        },
+        {
+          text: "/goal finish the work",
+          attachments: [],
+          expected: "prompt",
+          driver: ProviderDriverKind.make("opencode"),
+        },
         ...["/goal", "/goal edit", "/goal clear", "/goal pause", "/goal resume"].map((text) => ({
           text,
           attachments: [],
@@ -1209,6 +1222,11 @@ it.effect(
           providerSessionId: ProviderSessionId.make(`session:compact-routing:${index}`),
           session: {
             driver: testCase.driver,
+            providerSession: {
+              capabilities: {
+                turns: { supportsNativeGoals: "nativeGoals" in testCase && testCase.nativeGoals },
+              },
+            },
             events: Stream.never,
             startTurn: (input: ProviderAdapter.ProviderAdapterV2TurnInput) =>
               Effect.sync(() => {

@@ -2247,9 +2247,12 @@ export const layer: Layer.Layer<
         const compact =
           input.message.attachments.length === 0 &&
           input.message.text.trim().toLowerCase() === "/compact";
+        // The drivers ProviderTurnStartService sends goal commands to verbatim.
         const goalCommand =
-          (input.session.driver === "codex" || input.session.driver === "claudeAgent") &&
-          parseGoalCommand(input.message) !== null;
+          parseGoalCommand(input.message) !== null &&
+          (input.session.driver === "codex" ||
+            input.session.driver === "claudeAgent" ||
+            input.session.providerSession.capabilities.turns.supportsNativeGoals === true);
         const { message: _message, ...resumeInput } = turnInput;
         const startTurn =
           input.resume === true
