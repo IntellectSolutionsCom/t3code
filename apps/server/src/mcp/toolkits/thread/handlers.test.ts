@@ -140,6 +140,8 @@ const heldThread = (
   options: {
     readonly authors?: readonly [Author, Author];
     readonly stop?: boolean;
+    /** An agent's restart stops the running turn as the orchestrator does for it. */
+    readonly restart?: boolean;
     readonly failure?: Partial<OrchestrationV2Run>;
   } = {},
 ) =>
@@ -181,6 +183,16 @@ const heldThread = (
         type: "thread.stop",
         commandId: CommandId.make(`stop:${threadId}`),
         threadId,
+      });
+      return { first, queued };
+    }
+    if (options.restart === true) {
+      yield* orchestrator.dispatch({
+        type: "run.interrupt",
+        commandId: CommandId.make(`restart:${threadId}`),
+        threadId,
+        runId: first.id,
+        reason: "Stopped to send a new message",
       });
       return { first, queued };
     }
@@ -295,10 +307,13 @@ it.layer(layerTest)("t3_queue held queues", (it) => {
 
   // The hold's cause is read from the newest executed run: a Stop's mark on an older run does
   // not keep a later provider failure's hold from an agent.
-  it.effect("resumes when a later run failed after an earlier Stop", () =>
+  it.effect.each([
+    { name: "Stop", stopped: { stop: true } },
+    { name: "agent's restart", stopped: { restart: true } },
+  ])("resumes when a later run failed after an earlier $name", ({ name, stopped: stopOption }) =>
     Effect.gen(function* () {
-      const threadId = ThreadId.make("thread:queue-hold-stop-then-failure");
-      const { first, queued } = yield* heldThread(threadId, { stop: true });
+      const threadId = ThreadId.make(`thread:queue-hold-${name.length}-then-failure`);
+      const { first, queued } = yield* heldThread(threadId, stopOption);
       const [stopped] = yield* threadRuns(threadId, [first]);
       if (stopped!.completedAt == null) {
         yield* runUpdated(stopped!, { status: "interrupted", completedAt: yield* DateTime.now });
