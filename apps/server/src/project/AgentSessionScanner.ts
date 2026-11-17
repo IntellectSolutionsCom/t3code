@@ -44,6 +44,7 @@ import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/
 import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
 import { piHome, resolvePiSessionsDir } from "@t3tools/provider-pi/server/usage";
 import * as ServerSettings from "../serverSettings.ts";
+import { matchesNativeSession, type NativeSessionScan } from "../t3f/nativeSessionFiles.ts";
 import { sourceControlDefinitions } from "../sourceControl/sourceControlDefinitions.ts";
 import {
   createTranscriptJsonReader,
@@ -249,6 +250,7 @@ export class AgentSessionScanner extends Context.Service<
     readonly recentThreads: (
       workspaceRoot: string,
       completedSources?: ReadonlyArray<AgentSessionImportSource>,
+      scan?: NativeSessionScan,
     ) => Stream.Stream<AgentSessionRecentThread, AgentSessionScanError>;
   }
 >()("t3/project/AgentSessionScanner") {}
@@ -2134,6 +2136,7 @@ export const make = Effect.gen(function* () {
   const prepareRecentThreads = Effect.fn("AgentSessionScanner.prepareRecentThreads")(function* (
     workspaceRoot: string,
     completedSources: ReadonlyArray<AgentSessionImportSource>,
+    scan?: NativeSessionScan,
   ) {
     const root = path.resolve(expandHomePath(workspaceRoot, homeDir));
     const realRoot = yield* fileSystem.realPath(root).pipe(Effect.orElseSucceed(() => root));
@@ -2145,7 +2148,7 @@ export const make = Effect.gen(function* () {
     const cutoffMs = nowMs - RECENT_THREAD_WINDOW_MS;
 
     // Imports recorded since a budget-truncated collection can free budget for transcripts it cut off.
-    if (cachedCandidates === null || cachedCandidates.metadataTruncated) {
+    if (scan !== undefined || cachedCandidates === null || cachedCandidates.metadataTruncated) {
       cachedCandidates = yield* collectCandidates();
     }
     const { candidates } = cachedCandidates;
@@ -2202,8 +2205,8 @@ export const make = Effect.gen(function* () {
       for (const transcript of candidate.transcripts) {
         if (
           transcript.mtimeMs === null ||
-          transcript.mtimeMs < cutoffMs ||
-          transcript.mtimeMs > nowMs
+          !(yield* matchesNativeSession(fileSystem, scan, candidate, transcript.filePath)) ||
+          (!scan?.session && (transcript.mtimeMs < cutoffMs || transcript.mtimeMs > nowMs))
         ) {
           continue;
         }
@@ -2423,7 +2426,8 @@ export const make = Effect.gen(function* () {
   const recentThreads: AgentSessionScanner["Service"]["recentThreads"] = (
     workspaceRoot,
     completedSources = [],
-  ) => Stream.unwrap(prepareRecentThreads(workspaceRoot, completedSources));
+    scan,
+  ) => Stream.unwrap(prepareRecentThreads(workspaceRoot, completedSources, scan));
 
   return AgentSessionScanner.of({ scan, recentThreads });
 });
