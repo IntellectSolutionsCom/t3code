@@ -9,6 +9,7 @@ import * as Orchestrator from "./orchestration-v2/Orchestrator.ts";
 import * as PeerLinkRequests from "./peer/PeerLinkRequests.ts";
 import * as PeerLinks from "./peer/PeerLinks.ts";
 import * as LinkMessageGrants from "./t3f/LinkMessageGrants.ts";
+import * as ThreadBadges from "./t3f/ThreadBadges.ts";
 
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -1546,6 +1547,7 @@ export const layerWsRpc = (
       const secretResolver = yield* SecretResolver.SecretResolver;
       const peerLinks = yield* PeerLinks.PeerLinks;
       const linkMessageGrants = yield* LinkMessageGrants.LinkMessageGrants;
+      const threadBadges = yield* ThreadBadges.ThreadBadges;
       const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
       const startup = yield* ServerRuntimeStartup.ServerRuntimeStartup;
       const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
@@ -2670,6 +2672,9 @@ export const layerWsRpc = (
         [T3F_WS_METHODS.linkMessageGrantsList]: () => linkMessageGrants.list,
         [T3F_WS_METHODS.linkMessageGrantsSet]: (input) =>
           linkMessageGrants.set(input, currentSessionId),
+        [T3F_WS_METHODS.threadBadgesSubscribe]: () => threadBadges.subscribe,
+        [T3F_WS_METHODS.threadBadgesSet]: ({ threadId, badge }) =>
+          threadBadges.set(threadId, badge).pipe(Effect.map((badge) => ({ badge }))),
         [WS_METHODS.peerLinksAnswerRequest]: (input) =>
           Effect.annotateCurrentSpan({ "orchestration_v2.thread_id": input.threadId }).pipe(
             Effect.andThen(peerLinkRequests.answer(input)),
@@ -3579,6 +3584,7 @@ export const layer = Layer.unwrap(
     const peerLinks = yield* PeerLinks.PeerLinks;
     const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
     const linkMessageGrants = yield* LinkMessageGrants.LinkMessageGrants;
+    const threadBadges = yield* ThreadBadges.ThreadBadges;
     const sql = yield* SqlClient.SqlClient;
     return HttpRouter.add(
       "GET",
@@ -3675,6 +3681,7 @@ export const layer = Layer.unwrap(
               Layer.provide(Layer.succeed(PeerLinks.PeerLinks, peerLinks)),
               Layer.provide(Layer.succeed(PeerLinkRequests.PeerLinkRequests, peerLinkRequests)),
               Layer.provide(Layer.succeed(LinkMessageGrants.LinkMessageGrants, linkMessageGrants)),
+              Layer.provide(Layer.succeed(ThreadBadges.ThreadBadges, threadBadges)),
               Layer.provide(
                 SourceControlDiscovery.layer.pipe(
                   Layer.provide(

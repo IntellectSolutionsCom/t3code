@@ -77,6 +77,8 @@ const RPC_AGGREGATES = {
   [WS_METHODS.serverGetSettings]: "server",
   [T3F_WS_METHODS.linkMessageGrantsList]: "peerLinks",
   [T3F_WS_METHODS.linkMessageGrantsSet]: "peerLinks",
+  [T3F_WS_METHODS.threadBadgesSubscribe]: "orchestration",
+  [T3F_WS_METHODS.threadBadgesSet]: "orchestration",
   [WS_METHODS.serverUpdateSettings]: "server",
   [WS_METHODS.serverSearchAcpRegistry]: "server",
   [WS_METHODS.serverPrepareAcpRegistryAgent]: "server",

@@ -162,6 +162,7 @@ import { readEnvironmentScope, useEnvironmentScope } from "../state/session";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { canShareWithGuestAtom } from "./chat/guestShareAvailability";
 import { openGuestShareDialog } from "./chat/guestShareDialogState";
+import { openThreadSettings, supportsThreadSettings } from "../t3f/threadBadges";
 import {
   buildThreadRouteParams,
   resolveActiveThreadRouteRef,
@@ -2656,6 +2657,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
               canShareWithGuest: appAtomRegistry.get(
                 canShareWithGuestAtom(threadRef.environmentId),
               ),
+              canEditThreadSettings: supportsThreadSettings(threadRef),
               canTurnIntoProject: canTurnThreadIntoProject(threadRef),
               supports: {
                 settlement: configLoaded,
@@ -2781,6 +2783,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             return;
           case "share-guest":
             openGuestShareDialog(threadRef);
+            return;
+          case "thread-settings":
+            openThreadSettings(threadRef);
             return;
           case "regenerate-title": {
             if (isRegeneratingTitle) return;
