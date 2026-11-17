@@ -10,6 +10,7 @@ import {
   ProviderThreadId,
   ThreadId,
 } from "@t3tools/contracts";
+import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -17,6 +18,9 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as SqlClient from "effect/sql/SqlClient";
 
+import * as EventSink from "../orchestration-v2/EventSink.ts";
+import * as ProviderSessionManager from "../orchestration-v2/ProviderSessionManager.ts";
+import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecutor.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import * as AgentSessionImporter from "../project/AgentSessionImporter.ts";
 import * as AgentSessionScanner from "../project/AgentSessionScanner.ts";
@@ -24,6 +28,7 @@ import * as ProjectService from "../project/ProjectService.ts";
 import * as AcpRegistrySessions from "../provider/AcpRegistrySessions.ts";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import * as NativeSessionOut from "./NativeSessionOut.ts";
 import * as NativeSessions from "./NativeSessions.ts";
 
 const projectId = ProjectId.make("project-1");
@@ -72,6 +77,11 @@ const layer = (input: {
         Layer.mock(AgentSessionImporter.AgentSessionImporter)({}),
         Layer.mock(AcpRegistrySessions.AcpRegistrySessions)({}),
         Layer.succeed(SqlClient.SqlClient, {} as never),
+        Layer.mock(NativeSessionOut.NativeSessionOut)({ get: () => Effect.undefined }),
+        Layer.mock(ThreadCommandExecutor.ThreadCommandExecutor)({}),
+        Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({}),
+        Layer.mock(EventSink.EventSinkV2)({}),
+        Layer.succeed(IdAllocator.IdAllocatorV2, {} as never),
       ),
     ),
     Layer.provide(
@@ -149,6 +159,7 @@ describe("identifying a thread's native session", () => {
           cwd: "/home/user/app",
           command: `cd /home/user/app && CLAUDE_CONFIG_DIR=${configDir} claude --resume ${sessionId}`,
           commandNote: null,
+          out: null,
         });
       }),
     ),

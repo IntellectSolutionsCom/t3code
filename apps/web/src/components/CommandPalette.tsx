@@ -1899,7 +1899,7 @@ function OpenCommandPaletteDialog(props: {
         });
       },
     });
-    actionItems.push(...loadNativeSessionPaletteItems(contextualProjectGroup));
+    actionItems.push(...loadNativeSessionPaletteItems(contextualProjectGroup, messages));
   }
 
   const rootGroups = buildRootGroups({ actionItems, recentThreadItems }, messages);

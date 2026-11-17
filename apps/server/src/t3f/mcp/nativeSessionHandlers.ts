@@ -32,7 +32,7 @@ const projectOf = (projectId: ProjectId | undefined, threadId: ThreadId | undefi
 
 const handlers = {
   t3_native_session: McpToolAccess.either(
-    (input) => input.action !== "adopt",
+    (input) => input.action === "identify" || input.action === "list",
     McpToolAccess.readsAsCaller((input) =>
       Effect.gen(function* () {
         const sessions = yield* NativeSessions.NativeSessions;
@@ -48,14 +48,29 @@ const handlers = {
     ),
     McpToolAccess.actsAsCaller((input) =>
       Effect.gen(function* () {
-        yield* assertNotLinked(yield* loadCaller(), "start work here that is not its link's");
+        const sessions = yield* NativeSessions.NativeSessions;
+        yield* assertNotLinked(
+          yield* loadCaller(),
+          input.action === "adopt"
+            ? "start work here that is not its link's"
+            : "hand a thread's session out or take it back",
+        );
+        if (input.action === "hand_out" || input.action === "take_back") {
+          const {
+            projection: { thread },
+          } = yield* readThread(input.threadId);
+          return input.action === "hand_out"
+            ? yield* sessions.handOut(thread.id).pipe(Effect.mapError(toMcpFailure))
+            : yield* sessions
+                .takeBack(thread.id)
+                .pipe(Effect.as({}), Effect.mapError(toMcpFailure));
+        }
         if (input.providerInstanceId === undefined || input.nativeId === undefined) {
           return yield* new OrchestratorMcpFailure({
             code: "invalid_request",
             message: "`adopt` needs `providerInstanceId` and `nativeId`, as `list` gives them.",
           });
         }
-        const sessions = yield* NativeSessions.NativeSessions;
         const projectId = yield* projectOf(input.projectId, input.threadId);
         return yield* sessions
           .adopt({

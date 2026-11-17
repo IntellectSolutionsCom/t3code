@@ -43,6 +43,7 @@ import {
 } from "@t3tools/shared/projectScripts";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { useConnectionsReady } from "../../state/workspace";
+import { useSendTakingBack } from "../../state/nativeSessions";
 import { useEnvironmentShellReadiness } from "../../state/shell";
 import { restoredNewTaskDraftKey } from "../../state/new-task-draft-key";
 import { clearPendingThreadCreationOutcome } from "../../state/pending-thread-creation";
@@ -394,6 +395,8 @@ function ThreadRouteContent(
   const { selectedThreadCwd } = useSelectedThreadWorktree();
   const startSideChat = useStartSideChat();
   const composer = useThreadComposerState({ startSideChat });
+  const sendTakingBack = useSendTakingBack(selectedThreadDetailRef, composer.onSendMessage);
+  const sendCommandTakingBack = useSendTakingBack(selectedThreadDetailRef, composer.onSendCommand);
   const gitState = useSelectedThreadGitState();
   const gitActions = useSelectedThreadGitActions();
   const requests = useSelectedThreadRequests();
@@ -1129,9 +1132,9 @@ function ThreadRouteContent(
           serverConfig={serverConfig}
           onStopThread={awaitingBootstrapTurn ? handleCancelWorktreeSetup : handleStopThread}
           onResumeQueue={composer.canResume ? handleResumeQueue : null}
-          onSendMessage={composer.onSendMessage}
+          onSendMessage={sendTakingBack}
           offersSideChat={composer.sideChatUnavailableReason === null}
-          onSendCommand={composer.onSendCommand}
+          onSendCommand={sendCommandTakingBack}
           onReconnectEnvironment={handleReconnectEnvironment}
           canSwitchThreadProvider={composer.canSwitchThreadProvider}
           onRespondToApproval={requests.onRespondToApproval}

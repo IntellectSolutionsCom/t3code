@@ -65,6 +65,7 @@ import { environmentShell } from "../../state/shell";
 import { ThreadStatusLine } from "./ThreadStatusLine";
 import { formatRelativeTimeLabel } from "../../timestampFormat";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
+import { useTakeBack } from "../../state/nativeSessions";
 import { readEnvironmentScope } from "../../state/session";
 import { useAtomCommand } from "../../state/use-atom-command";
 import {
@@ -603,6 +604,7 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
     sendInFlightRef.current = false;
   };
   const sendStandaloneCommandStable = useStableCallback(sendStandaloneCommand);
+  const takeBack = useTakeBack(threadDetailRef);
   const activeGoal = activeThreadShell?.goal ?? null;
   const goalNow =
     activeThread && activeGoal !== null
@@ -611,7 +613,14 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
             threadId: activeThread.id,
             goal: activeGoal,
             isWorking,
-            onSendCommand: sendStandaloneCommandStable,
+            onSendCommand:
+              takeBack === null
+                ? sendStandaloneCommandStable
+                : async (text, failureMessage) => {
+                    await takeBack.takeBackAndSend(() =>
+                      sendStandaloneCommandStable(text, failureMessage),
+                    );
+                  },
           },
           messages,
         )

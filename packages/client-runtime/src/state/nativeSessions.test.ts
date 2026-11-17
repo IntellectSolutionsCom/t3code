@@ -3,10 +3,18 @@ import {
   ProviderDriverKind,
   ProviderInstanceId,
   T3F_NATIVE_SESSION_WS_METHODS,
+  ThreadId,
 } from "@t3tools/contracts";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import { AsyncResult } from "effect/reactivity";
 
-import { nativeSessionRow, orUnsupported } from "./nativeSessions.ts";
+import {
+  nativeSessionCommandAction,
+  nativeSessionRow,
+  orUnsupported,
+  takeBackAndSend,
+} from "./nativeSessions.ts";
 
 const session = {
   driver: ProviderDriverKind.make("claudeAgent"),
@@ -49,4 +57,91 @@ describe("the native session row", () => {
       })?.name,
     ).toBe(name);
   });
+});
+
+describe("the native session command", () => {
+  it.each([
+    { canHandOut: true, isOut: false, action: "move" },
+    { canHandOut: true, isOut: true, action: "copy" },
+    { canHandOut: false, isOut: false, action: "copy" },
+    { canHandOut: false, isOut: true, action: "copy" },
+  ])(
+    "offers $action when hand-out is $canHandOut and out is $isOut",
+    ({ canHandOut, isOut, action }) => {
+      expect(nativeSessionCommandAction(canHandOut, isOut)).toBe(action);
+    },
+  );
+});
+
+describe("take back and send", () => {
+  it.each([
+    {
+      driver: "codex",
+      confirmed: null,
+      tookBack: true,
+      movedAway: false,
+      steps: ["take back", "refresh session", "send"],
+    },
+    {
+      driver: "claudeAgent",
+      confirmed: true,
+      tookBack: true,
+      movedAway: false,
+      steps: ["confirm", "take back", "refresh session", "send"],
+    },
+    {
+      driver: "claudeAgent",
+      confirmed: false,
+      tookBack: true,
+      movedAway: false,
+      steps: ["confirm"],
+    },
+    {
+      driver: "codex",
+      confirmed: null,
+      tookBack: false,
+      movedAway: false,
+      steps: ["take back"],
+    },
+    // The view showed another thread by the time the take-back answered.
+    {
+      driver: "codex",
+      confirmed: null,
+      tookBack: true,
+      movedAway: true,
+      steps: ["take back", "refresh session"],
+    },
+  ])(
+    "$driver, confirmed $confirmed, taken back $tookBack, moved away $movedAway: $steps",
+    async ({ driver, confirmed, tookBack, movedAway, steps }) => {
+      const done: Array<string> = [];
+      let viewing = true;
+      const sent = await takeBackAndSend({
+        out: {
+          threadId: ThreadId.make("thread-1"),
+          driver: ProviderDriverKind.make(driver),
+          since: "2026-03-17T19:12:28.000Z",
+        },
+        confirm: async () => {
+          done.push("confirm");
+          return confirmed === true;
+        },
+        takeBack: async () => {
+          done.push("take back");
+          if (movedAway) viewing = false;
+          return tookBack ? AsyncResult.success({}) : AsyncResult.failure(Cause.fail("refused"));
+        },
+        refreshSession: () => {
+          done.push("refresh session");
+        },
+        send: async () => {
+          done.push("send");
+          return "message-1";
+        },
+        stillCurrent: () => viewing,
+      });
+      expect(done).toEqual(steps);
+      expect(sent).toBe(steps.includes("send") ? "message-1" : undefined);
+    },
+  );
 });
