@@ -1,7 +1,5 @@
 import {
   handOutRefusal,
-  PROVIDER_DISPLAY_NAMES,
-  type ProviderDriverKind,
   type ProviderSessionId,
   T3fNativeSessionError,
   type ThreadId,
@@ -17,15 +15,6 @@ import * as ProviderSessionManager from "../orchestration-v2/ProviderSessionMana
 import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecutor.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import { NativeSessionOut } from "./NativeSessionOut.ts";
-
-/**
- * What take-back writes. Turns made in the provider's own client stay in its session while the
- * provider keeps it, so the agent knows them; T3 Code does not import them into the thread.
- */
-export const takeBackNotice = (driver: ProviderDriverKind) => {
-  const provider = PROVIDER_DISPLAY_NAMES[driver] ?? driver;
-  return `Taken back from ${provider}'s client. Turns made there are not shown here.`;
-};
 
 const busy = (message: string) => new T3fNativeSessionError({ reason: "busy", message });
 
@@ -191,13 +180,13 @@ export const makeHandout = Effect.gen(function* () {
                   // EventSink allocates the real position.
                   ordinal: 0,
                   status: "completed",
-                  title: "Session taken back",
+                  title: "Session moved back",
                   startedAt: now,
                   completedAt: now,
                   updatedAt: now,
                   type: "system_notice",
                   level: "info",
-                  message: takeBackNotice(mark.driver),
+                  message: "Moved back from the terminal. Turns made there are not shown here.",
                 },
               },
             ],

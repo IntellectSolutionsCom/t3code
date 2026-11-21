@@ -76,12 +76,14 @@ it("takes an out thread back before sending to it", async () => {
     // AppRoot brings its own router.
     router: false,
   });
-  await expect.element(page.getByText("In Codex's client since", { exact: false })).toBeVisible();
+  await expect
+    .element(page.getByText("In terminal · paused here since", { exact: false }))
+    .toBeVisible();
 
   const editor = page.getByTestId("composer-editor");
   await userEvent.click(editor);
   await userEvent.type(editor, "carry on");
-  await page.getByRole("button", { name: "Take back and send" }).click();
+  await page.getByRole("button", { name: "Move back and send" }).click();
 
   await vi.waitFor(() => expect(messages()).toEqual(["carry on"]));
   expect(takenBack).toEqual([{ threadId: thread.id, sentBefore: 0 }]);

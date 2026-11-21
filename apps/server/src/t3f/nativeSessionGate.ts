@@ -1,6 +1,5 @@
 import {
   type OrchestrationV2ProviderThread,
-  PROVIDER_DISPLAY_NAMES,
   ProviderDriverKind,
   type ProviderThreadId,
   type ThreadId,
@@ -27,7 +26,7 @@ const refuseWhileOut = (mark: NativeSessionMark, providerThreadId: ProviderThrea
   new ProviderAdapter.ProviderAdapterThreadInUseError({
     driver: mark.driver,
     providerThreadId,
-    detail: `This thread's session is open in ${PROVIDER_DISPLAY_NAMES[mark.driver] ?? mark.driver}'s own client. Take it back here to continue.`,
+    detail: "This thread's session is in the terminal. Move it back here to continue.",
     cause: `Handed out at ${mark.since}`,
   });
 
@@ -116,7 +115,7 @@ export const makeGate = Effect.fn("NativeSessionGate.make")(function* (
           return yield* new ProviderAdapter.ProviderAdapterForkThreadError({
             driver: sourceProviderThread.driver,
             providerThreadId: sourceProviderThread.id,
-            cause: crossedTakeBackMessage(sourceProviderThread.driver, "fork"),
+            cause: crossedTakeBackMessage("fork"),
           });
         }
       }

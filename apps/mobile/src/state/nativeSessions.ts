@@ -11,10 +11,12 @@ import {
 } from "@t3tools/client-runtime/state/nativeSessions";
 import { RegistryContext } from "@effect/atom-react";
 import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
+import { msg, useGT } from "gt-react-native";
 import { useContext } from "react";
 import { Alert } from "react-native";
 
 import { connectionAtomRuntime } from "../connection/runtime";
+import { m } from "../i18n/messages";
 import { useServerConfigs } from "./entities";
 import { useEnvironmentQuery } from "./query";
 import { useAtomCommand } from "./use-atom-command";
@@ -46,7 +48,7 @@ export function useNativeSession(ref: ScopedThreadRef | null) {
   return nativeSessionRow({ title, fallbackNativeId, identify: identify.data });
 }
 
-/** Why "Continue in terminal" is unavailable for the thread now, or null. */
+/** Why "Move to terminal" is unavailable for the thread now, or null. */
 export function useHandOutBlocker(ref: ScopedThreadRef | null): string | null {
   return handOutBlocker(useQuietThreadStructure(ref)?.projection ?? null);
 }
@@ -77,7 +79,7 @@ const confirmTakeBack = (confirmation: TakeBackConfirmation) =>
       confirmation.title,
       confirmation.description,
       [
-        { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+        { text: m(msg("Cancel")), style: "cancel", onPress: () => resolve(false) },
         { text: confirmation.confirmLabel, onPress: () => resolve(true) },
       ],
       { cancelable: true, onDismiss: () => resolve(false) },
@@ -87,9 +89,10 @@ const confirmTakeBack = (confirmation: TakeBackConfirmation) =>
 /** Take-back for the thread, or null while it is not out. */
 export function useTakeBack(ref: ScopedThreadRef | null) {
   const out = useNativeSessionOut(ref);
+  const gt = useGT();
   const takeBack = useAtomCommand(
     nativeSessionEnvironment.takeBack,
-    "Could not take the session back",
+    gt("Could not move the session back"),
   );
   const registry = useContext(RegistryContext);
   const identify = useIdentifyAtom(ref).atom;
@@ -106,8 +109,8 @@ export function useTakeBack(ref: ScopedThreadRef | null) {
   };
   return {
     out,
-    takeBack: () => takeBackThread(input),
-    takeBackAndSend: <A>(send: () => Promise<A>) => takeBackAndSend({ ...input, send }),
+    takeBack: () => takeBackThread(input, m),
+    takeBackAndSend: <A>(send: () => Promise<A>) => takeBackAndSend({ ...input, send }, m),
   };
 }
 
