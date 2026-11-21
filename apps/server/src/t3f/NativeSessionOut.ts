@@ -2,6 +2,7 @@ import type { ProviderDriverKind, ThreadId } from "@t3tools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as SqlClient from "effect/sql/SqlClient";
 import type * as SqlError from "effect/sql/SqlError";
 import * as Stream from "effect/Stream";
@@ -17,16 +18,27 @@ export interface NativeSessionMark {
   readonly since: string;
 }
 
-/**
- * Which threads are out: T3 Code's own record, never read from the provider. A mark only
- * refuses, so a stale one costs a refusal; it is dropped wherever it is seen not to match.
- */
+interface NativeSessionTakeBack extends NativeSessionMark {
+  readonly takenBackAt: string;
+}
+
+interface NativeSessionState {
+  readonly mark: NativeSessionMark;
+  readonly takenBackAt: string | null;
+}
+
+/** The current hand-out or last take-back for a thread's native session. */
 export class NativeSessionOut extends Context.Service<
   NativeSessionOut,
   {
     readonly get: (threadId: ThreadId) => Effect.Effect<NativeSessionMark | undefined>;
     readonly set: (mark: NativeSessionMark) => Effect.Effect<void, SqlError.SqlError>;
-    /** Succeeds with the mark it removed. */
+    readonly getTakeBack: (threadId: ThreadId) => Effect.Effect<NativeSessionTakeBack | undefined>;
+    readonly takeBack: (
+      threadId: ThreadId,
+      takenBackAt: string,
+    ) => Effect.Effect<void, SqlError.SqlError>;
+    /** Removes an active hand-out. */
     readonly clear: (
       threadId: ThreadId,
     ) => Effect.Effect<NativeSessionMark | undefined, SqlError.SqlError>;
@@ -40,6 +52,7 @@ interface MarkRow {
   readonly driver: ProviderDriverKind;
   readonly native_id: string;
   readonly handed_out_at: string;
+  readonly taken_back_at: string | null;
 }
 
 export const make = Effect.gen(function* () {
@@ -63,55 +76,111 @@ export const make = Effect.gen(function* () {
       )
   `;
   const rows = yield* sql<MarkRow>`
-    SELECT thread_id, driver, native_id, handed_out_at FROM t3f_native_session_out
+    SELECT thread_id, driver, native_id, handed_out_at, taken_back_at FROM t3f_native_session_out
   `;
-  const marks = yield* SubscriptionRef.make<ReadonlyMap<ThreadId, NativeSessionMark>>(
+  const marks = yield* SubscriptionRef.make<ReadonlyMap<ThreadId, NativeSessionState>>(
     new Map(
       rows.map((row) => [
         row.thread_id,
         {
-          threadId: row.thread_id,
-          driver: row.driver,
-          nativeId: row.native_id,
-          since: row.handed_out_at,
+          mark: {
+            threadId: row.thread_id,
+            driver: row.driver,
+            nativeId: row.native_id,
+            since: row.handed_out_at,
+          },
+          takenBackAt: row.taken_back_at,
         },
       ]),
     ),
   );
 
   const get = (threadId: ThreadId) =>
-    SubscriptionRef.get(marks).pipe(Effect.map((current) => current.get(threadId)));
+    SubscriptionRef.get(marks).pipe(
+      Effect.map((current) => {
+        const state = current.get(threadId);
+        return state?.takenBackAt === null ? state.mark : undefined;
+      }),
+    );
+
+  const getTakeBack = (threadId: ThreadId) =>
+    SubscriptionRef.get(marks).pipe(
+      Effect.map((current) => {
+        const state = current.get(threadId);
+        return state === undefined || state.takenBackAt === null
+          ? undefined
+          : { ...state.mark, takenBackAt: state.takenBackAt };
+      }),
+    );
 
   const set = Effect.fn("NativeSessionOut.set")(function* (mark: NativeSessionMark) {
-    yield* sql`
-      INSERT INTO t3f_native_session_out (thread_id, environment_id, driver, native_id, handed_out_at)
-      VALUES (${mark.threadId}, ${environmentId}, ${mark.driver}, ${mark.nativeId}, ${mark.since})
-      ON CONFLICT (thread_id) DO UPDATE SET
-        environment_id = excluded.environment_id,
-        driver = excluded.driver,
-        native_id = excluded.native_id,
-        handed_out_at = excluded.handed_out_at
-    `;
-    yield* SubscriptionRef.update(marks, (current) => new Map(current).set(mark.threadId, mark));
-  });
+    yield* SubscriptionRef.updateEffect(marks, (current) =>
+      sql`
+        INSERT INTO t3f_native_session_out (thread_id, environment_id, driver, native_id, handed_out_at)
+        VALUES (${mark.threadId}, ${environmentId}, ${mark.driver}, ${mark.nativeId}, ${mark.since})
+        ON CONFLICT (thread_id) DO UPDATE SET
+          environment_id = excluded.environment_id,
+          driver = excluded.driver,
+          native_id = excluded.native_id,
+          handed_out_at = excluded.handed_out_at,
+          taken_back_at = NULL
+      `.pipe(Effect.map(() => new Map(current).set(mark.threadId, { mark, takenBackAt: null }))),
+    );
+  }, Effect.uninterruptible);
+
+  const takeBack = Effect.fn("NativeSessionOut.takeBack")(function* (
+    threadId: ThreadId,
+    takenBackAt: string,
+  ) {
+    yield* SubscriptionRef.modifySomeEffect(marks, (current) => {
+      const state = current.get(threadId);
+      if (state?.takenBackAt !== null) return Effect.succeed([undefined, Option.none()] as const);
+      return sql`
+        UPDATE t3f_native_session_out SET taken_back_at = ${takenBackAt}
+        WHERE thread_id = ${threadId} AND taken_back_at IS NULL
+      `.pipe(
+        Effect.map(
+          () =>
+            [
+              undefined,
+              Option.some(new Map(current).set(threadId, { mark: state.mark, takenBackAt })),
+            ] as const,
+        ),
+      );
+    });
+  }, Effect.uninterruptible);
 
   const clear = Effect.fn("NativeSessionOut.clear")(function* (threadId: ThreadId) {
-    const mark = yield* get(threadId);
-    if (mark === undefined) return undefined;
-    yield* sql`DELETE FROM t3f_native_session_out WHERE thread_id = ${threadId}`;
-    yield* SubscriptionRef.update(marks, (current) => {
-      const next = new Map(current);
-      next.delete(threadId);
-      return next;
+    return yield* SubscriptionRef.modifySomeEffect(marks, (current) => {
+      const state = current.get(threadId);
+      if (state?.takenBackAt !== null) {
+        return Effect.succeed([undefined, Option.none()] as const);
+      }
+      return sql`
+        DELETE FROM t3f_native_session_out WHERE thread_id = ${threadId} AND taken_back_at IS NULL
+      `.pipe(
+        Effect.map(() => {
+          const next = new Map(current);
+          next.delete(threadId);
+          return [state.mark, Option.some(next)] as const;
+        }),
+      );
     });
-    return mark;
-  });
+  }, Effect.uninterruptible);
 
   return NativeSessionOut.of({
     get,
+    getTakeBack,
     set,
+    takeBack,
     clear,
-    marks: SubscriptionRef.changes(marks).pipe(Stream.map((current) => [...current.values()])),
+    marks: SubscriptionRef.changes(marks).pipe(
+      Stream.map((current) =>
+        [...current.values()].flatMap(({ mark, takenBackAt }) =>
+          takenBackAt === null ? [mark] : [],
+        ),
+      ),
+    ),
   });
 });
 

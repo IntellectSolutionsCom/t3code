@@ -389,6 +389,10 @@ terminal are not shown here. The agent keeps them while the provider still has
 the session; if the session was removed in the meantime, the agent goes on
 without them. On mobile, the thread settings sheet has the same actions and the
 composer shows the same notice. The command palette offers them too.
+After a take-back, some providers can restore or fork the same conversation only
+from a later turn. Fork from a turn made after the take-back or start a new
+thread. A fork or provider switch that starts a fresh session carries only the
+turns shown in T3 Code.
 
 To choose what the thread details card shows, right-click the card or open
 **Settings → Appearance → Thread details**. Hidden rows keep their keyboard

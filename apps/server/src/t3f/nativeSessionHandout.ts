@@ -99,15 +99,6 @@ export const makeHandout = Effect.gen(function* () {
         const refusal = handOutRefusal(threadId, runs, providerThreads);
         if (refusal !== undefined) return yield* busy(refusal);
 
-        yield* out
-          .set({
-            threadId,
-            driver: active.driver,
-            nativeId,
-            since: DateTime.formatIso(yield* DateTime.now),
-          })
-          .pipe(Effect.catch(storage));
-
         const sessionIds = new Set<ProviderSessionId>(
           providerThreads.flatMap((providerThread) =>
             providerThread.appThreadId === threadId && providerThread.providerSessionId !== null
@@ -139,13 +130,20 @@ export const makeHandout = Effect.gen(function* () {
         );
         const released = yield* release.pipe(
           Effect.map((results) => results.every(Boolean)),
-          Effect.onError(() => out.clear(threadId).pipe(Effect.ignore)),
           Effect.catch(storage),
         );
         if (!released) {
-          yield* out.clear(threadId).pipe(Effect.ignore);
           return yield* busy("The provider's process is busy with another thread. Try again.");
         }
+
+        yield* out
+          .set({
+            threadId,
+            driver: active.driver,
+            nativeId,
+            since: DateTime.formatIso(yield* DateTime.now),
+          })
+          .pipe(Effect.catch(storage));
       }),
     );
   });
@@ -157,7 +155,10 @@ export const makeHandout = Effect.gen(function* () {
         const mark = yield* out.get(threadId);
         if (mark === undefined) return;
         const found = yield* findRecords(threadId);
-        if (found === undefined) {
+        const active = found?.providerThreads.find(
+          (providerThread) => providerThread.id === found.shell.activeProviderThreadId,
+        );
+        if (found === undefined || active?.nativeThreadRef?.nativeId !== mark.nativeId) {
           yield* out.clear(threadId).pipe(Effect.catch(storage));
           return;
         }
@@ -202,7 +203,7 @@ export const makeHandout = Effect.gen(function* () {
             ],
           })
           .pipe(Effect.catch(storage));
-        yield* out.clear(threadId).pipe(Effect.catch(storage));
+        yield* out.takeBack(threadId, DateTime.formatIso(now)).pipe(Effect.catch(storage));
       }),
     );
   });

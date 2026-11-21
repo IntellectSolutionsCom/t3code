@@ -5,6 +5,9 @@ import * as SqlClient from "effect/sql/SqlClient";
 
 import { migrationManifest } from "../persistence/Migrations.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
+import Migration0001 from "./migrations/0001_LinkMessageGrants.ts";
+import Migration0002 from "./migrations/0002_ThreadBadges.ts";
+import Migration0003 from "./migrations/0003_NativeSessionOut.ts";
 import { forkMigrationManifest, runForkMigrations } from "./migrations.ts";
 
 const ledger = (sql: SqlClient.SqlClient, table: string) =>
@@ -20,6 +23,7 @@ it.layer(SqlitePersistence.layerMemory)("fork migrations", (it) => {
         [1, "LinkMessageGrants"],
         [2, "ThreadBadges"],
         [3, "NativeSessionOut"],
+        [4, "NativeSessionTakenBackAt"],
       ]);
       assert.deepEqual(yield* ledger(sql, "t3f_migrations"), forkMigrationManifest);
       assert.deepEqual(yield* ledger(sql, "effect_sql_migrations"), migrationManifest);
@@ -81,5 +85,32 @@ it.effect("refuse a history that records one of their ids under another name or 
       [3, "Third", noop],
     ]).pipe(Effect.flip);
     assert.include(gap.message, "2_ThreadBadges (recorded: nothing)");
+  }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
+);
+
+it.effect("migration 4 keeps the sessions already out", () =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    yield* runForkMigrations([
+      [1, "LinkMessageGrants", Migration0001],
+      [2, "ThreadBadges", Migration0002],
+      [3, "NativeSessionOut", Migration0003],
+    ]);
+    yield* sql`
+      INSERT INTO t3f_native_session_out (thread_id, environment_id, driver, native_id, handed_out_at)
+      VALUES ('thread', 'environment', 'codex', 'native', '2026-11-21T12:00:00.000Z')
+    `;
+
+    assert.deepEqual(yield* runForkMigrations(), [[4, "NativeSessionTakenBackAt"]]);
+    assert.deepEqual(yield* sql`SELECT * FROM t3f_native_session_out`, [
+      {
+        thread_id: "thread",
+        environment_id: "environment",
+        driver: "codex",
+        native_id: "native",
+        handed_out_at: "2026-11-21T12:00:00.000Z",
+        taken_back_at: null,
+      },
+    ]);
   }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
 );
