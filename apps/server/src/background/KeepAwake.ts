@@ -17,6 +17,7 @@ import * as OrchestrationEventStore from "../persistence/OrchestrationEventStore
 import { windowsPowerShellPath } from "@t3tools/shared/windowsSystem";
 import { forkParked } from "../serverActivation.ts";
 import * as Settings from "../serverSettings.ts";
+import { linuxInhibitorFlags } from "../t3f/inhibitorFlags.ts";
 
 // Bridges gaps between back-to-back runs, so a long-idle machine does not sleep mid-queue.
 const RELEASE_GRACE = Duration.seconds(60);
@@ -33,6 +34,7 @@ export function inhibitorCommand(
   serverPid: number,
   isWsl: boolean,
   env: NodeJS.ProcessEnv,
+  linuxFlags: ReadonlyArray<string> = [],
 ):
   | {
       readonly command: string;
@@ -65,6 +67,7 @@ export function inhibitorCommand(
       return {
         command: "systemd-inhibit",
         args: [
+          ...linuxFlags,
           "--what=sleep",
           "--who=T3 Code",
           "--why=Agents are working",
@@ -147,7 +150,15 @@ export const layer = Layer.effectDiscard(
         Effect.map((release) => release.toLowerCase().includes("microsoft")),
         Effect.orElseSucceed(() => false),
       ));
-    const command = inhibitorCommand(platform, process.pid, isWsl, yield* HostProcess.Environment);
+    const linuxFlags = platform === "linux" && !isWsl ? yield* linuxInhibitorFlags() : [];
+    if (linuxFlags === undefined) return;
+    const command = inhibitorCommand(
+      platform,
+      process.pid,
+      isWsl,
+      yield* HostProcess.Environment,
+      linuxFlags,
+    );
     if (command === undefined) return;
     const settings = yield* Settings.ServerSettingsService;
     const events = yield* OrchestrationEventStore.OrchestrationEventStore;
