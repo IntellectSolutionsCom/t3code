@@ -4090,6 +4090,7 @@
   "4474db19bf5700c9": "Another address…",
   "5f94f772730a004b": "Link a machine this app does not know, by its https or Tailscale address.",
   "57a631f659db8c6b": "Paste the code",
+  "6c33e33d3a5a6ca0": "If that machine runs T3 Code {editionName}, it can still let agents here send messages to any of its threads, under Settings → {editionName} there.",
   "8b61f3e4b14d099b": "Use this link",
   "b2a0c42daed47c36": "Link",
   "58b7b0e79013a091": "Linked",

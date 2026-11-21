@@ -211,8 +211,8 @@ function observeAssistantCitationSource({
               type: "warning",
               ...(request.pin
                 ? {
-                    title: "Could not open the pinned message",
-                    description: "Click the pin to try again.",
+                    title: m(msg("Could not open the pinned message")),
+                    description: m(msg("Click the pin to try again.")),
                   }
                 : {
                     title: m(msg("Could not open the cited response")),

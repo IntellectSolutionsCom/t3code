@@ -1,4 +1,5 @@
 import type { MessageId } from "@t3tools/contracts";
+import { T, useGT } from "gt-react";
 import { ListIcon, PinIcon, XIcon } from "lucide-react";
 import { memo, useState } from "react";
 import { cn } from "~/lib/utils";
@@ -32,6 +33,7 @@ export const PinnedMessagesBar = memo(function PinnedMessagesBar({
   onJump: (messageId: MessageId) => void;
   onUnpin: (messageId: MessageId) => void;
 }) {
+  const gt = useGT();
   const [state, setState] = useState(() => initialPinnedMessageBarState(pins));
   const reconciled = reconcilePinnedMessageBar(state, pins, reportedGone);
   if (reconciled !== state) setState(reconciled);
@@ -47,6 +49,8 @@ export const PinnedMessagesBar = memo(function PinnedMessagesBar({
   if (!bar) return null;
   const shown = bar.pin.messageId;
   const shownGone = reconciled.gone.has(shown);
+  const position = { position: bar.position, total: bar.total };
+  const announcement = { ...position, label: bar.pin.label };
   const jump = (messageId: MessageId) => {
     onJump(messageId);
     setState(pinnedMessageBarAfterJump(reconciled, pins, messageId));
@@ -57,7 +61,7 @@ export const PinnedMessagesBar = memo(function PinnedMessagesBar({
   };
 
   return (
-    <section aria-label="Pinned messages" className="pointer-events-auto px-3 pt-2 sm:px-12">
+    <section aria-label={gt("Pinned messages")} className="pointer-events-auto px-3 pt-2 sm:px-12">
       <div
         className="mx-auto flex h-9 w-full max-w-(--chat-content-max-width) items-center gap-0.5 rounded-lg border bg-popover pe-1 shadow-xs/5"
         data-pinned-messages-bar
@@ -65,7 +69,14 @@ export const PinnedMessagesBar = memo(function PinnedMessagesBar({
         <button
           type="button"
           className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-s-lg ps-3 pe-2 text-start outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-          aria-label={`Go to pinned message ${bar.position} of ${bar.total}: ${bar.pin.label}${shownGone ? " (no longer in this thread)" : ""}`}
+          aria-label={
+            shownGone
+              ? gt(
+                  "Go to pinned message {position} of {total}: {label} (no longer in this thread)",
+                  announcement,
+                )
+              : gt("Go to pinned message {position} of {total}: {label}", announcement)
+          }
           onClick={() => jump(shown)}
         >
           <PinIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
@@ -79,7 +90,7 @@ export const PinnedMessagesBar = memo(function PinnedMessagesBar({
           </span>
           {bar.total > 1 ? (
             <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-              {bar.position} of {bar.total}
+              {gt("{position} of {total}", position)}
             </span>
           ) : null}
         </button>
@@ -87,7 +98,7 @@ export const PinnedMessagesBar = memo(function PinnedMessagesBar({
           type="button"
           size="icon-xs"
           variant="ghost-muted"
-          aria-label="Unpin message"
+          aria-label={gt("Unpin message")}
           onClick={() => unpin(shown)}
         >
           <XIcon />
@@ -99,14 +110,16 @@ export const PinnedMessagesBar = memo(function PinnedMessagesBar({
                 type="button"
                 size="icon-xs"
                 variant="ghost-muted"
-                aria-label="Show pinned messages"
+                aria-label={gt("Show pinned messages")}
               />
             }
           >
             <ListIcon />
           </PopoverTrigger>
           <PopoverPopup align="end" width="md" padding="compact">
-            <PopoverTitle className="mx-1 mb-2">Pinned messages</PopoverTitle>
+            <PopoverTitle className="mx-1 mb-2">
+              <T>Pinned messages</T>
+            </PopoverTitle>
             <ul className="flex flex-col gap-0.5">
               {newestPinsFirst(pins).map((pin) => {
                 const gone = reconciled.gone.has(pin.messageId);
@@ -127,7 +140,7 @@ export const PinnedMessagesBar = memo(function PinnedMessagesBar({
                       </span>
                       {gone ? (
                         <span className="block text-muted-foreground text-xs">
-                          No longer in this thread
+                          <T>No longer in this thread</T>
                         </span>
                       ) : null}
                     </button>
@@ -135,7 +148,7 @@ export const PinnedMessagesBar = memo(function PinnedMessagesBar({
                       type="button"
                       size="icon-xs"
                       variant="ghost-muted"
-                      aria-label={`Unpin ${pin.label}`}
+                      aria-label={gt("Unpin {label}", { label: pin.label })}
                       onClick={() => unpin(pin.messageId)}
                     >
                       <XIcon />

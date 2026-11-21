@@ -1687,6 +1687,8 @@
   "d6182a057ea12624": "Hilo principal",
   "30fa4a764d11ae42": "No se pudo descargar {name}",
   "4952f87dc98191a7": "El adjunto no está disponible.",
+  "a6caf66ad28e6e7f": "This thread has the most pins it can hold",
+  "b4cd58c6b4ce9b8c": "Unpin a message to pin another. A thread keeps up to {count}.",
   "2fd6d178493fb407": "No se pudo interrumpir el turno actual.",
   "7841f029ad83593d": "No se puede añadir al chat",
   "86a59f2432768c7f": "El cuadro de mensaje está ocupado; vuelve a intentarlo cuando esté listo.",
@@ -1754,6 +1756,7 @@
   "cce3d80a2ddf1125": "Un agente investiga un problema de T3 Code y te ayuda a abrir una issue",
   "44e13c9deb30e03c": "Buscar en el hilo actual",
   "2a5cc71a171eca12": "Buscar en la página del navegador",
+  "f600a25a6e7bff39": "Show pinned messages",
   "f496ce44f0581269": "Copiar enlace del prompt",
   "8956e2bf9ebef228": "Copiar enlace del prompt con repositorio y modelo",
   "9e9201570bcc2be8": "Copiar enlace de la PR",
@@ -3098,7 +3101,10 @@
     {
       "t": "span",
       "i": 2,
-      "c": [" ", "en el ordenador que abrió esta página"]
+      "c": [
+        " ",
+        "en el ordenador que abrió esta página"
+      ]
     }
   ],
   "b2d53b4d1d48fbef": [
@@ -3110,7 +3116,10 @@
     {
       "t": "span",
       "i": 2,
-      "c": [" ", "· quien lo ejecute obtiene este acceso"]
+      "c": [
+        " ",
+        "· quien lo ejecute obtiene este acceso"
+      ]
     }
   ],
   "c54cc9c75db9dc58": "Aprueba solo un inicio de sesión que acabes de iniciar.",
@@ -3190,6 +3199,8 @@
     },
     " caracteres."
   ],
+  "9ae30bb4c1aac34c": "Could not open the pinned message",
+  "480b8d08f974703a": "Click the pin to try again.",
   "c86597c99c507722": "No se pudo abrir la respuesta citada",
   "2d52b83b33b6d842": "Haz clic en la cita para volver a intentarlo.",
   "a1b2db80983184df": "El texto citado ha cambiado",
@@ -3814,6 +3825,14 @@
   "d47ad54e98d33190": "El panel derecho no está disponible",
   "7e4b0afa9879fd43": "Restaurar el tamaño del panel",
   "8381e38420ae57f3": "Maximizar el panel",
+  "95c76b172f0bbfe1": "Pinned messages",
+  "661dce83a7f6f5d0": "Go to pinned message {position} of {total}: {label} (no longer in this thread)",
+  "49fef6b4b39a0943": "Go to pinned message {position} of {total}: {label}",
+  "c973d06f95b98ca3": "{position} of {total}",
+  "77522f77e907e053": "Unpin message",
+  "e2785467ac011d2a": "Unpin {label}",
+  "a30c0c3311abd999": "Pinned messages",
+  "c53a88456d6e8be1": "No longer in this thread",
   "7d49da3c635828ce": "La API del portapapeles no está disponible al copiar el plan.",
   "ef0e4fcee07194f4": "No se pudo copiar el plan al portapapeles.",
   "7e2c4488f8ea9b23": "No se pudo copiar el plan",
@@ -4581,8 +4600,13 @@
   "246274846dd07daa": "Carga los turnos anteriores y vuelve a hacer clic en la cita. Tu cita guardada no cambia.",
   "d9649e703b414b67": "La respuesta citada no está disponible",
   "b6d2a7ac2a8eac1e": "Puede que se haya quitado. El texto seleccionado sigue guardado en tu cita.",
+  "f0765bae34c2159f": "Could not load the pinned message",
+  "c4e1e385fd1279c3": "Load earlier turns, then click the pin to try again.",
+  "8b45788b2497b005": "The pinned message is no longer in this thread",
+  "0950e3d00f5f129f": "It may have been reverted or removed.",
   "be69a90d3d68d0d6": "La cita no hace referencia a una respuesta del asistente",
   "fc7d59b60c3b7d46": "El texto seleccionado sigue guardado en tu cita.",
+  "7b40c9109e6dafc0": "Unpin",
   "8520b1297f0efd9b": "Se compacta automáticamente hacia los {tokens} tokens.",
   "e4b9b6e99d9b6da1": "El contexto se compacta automáticamente cuando hace falta.",
   "57e30468577bb989": "Esperando al servidor para poder enviar los archivos adjuntos",
@@ -4603,6 +4627,8 @@
   "43a6b223ae5160ed": "Vincular al hilo",
   "986951276ab5723d": "Desvincular del hilo",
   "911464a3d04a2927": "(invitado)",
+  "67398f179e3810e6": "Could not save pins",
+  "8226783c0e8f99ca": "This browser refused to store them. Its storage may be full or blocked.",
   "25af91477adfb3bf": "Reintenta o quita las subidas fallidas antes de guardar.",
   "5fbeffb697c7b33c": "Supervisado",
   "dd48edd43c854b53": "Pregunta antes de comandos y cambios en archivos.",
@@ -5780,14 +5806,13 @@
   "b6a29fff7c7c0808": "Nadie",
   "54420465784bb1bd": "Cargar comentarios anteriores",
   "9d82ebf35bfb4043": "Aquí no ha pasado nada todavía.",
-  "1cf216566c1ee064": "Proyecto no disponible",
   "b5ddadeb0810688c": "Estado",
   "93c1fc19d9bf1db0": "Participación",
   "d5a8b335d88b65bc": "{hidden} ocultos",
   "2160067266a61dd8": "Cualquiera",
   "cd4ec4acf33c65b9": "{count, plural, one {{count} etiqueta} other {{count} etiquetas}}",
   "bfd20acb8b7dee6b": "Cualquiera",
-  "ad208e3e32c85029": "Ocultar todo",
+  "aead644e2cf1233f": "Mostrar todo",
   "77ce79d865716719": "No hay proyectos que coincidan.",
   "af7eb4f9c7f0f575": "Filtros",
   "08247dd39b0c85ff": "Asignado",
@@ -6463,7 +6488,6 @@
   "64d0189be492147c": "No se pueden abrir los detalles de la comprobación",
   "600347ca50400a54": "Cargando comprobaciones…",
   "1b381201aba745c2": "No se informó de ninguna comprobación",
-  "aead644e2cf1233f": "Mostrar todo",
   "a6d75a4380173c60": "Abrir comprobaciones: {summary}",
   "be3d1766bad18693": "Comprobaciones: {summary}",
   "425e4a3d6c5c2867": "{count, plural, one {{count} con errores} other {{count} con errores}}",
@@ -8330,6 +8354,42 @@
   "a0115a6c72e4a254": "Las sesiones se facturan a la cuenta de Expo del proyecto. \"Del proyecto del hilo\" lee extra.eas.projectId de la configuración de la app del proyecto.",
   "0e195fc3051aab63": "Los simuladores de Expo necesitan una cuenta de Expo de pago. Una sesión dura hasta 115 minutos y se detiene antes si está inactiva durante los minutos de inactividad, así que estos deben ser menos que los minutos de sesión.",
   "51871067d54921fa": "Al guardar se reinicia este host y se detienen sus sesiones en curso.",
+  "325b0c35844a559f": "Ask every time",
+  "9f4654669a8340f4": "Quit T3 Code",
+  "5363d911b044fb4c": "Keep running in the background",
+  "6c241023135acb0f": "This machine cannot be reached right now.",
+  "c2af7450cbf6bb82": "This connection cannot view linked machines.",
+  "2273b11c04e7559f": "This machine cannot allow messages from links.",
+  "a62fb7b63a17668d": "It runs a version without this setting.",
+  "96947010edfdf64e": "Could not load linked machines",
+  "20c2b8833ec70b38": "Loading linked machines",
+  "d94071bbcc711acf": "No machine is linked here below full access",
+  "8081e7fda371863f": "Turn on Linked environments in Settings → Labs on both machines. On the other one, choose Link under Settings → Environments, pick this machine and an access level below full access.",
+  "25d9993c7097cf05": "Allow {label} to message any thread here",
+  "58fc176bd48477db": "Window",
+  "886868aa2f1fe782": "What the window's close button does on Linux and Windows. Ctrl+Q always quits while the window is open.",
+  "e121e81e349d2b6b": "Reset close button behavior to default",
+  "90b8851e7a476814": "Close button behavior",
+  "4e84990e2f0a9f27": "Lets agents on a machine linked here below full access send messages to any thread here. A message can start an idle thread, which then acts with that thread's own permissions.",
+  "840a0c508c683bb5": "Changing these needs a connection that may manage clients and operate threads here.",
+  "c902735edaeca92b": "Agents connected before this version can be confirmed by sending one message or renewing the link.",
+  "25ddaad83a82743e": [
+    "Linked machines below full access can be allowed to send messages to your threads in",
+    " ",
+    {
+      "t": "Link",
+      "i": 1,
+      "c": [
+        "Settings → ",
+        {
+          "i": 2,
+          "k": "_gt_value_2",
+          "v": "v"
+        }
+      ]
+    },
+    "."
+  ],
   "1d6c983879a0dfa5": "Conéctate a este entorno para cambiar su icono.",
   "cd60131716f88bfa": "Tu sesión en este entorno no puede cambiar sus ajustes.",
   "fff2176c30964955": "detectado",
@@ -8662,6 +8722,7 @@
     },
     ". Es una versión alfa que puede cambiar o fallar. T3 Code nunca instala Simlock."
   ],
+  "4d621ea1f96979cf": "If that machine runs {appName}, it can still let agents here send messages to any of its threads, under Settings → {editionName} there.",
   "3836976622328d61": "Qué pueden hacer allí los agentes de aquí",
   "b20c269e7ad96f42": "Un agente nunca tiene allí más acceso que su propio modo aquí. Por debajo del acceso total, solo puede cambiar los hilos que inició este vínculo, no los hilos, proyectos ni ajustes propios de esa máquina.",
   "4474db19bf5700c9": "Otra dirección…",
@@ -9742,6 +9803,7 @@
   "51497bd401292062": "Mantener pulsado",
   "9d6cc6ac23312071": "Doble pulsación",
   "f001fa7b329c8fbf": "Ocultar las correctas",
+  "ad208e3e32c85029": "Ocultar todo",
   "c80e4bb3201efd71": "Zen",
   "0cb9ffcd1fb46b0c": "Solo el estado",
   "cf0f7fc3df26fa75": "Estado y mensajes",
@@ -9951,6 +10013,7 @@
   "573ea5fdf293a9d6": "Todos los checkouts",
   "470ad8c54049d1e1": "Buscar checkouts",
   "7e2dfdd9f97fc027": "Ámbito de proyectos",
+  "1cf216566c1ee064": "Proyecto no disponible",
   "c1b8c351aa90f319": [
     {
       "t": "span",
@@ -11372,6 +11435,8 @@
   "14914b47296ba6b7": "Varios hosts coinciden con este destino SSH. Selecciona el entorno para editar sus hosts.",
   "e3ec7b94218b8fe7": "Simuladores de Expo",
   "608db1513cc8c165": "Hasta {sessions, plural, one {{sessions} sesión} other {{sessions} sesiones}} a la vez, cada una detenida tras {maxMinutes} min o {idleMinutes} min de inactividad",
+  "2a3b9f4b7d8ec39c": "Messages from linked machines",
+  "dc5ac4461e6429a2": "Close button",
   "28a4cd11ce51865e": "Endpoint de API personalizado",
   "49c009661b1e91d6": "Comprobando el estado del proveedor",
   "9c52dc73cc75980f": "Esperando a que el servidor informe de los detalles de instalación y autenticación.",

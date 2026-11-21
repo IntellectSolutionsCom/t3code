@@ -4084,6 +4084,7 @@
   "4474db19bf5700c9": "Autre adresse…",
   "5f94f772730a004b": "Associez une machine que cette app ne connaît pas, par son adresse https ou Tailscale.",
   "57a631f659db8c6b": "Collez le code",
+  "6c33e33d3a5a6ca0": "If that machine runs T3 Code {editionName}, it can still let agents here send messages to any of its threads, under Settings → {editionName} there.",
   "8b61f3e4b14d099b": "Utiliser ce lien",
   "b2a0c42daed47c36": "Associer",
   "58b7b0e79013a091": "Associé",

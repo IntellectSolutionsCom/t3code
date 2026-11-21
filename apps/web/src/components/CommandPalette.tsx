@@ -1453,7 +1453,7 @@ function OpenCommandPaletteDialog(props: {
     actionItems.push({
       kind: "action",
       value: "action:show-pinned-messages",
-      title: "Show pinned messages",
+      title: gt("Show pinned messages"),
       searchTerms: ["pinned", "pins", "messages", "bookmarks"],
       icon: <PinIcon className={ITEM_ICON_CLASS} />,
       run: async () => {

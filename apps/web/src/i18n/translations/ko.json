@@ -1686,6 +1686,8 @@
   "d6182a057ea12624": "상위 스레드",
   "30fa4a764d11ae42": "{name}을(를) 다운로드할 수 없습니다",
   "4952f87dc98191a7": "첨부 파일을 사용할 수 없습니다.",
+  "a6caf66ad28e6e7f": "This thread has the most pins it can hold",
+  "b4cd58c6b4ce9b8c": "Unpin a message to pin another. A thread keeps up to {count}.",
   "2fd6d178493fb407": "현재 턴을 중단하지 못했습니다.",
   "7841f029ad83593d": "채팅에 추가할 수 없습니다",
   "86a59f2432768c7f": "입력창이 사용 중입니다. 준비되면 다시 시도하세요.",
@@ -1753,6 +1755,7 @@
   "cce3d80a2ddf1125": "에이전트가 T3 Code 문제를 조사하고 이슈 작성을 돕습니다",
   "44e13c9deb30e03c": "현재 스레드에서 찾기",
   "2a5cc71a171eca12": "브라우저 페이지에서 찾기",
+  "f600a25a6e7bff39": "Show pinned messages",
   "f496ce44f0581269": "프롬프트 링크 복사",
   "8956e2bf9ebef228": "저장소 및 모델 포함 프롬프트 링크 복사",
   "9e9201570bcc2be8": "PR 링크 복사",
@@ -3097,7 +3100,10 @@
     {
       "t": "span",
       "i": 2,
-      "c": [" ", "(이 페이지를 연 컴퓨터)"]
+      "c": [
+        " ",
+        "(이 페이지를 연 컴퓨터)"
+      ]
     }
   ],
   "b2d53b4d1d48fbef": [
@@ -3109,7 +3115,10 @@
     {
       "t": "span",
       "i": 2,
-      "c": [" ", "· 실행하는 사람이 이 액세스 권한을 얻습니다"]
+      "c": [
+        " ",
+        "· 실행하는 사람이 이 액세스 권한을 얻습니다"
+      ]
     }
   ],
   "c54cc9c75db9dc58": "방금 시작한 로그인만 승인하세요.",
@@ -3189,6 +3198,8 @@
     },
     "자까지 입력할 수 있습니다."
   ],
+  "9ae30bb4c1aac34c": "Could not open the pinned message",
+  "480b8d08f974703a": "Click the pin to try again.",
   "c86597c99c507722": "인용된 응답을 열 수 없습니다",
   "2d52b83b33b6d842": "인용을 클릭하여 다시 시도하세요.",
   "a1b2db80983184df": "인용된 텍스트가 변경되었습니다",
@@ -3806,6 +3817,14 @@
   "d47ad54e98d33190": "오른쪽 패널을 사용할 수 없습니다",
   "7e4b0afa9879fd43": "패널 크기 복원",
   "8381e38420ae57f3": "패널 최대화",
+  "95c76b172f0bbfe1": "Pinned messages",
+  "661dce83a7f6f5d0": "Go to pinned message {position} of {total}: {label} (no longer in this thread)",
+  "49fef6b4b39a0943": "Go to pinned message {position} of {total}: {label}",
+  "c973d06f95b98ca3": "{position} of {total}",
+  "77522f77e907e053": "Unpin message",
+  "e2785467ac011d2a": "Unpin {label}",
+  "a30c0c3311abd999": "Pinned messages",
+  "c53a88456d6e8be1": "No longer in this thread",
   "7d49da3c635828ce": "계획을 복사하는 중 클립보드 API를 사용할 수 없습니다.",
   "ef0e4fcee07194f4": "계획을 클립보드에 복사하지 못했습니다.",
   "7e2c4488f8ea9b23": "계획을 복사할 수 없습니다",
@@ -4568,8 +4587,13 @@
   "246274846dd07daa": "이전 턴을 불러온 다음 인용을 클릭하여 다시 시도하세요. 저장된 인용은 변경되지 않습니다.",
   "d9649e703b414b67": "인용된 응답을 사용할 수 없습니다",
   "b6d2a7ac2a8eac1e": "삭제되었을 수 있습니다. 선택한 텍스트는 인용에 그대로 저장되어 있습니다.",
+  "f0765bae34c2159f": "Could not load the pinned message",
+  "c4e1e385fd1279c3": "Load earlier turns, then click the pin to try again.",
+  "8b45788b2497b005": "The pinned message is no longer in this thread",
+  "0950e3d00f5f129f": "It may have been reverted or removed.",
   "be69a90d3d68d0d6": "인용이 어시스턴트 응답을 가리키지 않습니다",
   "fc7d59b60c3b7d46": "선택한 텍스트는 인용에 그대로 저장되어 있습니다.",
+  "7b40c9109e6dafc0": "Unpin",
   "8520b1297f0efd9b": "약 {tokens}토큰에서 자동으로 압축합니다.",
   "e4b9b6e99d9b6da1": "필요할 때 컨텍스트를 자동으로 압축합니다.",
   "57e30468577bb989": "파일 첨부를 보내기 전에 서버를 기다리는 중",
@@ -4590,6 +4614,8 @@
   "43a6b223ae5160ed": "스레드에 연결",
   "986951276ab5723d": "스레드에서 연결 해제",
   "911464a3d04a2927": "(게스트)",
+  "67398f179e3810e6": "Could not save pins",
+  "8226783c0e8f99ca": "This browser refused to store them. Its storage may be full or blocked.",
   "25af91477adfb3bf": "저장하기 전에 실패한 업로드를 다시 시도하거나 제거하세요.",
   "5fbeffb697c7b33c": "감독",
   "dd48edd43c854b53": "명령 실행과 파일 변경 전에 확인합니다.",
@@ -5761,14 +5787,13 @@
   "b6a29fff7c7c0808": "없음",
   "54420465784bb1bd": "이전 댓글 불러오기",
   "9d82ebf35bfb4043": "아직 활동이 없습니다.",
-  "1cf216566c1ee064": "사용할 수 없는 프로젝트",
   "b5ddadeb0810688c": "상태",
   "93c1fc19d9bf1db0": "참여",
   "d5a8b335d88b65bc": "{hidden}개 숨김",
   "2160067266a61dd8": "전체",
   "cd4ec4acf33c65b9": "{count, plural, other {레이블 {count}개}}",
   "bfd20acb8b7dee6b": "모든 사람",
-  "ad208e3e32c85029": "모두 숨기기",
+  "aead644e2cf1233f": "모두 표시",
   "77ce79d865716719": "일치하는 프로젝트가 없습니다.",
   "af7eb4f9c7f0f575": "필터",
   "08247dd39b0c85ff": "담당자",
@@ -6435,7 +6460,6 @@
   "64d0189be492147c": "검사 세부 정보를 열 수 없습니다",
   "600347ca50400a54": "검사를 불러오는 중…",
   "1b381201aba745c2": "보고된 검사 없음",
-  "aead644e2cf1233f": "모두 표시",
   "a6d75a4380173c60": "검사 열기: {summary}",
   "be3d1766bad18693": "검사: {summary}",
   "425e4a3d6c5c2867": "{count, plural, other {{count}개 실패}}",
@@ -8291,6 +8315,42 @@
   "a0115a6c72e4a254": "세션 요금은 프로젝트의 Expo 계정에 청구됩니다. \"스레드의 프로젝트에서\"는 프로젝트 앱 구성의 extra.eas.projectId를 읽습니다.",
   "0e195fc3051aab63": "Expo Simulators는 유료 Expo 계정이 필요합니다. 세션은 최대 115분 동안 실행되며 유휴 시간(분)만큼 유휴 상태이면 일찍 중지됩니다. 따라서 유휴 시간은 세션 시간보다 짧아야 합니다.",
   "51871067d54921fa": "저장하면 이 호스트가 다시 시작되고 실행 중인 세션이 중지됩니다.",
+  "325b0c35844a559f": "Ask every time",
+  "9f4654669a8340f4": "Quit T3 Code",
+  "5363d911b044fb4c": "Keep running in the background",
+  "6c241023135acb0f": "This machine cannot be reached right now.",
+  "c2af7450cbf6bb82": "This connection cannot view linked machines.",
+  "2273b11c04e7559f": "This machine cannot allow messages from links.",
+  "a62fb7b63a17668d": "It runs a version without this setting.",
+  "96947010edfdf64e": "Could not load linked machines",
+  "20c2b8833ec70b38": "Loading linked machines",
+  "d94071bbcc711acf": "No machine is linked here below full access",
+  "8081e7fda371863f": "Turn on Linked environments in Settings → Labs on both machines. On the other one, choose Link under Settings → Environments, pick this machine and an access level below full access.",
+  "25d9993c7097cf05": "Allow {label} to message any thread here",
+  "58fc176bd48477db": "Window",
+  "886868aa2f1fe782": "What the window's close button does on Linux and Windows. Ctrl+Q always quits while the window is open.",
+  "e121e81e349d2b6b": "Reset close button behavior to default",
+  "90b8851e7a476814": "Close button behavior",
+  "4e84990e2f0a9f27": "Lets agents on a machine linked here below full access send messages to any thread here. A message can start an idle thread, which then acts with that thread's own permissions.",
+  "840a0c508c683bb5": "Changing these needs a connection that may manage clients and operate threads here.",
+  "c902735edaeca92b": "Agents connected before this version can be confirmed by sending one message or renewing the link.",
+  "25ddaad83a82743e": [
+    "Linked machines below full access can be allowed to send messages to your threads in",
+    " ",
+    {
+      "t": "Link",
+      "i": 1,
+      "c": [
+        "Settings → ",
+        {
+          "i": 2,
+          "k": "_gt_value_2",
+          "v": "v"
+        }
+      ]
+    },
+    "."
+  ],
   "1d6c983879a0dfa5": "아이콘을 변경하려면 이 환경에 연결하세요.",
   "cd60131716f88bfa": "이 환경의 현재 세션으로는 설정을 변경할 수 없습니다.",
   "fff2176c30964955": "감지됨",
@@ -8623,6 +8683,7 @@
     },
     "에서 추가합니다. 알파 기능으로 변경되거나 동작하지 않을 수 있습니다. T3 Code는 Simlock을 설치하지 않습니다."
   ],
+  "4d621ea1f96979cf": "If that machine runs {appName}, it can still let agents here send messages to any of its threads, under Settings → {editionName} there.",
   "3836976622328d61": "이곳의 에이전트가 그곳에서 할 수 있는 작업",
   "b20c269e7ad96f42": "에이전트는 그곳에서 이곳의 자체 모드보다 더 많은 액세스 권한을 얻지 않습니다. 전체 액세스 미만이면 이 링크가 시작한 스레드만 변경할 수 있으며, 해당 머신 자체의 스레드, 프로젝트, 설정은 변경할 수 없습니다.",
   "4474db19bf5700c9": "다른 주소…",
@@ -9699,6 +9760,7 @@
   "51497bd401292062": "길게 누르기",
   "9d6cc6ac23312071": "두 번 누르기",
   "f001fa7b329c8fbf": "성공한 항목 숨기기",
+  "ad208e3e32c85029": "모두 숨기기",
   "c80e4bb3201efd71": "Zen",
   "0cb9ffcd1fb46b0c": "상태만",
   "cf0f7fc3df26fa75": "상태 및 메시지",
@@ -9908,6 +9970,7 @@
   "573ea5fdf293a9d6": "모든 체크아웃",
   "470ad8c54049d1e1": "체크아웃 검색",
   "7e2dfdd9f97fc027": "프로젝트 범위",
+  "1cf216566c1ee064": "사용할 수 없는 프로젝트",
   "c1b8c351aa90f319": [
     {
       "t": "span",
@@ -11324,6 +11387,8 @@
   "14914b47296ba6b7": "이 SSH 대상과 일치하는 호스트가 여러 개입니다. 호스트를 편집할 환경을 선택하세요.",
   "e3ec7b94218b8fe7": "Expo Simulators",
   "608db1513cc8c165": "동시에 최대 {sessions, plural, other {세션 {sessions}개}}, 각 세션은 {maxMinutes}분 또는 유휴 {idleMinutes}분 후 중지",
+  "2a3b9f4b7d8ec39c": "Messages from linked machines",
+  "dc5ac4461e6429a2": "Close button",
   "28a4cd11ce51865e": "사용자 지정 엔드포인트",
   "49c009661b1e91d6": "제공자 상태 확인 중",
   "9c52dc73cc75980f": "서버가 설치 및 인증 정보를 보고하기를 기다리는 중입니다.",
