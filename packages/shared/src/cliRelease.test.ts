@@ -1,8 +1,28 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { cliArchiveTarCommand, newestCliReleaseVersion, parseChecksums } from "./cliRelease.ts";
 
 describe("cliRelease", () => {
+  it.each([
+    ["a fork's build", "example/t3code-fork", "example/t3code-fork"],
+    ["a build that names none", "", "pingdotgg/t3code"],
+    ["a bundle without the define", undefined, "pingdotgg/t3code"],
+  ])("finds releases in the repository of %s", async (_name, built, repository) => {
+    vi.resetModules();
+    vi.stubGlobal("__T3CODE_BUILD_RELEASE_REPOSITORY__", built);
+    try {
+      const release = await import("./cliRelease.ts");
+      expect(release.cliReleaseIndexPageUrl(1)).toBe(
+        `https://api.github.com/repos/${repository}/releases?per_page=100&page=1`,
+      );
+      expect(release.cliReleaseAssetUrl("1.2.3", "SHA256SUMS")).toBe(
+        `https://github.com/${repository}/releases/download/v1.2.3/SHA256SUMS`,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("parses sha256sum output including binary-mode markers", () => {
     const checksums = parseChecksums(
       [

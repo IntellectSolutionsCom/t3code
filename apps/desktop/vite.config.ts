@@ -6,6 +6,7 @@ import { Rolldown } from "vite-plus/pack";
 
 import { isDesktopRuntimeExternalDependency } from "../../scripts/lib/desktop-external-packages.ts";
 import { loadRepoEnv } from "../../scripts/lib/public-config.ts";
+import { buildReleaseRepository } from "../../scripts/lib/release-repository.ts";
 
 const repoEnv = loadRepoEnv();
 const domTests = ["src/preview/PickPreload.test.ts"];
@@ -25,6 +26,8 @@ const publicConfigDefine = {
   __T3CODE_BUILD_CLERK_PUBLISHABLE_KEY__: JSON.stringify(
     repoEnv.T3CODE_CLERK_PUBLISHABLE_KEY?.trim() ?? "",
   ),
+  // The SSH runner downloads the remote runtime from this build's releases.
+  __T3CODE_BUILD_RELEASE_REPOSITORY__: JSON.stringify(buildReleaseRepository()),
 };
 
 const PAGE_WORLD_MODULE = /[\\/]src[\\/]preview[\\/]PageWorld\.ts$/;
