@@ -55,7 +55,7 @@ import * as DesktopRendererHistory from "../telemetry/DesktopRendererHistory.ts"
 import { makeQuitShortcutHandler } from "./QuitHold.ts";
 import { copyContextMenuImage } from "./ContextMenuImage.ts";
 import { installMainWindowRemoteRequestHeaderPolicy } from "./RemoteRequestHeaders.ts";
-import { CLOSE_DIALOG_OPTIONS, decideWindowClose, readCloseDialogResult } from "./WindowClose.ts";
+import { closeDialogOptions, decideWindowClose, readCloseDialogResult } from "./WindowClose.ts";
 
 const TITLEBAR_HEIGHT = 40;
 
@@ -487,7 +487,7 @@ export const make = Effect.gen(function* () {
   ) {
     // Without the question, the close button falls back to what it did before: quit.
     const { answer, remember } = yield* electronDialog
-      .showMessageBox(CLOSE_DIALOG_OPTIONS, window)
+      .showMessageBox(closeDialogOptions(), window)
       .pipe(
         Effect.map(readCloseDialogResult),
         Effect.catch((error) =>

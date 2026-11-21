@@ -1,3 +1,4 @@
+import { CLOSE_BUTTON_TEXT } from "@t3tools/shared/closeButtonText";
 import { msg } from "gt-react";
 
 import type { SettingsSearchItem } from "./settingsSearch";
@@ -11,7 +12,7 @@ export const EDITION_SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "close-button",
-    title: msg("Close button", { $context: "window control" }),
+    title: CLOSE_BUTTON_TEXT.setting.title,
     to: "/settings/edition",
     searchTerms: ["window close x quit keep running background hide tray ask confirmation"],
     desktopOnly: true,

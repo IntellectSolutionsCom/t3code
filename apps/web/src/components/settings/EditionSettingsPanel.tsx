@@ -2,8 +2,9 @@ import { useAtomValue } from "@effect/atom-react";
 import { Link, useSearch } from "@tanstack/react-router";
 import { AuthAccessReadScope, EnvironmentId } from "@t3tools/contracts";
 import { DEFAULT_UNIFIED_SETTINGS } from "@t3tools/contracts/settings";
+import { CLOSE_BUTTON_TEXT } from "@t3tools/shared/closeButtonText";
 import { EDITION_NAME } from "@t3tools/shared/edition";
-import { msg, T, useGT, useMessages, Var } from "gt-react";
+import { T, useGT, useMessages, Var } from "gt-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { isElectron } from "~/env";
@@ -254,12 +255,6 @@ function LinkMessageGrantRow({
   );
 }
 
-const CLOSE_BUTTON_OPTIONS = {
-  ask: msg("Ask every time"),
-  quit: msg("Quit T3 Code"),
-  keepRunning: msg("Keep running in the background"),
-} as const;
-
 function CloseButtonSettings() {
   const gt = useGT();
   const m = useMessages();
@@ -270,9 +265,7 @@ function CloseButtonSettings() {
     <SettingsSection title={gt("Window", { $context: "application window" })}>
       <SettingsRow
         {...searchableSetting("close-button")}
-        description={gt(
-          "What the window's close button does on Linux and Windows. Ctrl+Q always quits while the window is open.",
-        )}
+        description={m(CLOSE_BUTTON_TEXT.setting.description)}
         resetAction={
           settings.closeButton !== DEFAULT_UNIFIED_SETTINGS.closeButton ? (
             <SettingResetButton
@@ -295,10 +288,12 @@ function CloseButtonSettings() {
               className="w-full sm:w-56"
               aria-label={gt("Close button behavior")}
             >
-              <SelectValue>{m(CLOSE_BUTTON_OPTIONS[settings.closeButton])}</SelectValue>
+              <SelectValue>
+                {m(CLOSE_BUTTON_TEXT.setting.options[settings.closeButton])}
+              </SelectValue>
             </SelectTrigger>
             <SelectPopup align="end" alignItemWithTrigger={false}>
-              {Object.entries(CLOSE_BUTTON_OPTIONS).map(([value, label]) => (
+              {Object.entries(CLOSE_BUTTON_TEXT.setting.options).map(([value, label]) => (
                 <SelectItem hideIndicator key={value} value={value}>
                   {m(label)}
                 </SelectItem>
