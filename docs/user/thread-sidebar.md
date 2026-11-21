@@ -258,8 +258,9 @@ The linked pull request participates in automatic settlement.
 
 A badge puts one emoji and a short label beside a thread's title, so you can tell
 related threads apart at a glance. Choose **Thread settings…** from a thread's menu,
-the title menu or the command palette, then set the symbol and the label. Rows show
-the symbol; the header shows both, and the label is read out with the row's name.
+the title menu or the command palette, then pick a symbol from the grid or type or
+paste an emoji. Give it a label. Rows show the symbol; the header shows both, and
+the label is read out with the row's name.
 **Clear badge** removes it. Agents can read, set and clear badges too. Badges need a server
 that keeps them, and this app offers them only for those servers. Web and desktop only.
 
