@@ -9,6 +9,7 @@ import * as PubSub from "effect/PubSub";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import * as ServerConfig from "../config.ts";
+import { upstreamBaseVersion } from "../t3f/upstreamBaseVersion.ts";
 import * as ModelManifest from "./ModelManifest.ts";
 import * as ProviderRegistry from "./ProviderRegistry.ts";
 import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderLatestVersions";
@@ -152,6 +153,34 @@ describe("provider compatibility", () => {
       "supported",
     );
   });
+
+  it.each([
+    ["0.1.11101", "0.1.11", "broken"],
+    ["0.1.11101", "0.1.12", "supported"],
+    ["0.1.11002", "0.1.11", "supported"],
+  ] as const)(
+    "rates Antigravity 1.4.5 on T3 Code %s across the %s split",
+    (version, split, expected) => {
+      const antigravity = ProviderDriverKind.make("antigravity");
+      const policies: ProviderCompatibilityPolicy[] = [
+        {
+          driver: antigravity,
+          t3CodeRange: `>=0.0.42 <${split}`,
+          ranges: [{ range: "=1.4.5", status: "supported" }],
+        },
+        {
+          driver: antigravity,
+          t3CodeRange: `>=${split}`,
+          ranges: [{ range: "=1.4.5", status: "broken" }],
+        },
+      ];
+      assert.strictEqual(
+        resolveProviderCompatibility(policies, antigravity, "1.4.5", upstreamBaseVersion(version))
+          ?.status,
+        expected,
+      );
+    },
+  );
 
   it("classifies boundaries and treats unlisted versions and release tags as unknown", () => {
     for (const [version, expected] of [
