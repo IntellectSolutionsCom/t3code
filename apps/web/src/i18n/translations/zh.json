@@ -1040,6 +1040,18 @@
   "3e5da15fb9653bc6": "此环境未接受你的连接。请重新连接后重试。",
   "7f2181cbb5edc3f3": "无法验证你的权限。正在自动重试。",
   "ad92fdc08320b1cf": "正在检查权限…",
+  "dc5ac4461e6429a2": "Close button",
+  "886868aa2f1fe782": "What the window's close button does on Linux and Windows. Ctrl+Q always quits while the window is open.",
+  "325b0c35844a559f": "Ask every time",
+  "9f4654669a8340f4": "Quit T3 Code",
+  "5363d911b044fb4c": "Keep running in the background",
+  "c68b895b0eeef9c0": "Quit T3 Code?",
+  "2eb4d6d964192fba": "Do you want to quit?",
+  "1e206bde896b7686": "Quitting stops T3 Code and every running thread on this computer.\nKeep running closes the window; click the T3 Code icon in the system tray, or open T3 Code again, to bring it back.",
+  "0782c285e7cd175f": "Remember my decision",
+  "00ad8aeed0a6c461": "取消",
+  "65763fd9556fa033": "Keep running",
+  "3874c9f538653a6d": "Quit",
   "f6ab22e5444020e0": "文档模板",
   "309d81912bc47f9e": "演示文稿模板",
   "79bced3a61829a4e": "电子表格模板",
@@ -2210,7 +2222,6 @@
   "41ef5fd3a5051f37": "打开共享与访问",
   "5f1f54e42cd5b57a": "上一个工作树",
   "b11375ba00e506b5": "正在克隆 {name}",
-  "00ad8aeed0a6c461": "取消",
   "f10d1278b1a29dae": "无法取消克隆",
   "046759be4571cf85": "已克隆 {name}",
   "0d58d5a2c67ecc21": "打开项目",
@@ -3105,10 +3116,7 @@
     {
       "t": "span",
       "i": 2,
-      "c": [
-        " ",
-        "位于打开此页面的计算机上"
-      ]
+      "c": [" ", "位于打开此页面的计算机上"]
     }
   ],
   "b2d53b4d1d48fbef": [
@@ -3120,10 +3128,7 @@
     {
       "t": "span",
       "i": 2,
-      "c": [
-        " ",
-        "· 运行它的任何人都会获得此访问权限"
-      ]
+      "c": [" ", "· 运行它的任何人都会获得此访问权限"]
     }
   ],
   "c54cc9c75db9dc58": "请只批准你刚刚发起的登录。",
@@ -8372,9 +8377,6 @@
   "a0115a6c72e4a254": "模拟器会话费用计入项目的 Expo 账户。“来自会话的项目”会读取项目应用配置中的 extra.eas.projectId。",
   "0e195fc3051aab63": "Expo 模拟器需要付费 Expo 账号。模拟器会话最长运行 115 分钟，空闲达到指定时长后会提前停止，因此空闲时长必须短于模拟器会话时长。",
   "51871067d54921fa": "保存会重启此主机并停止其正在运行的模拟器会话。",
-  "325b0c35844a559f": "Ask every time",
-  "9f4654669a8340f4": "Quit T3 Code",
-  "5363d911b044fb4c": "Keep running in the background",
   "6c241023135acb0f": "This machine cannot be reached right now.",
   "c2af7450cbf6bb82": "This connection cannot view linked machines.",
   "2273b11c04e7559f": "This machine cannot allow messages from links.",
@@ -8385,7 +8387,6 @@
   "8081e7fda371863f": "Turn on Linked environments in Settings → Labs on both machines. On the other one, choose Link under Settings → Environments, pick this machine and an access level below full access.",
   "25d9993c7097cf05": "Allow {label} to message any thread here",
   "58fc176bd48477db": "Window",
-  "886868aa2f1fe782": "What the window's close button does on Linux and Windows. Ctrl+Q always quits while the window is open.",
   "e121e81e349d2b6b": "Reset close button behavior to default",
   "90b8851e7a476814": "Close button behavior",
   "4e84990e2f0a9f27": "Lets agents on a machine linked here below full access send messages to any thread here. A message can start an idle thread, which then acts with that thread's own permissions.",
@@ -11465,7 +11466,6 @@
   "e3ec7b94218b8fe7": "Expo 模拟器",
   "608db1513cc8c165": "最多同时 {sessions, plural, other {{sessions} 个模拟器会话}}，每个在 {maxMinutes} 分钟后或空闲 {idleMinutes} 分钟后停止",
   "2a3b9f4b7d8ec39c": "Messages from linked machines",
-  "dc5ac4461e6429a2": "Close button",
   "28a4cd11ce51865e": "自定义 API 端点",
   "49c009661b1e91d6": "正在检查提供方状态",
   "9c52dc73cc75980f": "正在等待服务器返回安装和认证信息。",

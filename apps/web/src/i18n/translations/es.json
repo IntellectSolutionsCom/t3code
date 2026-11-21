@@ -1040,6 +1040,18 @@
   "3e5da15fb9653bc6": "Este entorno no aceptó tu sesión. Vuelve a conectar para intentarlo de nuevo.",
   "7f2181cbb5edc3f3": "No se pudieron verificar tus permisos. Reintentando automáticamente.",
   "ad92fdc08320b1cf": "Comprobando permisos…",
+  "dc5ac4461e6429a2": "Close button",
+  "886868aa2f1fe782": "What the window's close button does on Linux and Windows. Ctrl+Q always quits while the window is open.",
+  "325b0c35844a559f": "Ask every time",
+  "9f4654669a8340f4": "Quit T3 Code",
+  "5363d911b044fb4c": "Keep running in the background",
+  "c68b895b0eeef9c0": "Quit T3 Code?",
+  "2eb4d6d964192fba": "Do you want to quit?",
+  "1e206bde896b7686": "Quitting stops T3 Code and every running thread on this computer.\nKeep running closes the window; click the T3 Code icon in the system tray, or open T3 Code again, to bring it back.",
+  "0782c285e7cd175f": "Remember my decision",
+  "00ad8aeed0a6c461": "Cancelar",
+  "65763fd9556fa033": "Keep running",
+  "3874c9f538653a6d": "Quit",
   "f6ab22e5444020e0": "Plantilla de documento",
   "309d81912bc47f9e": "Plantilla de presentación",
   "79bced3a61829a4e": "Plantilla de hoja de cálculo",
@@ -2206,7 +2218,6 @@
   "41ef5fd3a5051f37": "Abrir Compartir y acceso",
   "5f1f54e42cd5b57a": "Worktree anterior",
   "b11375ba00e506b5": "Clonando {name}",
-  "00ad8aeed0a6c461": "Cancelar",
   "f10d1278b1a29dae": "No se pudo cancelar la clonación",
   "046759be4571cf85": "Se clonó {name}",
   "0d58d5a2c67ecc21": "Abrir proyecto",
@@ -3101,10 +3112,7 @@
     {
       "t": "span",
       "i": 2,
-      "c": [
-        " ",
-        "en el ordenador que abrió esta página"
-      ]
+      "c": [" ", "en el ordenador que abrió esta página"]
     }
   ],
   "b2d53b4d1d48fbef": [
@@ -3116,10 +3124,7 @@
     {
       "t": "span",
       "i": 2,
-      "c": [
-        " ",
-        "· quien lo ejecute obtiene este acceso"
-      ]
+      "c": [" ", "· quien lo ejecute obtiene este acceso"]
     }
   ],
   "c54cc9c75db9dc58": "Aprueba solo un inicio de sesión que acabes de iniciar.",
@@ -8354,9 +8359,6 @@
   "a0115a6c72e4a254": "Las sesiones se facturan a la cuenta de Expo del proyecto. \"Del proyecto del hilo\" lee extra.eas.projectId de la configuración de la app del proyecto.",
   "0e195fc3051aab63": "Los simuladores de Expo necesitan una cuenta de Expo de pago. Una sesión dura hasta 115 minutos y se detiene antes si está inactiva durante los minutos de inactividad, así que estos deben ser menos que los minutos de sesión.",
   "51871067d54921fa": "Al guardar se reinicia este host y se detienen sus sesiones en curso.",
-  "325b0c35844a559f": "Ask every time",
-  "9f4654669a8340f4": "Quit T3 Code",
-  "5363d911b044fb4c": "Keep running in the background",
   "6c241023135acb0f": "This machine cannot be reached right now.",
   "c2af7450cbf6bb82": "This connection cannot view linked machines.",
   "2273b11c04e7559f": "This machine cannot allow messages from links.",
@@ -8367,7 +8369,6 @@
   "8081e7fda371863f": "Turn on Linked environments in Settings → Labs on both machines. On the other one, choose Link under Settings → Environments, pick this machine and an access level below full access.",
   "25d9993c7097cf05": "Allow {label} to message any thread here",
   "58fc176bd48477db": "Window",
-  "886868aa2f1fe782": "What the window's close button does on Linux and Windows. Ctrl+Q always quits while the window is open.",
   "e121e81e349d2b6b": "Reset close button behavior to default",
   "90b8851e7a476814": "Close button behavior",
   "4e84990e2f0a9f27": "Lets agents on a machine linked here below full access send messages to any thread here. A message can start an idle thread, which then acts with that thread's own permissions.",
@@ -11436,7 +11437,6 @@
   "e3ec7b94218b8fe7": "Simuladores de Expo",
   "608db1513cc8c165": "Hasta {sessions, plural, one {{sessions} sesión} other {{sessions} sesiones}} a la vez, cada una detenida tras {maxMinutes} min o {idleMinutes} min de inactividad",
   "2a3b9f4b7d8ec39c": "Messages from linked machines",
-  "dc5ac4461e6429a2": "Close button",
   "28a4cd11ce51865e": "Endpoint de API personalizado",
   "49c009661b1e91d6": "Comprobando el estado del proveedor",
   "9c52dc73cc75980f": "Esperando a que el servidor informe de los detalles de instalación y autenticación.",

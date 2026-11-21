@@ -630,7 +630,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       : []),
     ...(settings.confirmQuit !== DEFAULT_UNIFIED_SETTINGS.confirmQuit ? [gt("Quit shortcut")] : []),
     ...(settings.closeButton !== DEFAULT_UNIFIED_SETTINGS.closeButton
-      ? [CLOSE_BUTTON_TEXT.setting.title]
+      ? [messages(CLOSE_BUTTON_TEXT.setting.title)]
       : []),
     ...(isTextGenerationModelDirty ? [gt("Text generation model")] : []),
     ...(settings.threadTitleInstructions !== DEFAULT_UNIFIED_SETTINGS.threadTitleInstructions

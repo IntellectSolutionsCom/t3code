@@ -1040,6 +1040,18 @@
   "3e5da15fb9653bc6": "이 환경에서 세션을 수락하지 않았습니다. 다시 연결해 보세요.",
   "7f2181cbb5edc3f3": "권한을 확인할 수 없습니다. 자동으로 다시 시도합니다.",
   "ad92fdc08320b1cf": "권한 확인 중…",
+  "dc5ac4461e6429a2": "Close button",
+  "886868aa2f1fe782": "What the window's close button does on Linux and Windows. Ctrl+Q always quits while the window is open.",
+  "325b0c35844a559f": "Ask every time",
+  "9f4654669a8340f4": "Quit T3 Code",
+  "5363d911b044fb4c": "Keep running in the background",
+  "c68b895b0eeef9c0": "Quit T3 Code?",
+  "2eb4d6d964192fba": "Do you want to quit?",
+  "1e206bde896b7686": "Quitting stops T3 Code and every running thread on this computer.\nKeep running closes the window; click the T3 Code icon in the system tray, or open T3 Code again, to bring it back.",
+  "0782c285e7cd175f": "Remember my decision",
+  "00ad8aeed0a6c461": "취소",
+  "65763fd9556fa033": "Keep running",
+  "3874c9f538653a6d": "Quit",
   "f6ab22e5444020e0": "문서 템플릿",
   "309d81912bc47f9e": "프레젠테이션 템플릿",
   "79bced3a61829a4e": "스프레드시트 템플릿",
@@ -2205,7 +2217,6 @@
   "41ef5fd3a5051f37": "공유 및 액세스 열기",
   "5f1f54e42cd5b57a": "이전 워크트리",
   "b11375ba00e506b5": "{name} 복제하는 중",
-  "00ad8aeed0a6c461": "취소",
   "f10d1278b1a29dae": "복제를 취소하지 못했습니다",
   "046759be4571cf85": "{name} 복제됨",
   "0d58d5a2c67ecc21": "프로젝트 열기",
@@ -3100,10 +3111,7 @@
     {
       "t": "span",
       "i": 2,
-      "c": [
-        " ",
-        "(이 페이지를 연 컴퓨터)"
-      ]
+      "c": [" ", "(이 페이지를 연 컴퓨터)"]
     }
   ],
   "b2d53b4d1d48fbef": [
@@ -3115,10 +3123,7 @@
     {
       "t": "span",
       "i": 2,
-      "c": [
-        " ",
-        "· 실행하는 사람이 이 액세스 권한을 얻습니다"
-      ]
+      "c": [" ", "· 실행하는 사람이 이 액세스 권한을 얻습니다"]
     }
   ],
   "c54cc9c75db9dc58": "방금 시작한 로그인만 승인하세요.",
@@ -8315,9 +8320,6 @@
   "a0115a6c72e4a254": "세션 요금은 프로젝트의 Expo 계정에 청구됩니다. \"스레드의 프로젝트에서\"는 프로젝트 앱 구성의 extra.eas.projectId를 읽습니다.",
   "0e195fc3051aab63": "Expo Simulators는 유료 Expo 계정이 필요합니다. 세션은 최대 115분 동안 실행되며 유휴 시간(분)만큼 유휴 상태이면 일찍 중지됩니다. 따라서 유휴 시간은 세션 시간보다 짧아야 합니다.",
   "51871067d54921fa": "저장하면 이 호스트가 다시 시작되고 실행 중인 세션이 중지됩니다.",
-  "325b0c35844a559f": "Ask every time",
-  "9f4654669a8340f4": "Quit T3 Code",
-  "5363d911b044fb4c": "Keep running in the background",
   "6c241023135acb0f": "This machine cannot be reached right now.",
   "c2af7450cbf6bb82": "This connection cannot view linked machines.",
   "2273b11c04e7559f": "This machine cannot allow messages from links.",
@@ -8328,7 +8330,6 @@
   "8081e7fda371863f": "Turn on Linked environments in Settings → Labs on both machines. On the other one, choose Link under Settings → Environments, pick this machine and an access level below full access.",
   "25d9993c7097cf05": "Allow {label} to message any thread here",
   "58fc176bd48477db": "Window",
-  "886868aa2f1fe782": "What the window's close button does on Linux and Windows. Ctrl+Q always quits while the window is open.",
   "e121e81e349d2b6b": "Reset close button behavior to default",
   "90b8851e7a476814": "Close button behavior",
   "4e84990e2f0a9f27": "Lets agents on a machine linked here below full access send messages to any thread here. A message can start an idle thread, which then acts with that thread's own permissions.",
@@ -11388,7 +11389,6 @@
   "e3ec7b94218b8fe7": "Expo Simulators",
   "608db1513cc8c165": "동시에 최대 {sessions, plural, other {세션 {sessions}개}}, 각 세션은 {maxMinutes}분 또는 유휴 {idleMinutes}분 후 중지",
   "2a3b9f4b7d8ec39c": "Messages from linked machines",
-  "dc5ac4461e6429a2": "Close button",
   "28a4cd11ce51865e": "사용자 지정 엔드포인트",
   "49c009661b1e91d6": "제공자 상태 확인 중",
   "9c52dc73cc75980f": "서버가 설치 및 인증 정보를 보고하기를 기다리는 중입니다.",
