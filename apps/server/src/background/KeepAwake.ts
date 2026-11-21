@@ -16,6 +16,7 @@ import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as OrchestrationEventStore from "../persistence/OrchestrationEventStore.ts";
 import { forkParked } from "../serverActivation.ts";
 import * as Settings from "../serverSettings.ts";
+import { linuxInhibitorFlags } from "../t3f/inhibitorFlags.ts";
 
 // Bridges gaps between back-to-back runs, so a long-idle machine does not sleep mid-queue.
 const RELEASE_GRACE = Duration.seconds(60);
@@ -27,10 +28,11 @@ const WINDOWS_HOLD_SCRIPT = `$t = Add-Type -Name Power -Namespace T3 -PassThru -
  * Each command writes a line to stdout once it holds its inhibitor, holds it until it exits, and
  * exits on its own if the server dies.
  */
-function inhibitorCommand(
+export function inhibitorCommand(
   platform: NodeJS.Platform,
   serverPid: number,
   isWsl: boolean,
+  linuxFlags: ReadonlyArray<string> = [],
 ):
   | {
       readonly command: string;
@@ -63,6 +65,7 @@ function inhibitorCommand(
       return {
         command: "systemd-inhibit",
         args: [
+          ...linuxFlags,
           "--what=sleep",
           "--who=T3 Code",
           "--why=Agents are working",
@@ -145,7 +148,9 @@ export const layer = Layer.effectDiscard(
         Effect.map((release) => release.toLowerCase().includes("microsoft")),
         Effect.orElseSucceed(() => false),
       ));
-    const command = inhibitorCommand(platform, process.pid, isWsl);
+    const linuxFlags = platform === "linux" && !isWsl ? yield* linuxInhibitorFlags() : [];
+    if (linuxFlags === undefined) return;
+    const command = inhibitorCommand(platform, process.pid, isWsl, linuxFlags);
     if (command === undefined) return;
     const settings = yield* Settings.ServerSettingsService;
     const events = yield* OrchestrationEventStore.OrchestrationEventStore;

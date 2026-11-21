@@ -6,6 +6,15 @@ import * as TestClock from "effect/testing/TestClock";
 
 import * as KeepAwake from "./KeepAwake.ts";
 
+describe("KeepAwake.inhibitorCommand", () => {
+  it("puts the Linux flags before the inhibited command", () => {
+    const inhibitor = KeepAwake.inhibitorCommand("linux", 1234, false, ["--no-ask-password"]);
+
+    expect(inhibitor?.command).toBe("systemd-inhibit");
+    expect(inhibitor?.args[0]).toBe("--no-ask-password");
+  });
+});
+
 describe("KeepAwake.holdWhileWanted", () => {
   it.effect("keeps one hold across a gap shorter than the grace and releases after it", () =>
     Effect.gen(function* () {
