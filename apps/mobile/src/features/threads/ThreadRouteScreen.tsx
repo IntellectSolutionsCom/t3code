@@ -400,6 +400,7 @@ function ThreadRouteContent(
   const startSideChat = useStartSideChat();
   const composer = useThreadComposerState({ startSideChat });
   const sendTakingBack = useSendTakingBack(selectedThreadDetailRef, composer.onSendMessage);
+  const sendCommandTakingBack = useSendTakingBack(selectedThreadDetailRef, composer.onSendCommand);
   const gitState = useSelectedThreadGitState();
   const gitActions = useSelectedThreadGitActions();
   const requests = useSelectedThreadRequests();
@@ -1127,7 +1128,7 @@ function ThreadRouteContent(
           onResumeQueue={composer.canResume ? handleResumeQueue : null}
           onSendMessage={sendTakingBack}
           offersSideChat={composer.sideChatUnavailableReason === null}
-          onSendCommand={composer.onSendCommand}
+          onSendCommand={sendCommandTakingBack}
           onReconnectEnvironment={handleReconnectEnvironment}
           canSwitchThreadProvider={composer.canSwitchThreadProvider}
           onRespondToApproval={requests.onRespondToApproval}

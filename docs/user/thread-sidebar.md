@@ -327,33 +327,30 @@ Select a server to open it in the browser panel. **Stop** ends the server's job
 and keeps the agent, the terminal, and T3 Code running. Stop needs terminal
 access to the environment and is not available on Windows.
 
-Once the agent starts, the **Native session** row shows the provider's own
-session id. On mobile it is in the thread settings sheet. If the session has a
-different name in the provider's own client, the row shows that name, and
-**Use as title** renames the thread to match. For Claude, Codex, and Pi it
-also shows a terminal command that continues the session in that provider's
-own client; run it on the machine the row names. Other providers show only the
-id for now. You can also copy the id or command from the command palette.
+Once the agent starts, **Native session** shows the provider's session name
+or a short id. Select the row to copy the full id. **Use as title** renames
+the thread to match the session name. For Claude, Codex, and Pi, the
+**Move to terminal** hint shows the command to run on the machine hosting the
+thread. Other providers only show session details. You can copy the id from
+the command palette, or copy the command there while the thread is in the
+terminal.
 
-To work in the provider's own client, choose **Continue in terminal**. T3 Code
-copies the command and hands the thread out, so the two clients never write to
-the session at once. It can't hand a thread out while a turn runs, messages are
-queued, or background tasks are still running. While the thread is out, the
-composer says which client has it and since when, and T3 Code starts no turn on
-it: a message sent by an agent or another client fails with an error in the
-thread. That message stays in the thread as failed, and the agent sees it as
-history after you take the thread back, so sending it again delivers it twice.
+**Move to terminal** pauses the thread here and copies the command. Wait for
+running turns and background tasks to finish, and send or remove queued
+messages before moving. The composer shows when the thread moved. Messages
+sent by another client or agent while the thread is in the terminal fail and
+stay in the thread's history. The agent sees them after you move the thread
+back, so sending one again delivers it twice.
 
-To come back, choose **Take back**, or send a message: Send becomes **Take back
-and send**. Close the session in the terminal first. Codex refuses to resume a
-session its own client still has open; other providers would let both write, so
-T3 Code asks you to confirm. The thread then gets a note that turns made in the
-terminal are not shown here. The agent keeps them while the provider still has
-the session; if the session was removed in the meantime, the agent goes on
-without them. On mobile, the thread settings sheet has the same actions and the
-composer shows the same notice. The command palette offers them too.
-After a take-back, some providers can restore or fork the same conversation only
-from a later turn. Fork from a turn made after the take-back or start a new
+Close the session in the terminal first. Then choose **Move back** or use
+Send's **Move back and send** to return and send a message. T3 Code asks you
+to confirm for providers that allow two clients to write to the same session.
+Turns made in the terminal are not shown here. The agent keeps them while the
+provider still has the session. The mobile thread settings sheet and web
+command palette also offer the move actions.
+
+After moving back, some providers can restore or fork the same conversation
+only from a later turn. Fork from a turn made after moving back or start a new
 thread. A fork or provider switch that starts a fresh session carries only the
 turns shown in T3 Code.
 

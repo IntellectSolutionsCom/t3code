@@ -11,9 +11,12 @@ import {
   type TakeBackInput,
 } from "@t3tools/client-runtime/state/nativeSessions";
 import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
+import { useGT } from "gt-react";
 import { useContext } from "react";
 
 import { connectionAtomRuntime } from "../connection/runtime";
+import { useStableCallback } from "../hooks/useStableCallback";
+import { m } from "../i18n/messages";
 import { readLocalApi } from "../localApi";
 import { useQuietThreadProjection } from "./entities";
 import { environmentPresentations } from "./presentation";
@@ -46,7 +49,7 @@ export function useNativeSession(ref: ScopedThreadRef | null) {
   return nativeSessionRow({ title, fallbackNativeId, identify: identify.data });
 }
 
-/** Why "Continue in terminal" is unavailable for the thread now, or null. */
+/** Why "Move to terminal" is unavailable for the thread now, or null. */
 export function useHandOutBlocker(ref: ScopedThreadRef | null): string | null {
   return handOutBlocker(useQuietThreadProjection(ref)?.projection ?? null);
 }
@@ -78,12 +81,16 @@ const confirmTakeBack = async (confirmation: TakeBackConfirmation) =>
 /** Take-back for the thread, or null while it is not out. */
 export function useTakeBack(ref: ScopedThreadRef | null) {
   const out = useNativeSessionOut(ref);
+  const gt = useGT();
   const takeBack = useAtomCommand(
     nativeSessionEnvironment.takeBack,
-    "Could not take the session back",
+    gt("Could not move the session back"),
   );
   const registry = useContext(RegistryContext);
   const identify = useIdentifyAtom(ref).atom;
+  const viewedThread = ref === null ? null : `${ref.environmentId}:${ref.threadId}`;
+  // One chat view serves every thread, so a send that waited on the take-back checks it still shows this one.
+  const stillViewing = useStableCallback((thread: string) => thread === viewedThread);
   if (ref === null || out === null) return null;
   const input: TakeBackInput = {
     out,
@@ -97,8 +104,16 @@ export function useTakeBack(ref: ScopedThreadRef | null) {
   };
   return {
     out,
-    takeBack: () => takeBackThread(input),
-    takeBackAndSend: <A>(send: () => Promise<A>) => takeBackAndSend({ ...input, send }),
+    takeBack: () => takeBackThread(input, m),
+    takeBackAndSend: <A>(send: () => Promise<A>) =>
+      takeBackAndSend(
+        {
+          ...input,
+          send,
+          stillCurrent: () => stillViewing(`${ref.environmentId}:${ref.threadId}`),
+        },
+        m,
+      ),
   };
 }
 

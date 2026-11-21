@@ -396,7 +396,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
       : compactsBeforeSend
         ? gt("Compact and send")
         : takesBackFirst
-          ? "Take back and send"
+          ? gt("Move back and send")
           : isQueuing
             ? gt("Queue message")
             : isRunning

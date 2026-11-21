@@ -168,10 +168,10 @@ it.effect.each([
       assert(result._tag === "Failure");
       if (scenario.fork) {
         assert(result.failure._tag === "ProviderAdapterForkThreadError");
-        assert.include(String(result.failure.cause), "Codex's own client");
+        assert.include(String(result.failure.cause), "moved back from the terminal");
       } else {
         assert(isNativeSessionRestoreRefusedError(result.failure));
-        assert.include(result.failure.message, "Codex's own client");
+        assert.include(result.failure.message, "moved back from the terminal");
       }
     } else {
       assert.equal(result._tag, "Success");

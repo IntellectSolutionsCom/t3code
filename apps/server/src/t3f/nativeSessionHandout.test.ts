@@ -37,7 +37,7 @@ import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecuto
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import { type NativeSessionMark, NativeSessionOut } from "./NativeSessionOut.ts";
 import * as NativeSessionGate from "./nativeSessionGate.ts";
-import { makeHandout, takeBackNotice } from "./nativeSessionHandout.ts";
+import { makeHandout } from "./nativeSessionHandout.ts";
 
 const driver = ProviderDriverKind.make("codex");
 const selection = {
@@ -280,8 +280,7 @@ type HarnessServices =
   | ProviderSessionManager.ProviderSessionManagerV2
   | ThreadCommandExecutor.ThreadCommandExecutor;
 
-const REFUSAL =
-  "This thread's session is open in Codex's own client. Take it back here to continue.";
+const REFUSAL = "This thread's session is in the terminal. Move it back here to continue.";
 
 const errorMessages = (projection: OrchestrationV2ThreadProjection) =>
   projection.turnItems.flatMap((item) => (item.type === "error" ? [item.failure.message] : []));
@@ -376,7 +375,12 @@ it.live("hands a thread out by releasing its session, and takes it back once", (
       );
       assert.deepEqual(
         notices.map(({ message, level }) => ({ message, level })),
-        [{ message: takeBackNotice(driver), level: "info" }],
+        [
+          {
+            message: "Moved back from the terminal. Turns made there are not shown here.",
+            level: "info",
+          },
+        ],
       );
       assert.equal(notices[0]!.index, back.turnItems.length - 1);
       assert.equal(

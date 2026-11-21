@@ -1,6 +1,5 @@
 import {
   handOutRefusal,
-  PROVIDER_DISPLAY_NAMES,
   T3F_NATIVE_SESSION_WS_METHODS,
   type OrchestrationV2ProviderThread,
   type ProjectId,
@@ -13,6 +12,8 @@ import {
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import type { Atom } from "effect/reactivity";
+import { mFallback, msg } from "gt-i18n";
+import type { MFunctionType } from "gt-i18n/types";
 
 import type { EnvironmentRegistry } from "../connection/registry.ts";
 import { request } from "../rpc/client.ts";
@@ -43,7 +44,6 @@ export const orUnsupported = <E, R>(
 
 export interface NativeSessionRow {
   readonly nativeId: string;
-  /** Shown only when it differs from the thread's title. */
   readonly name: string | null;
   readonly command: string | null;
   readonly commandNote: string | null;
@@ -67,6 +67,7 @@ export const nativeSessionRow = (input: {
     if (session === null) return null;
     return {
       nativeId: session.nativeId,
+      // Shown only when it differs from the thread's title, which providers already name sessions after.
       name: session.name !== null && session.name !== input.title.trim() ? session.name : null,
       command: session.command,
       commandNote: session.commandNote,
@@ -91,12 +92,18 @@ export const handOutBlocker = (
     ? null
     : (handOutRefusal(projection.thread.id, projection.runs, projection.providerThreads) ?? null);
 
-/** A refused hand-out leaves its command on the clipboard, and T3 Code still holds the session. */
-export const handOutRefusedDescription = (reason: string) =>
-  `${reason} Don't run the copied command until the thread is handed out.`;
+export const shortNativeSessionId = (id: string): string =>
+  id.length <= 12 ? id : `${id.slice(0, 8)}…${id.slice(-4)}`;
 
-export const nativeClientName = (driver: ProviderDriverKind) =>
-  `${PROVIDER_DISPLAY_NAMES[driver] ?? driver}'s client`;
+export const nativeSessionCommandAction = (canHandOut: boolean, isOut: boolean): "copy" | "move" =>
+  canHandOut && !isOut ? "move" : "copy";
+
+export const handOutRefusedDescription = (reason: string, resolve: MFunctionType = mFallback) =>
+  resolve(
+    msg("{reason} Don't run the copied command until the thread is moved to the terminal.", {
+      reason,
+    }),
+  );
 
 export interface TakeBackConfirmation {
   readonly title: string;
@@ -108,13 +115,20 @@ export interface TakeBackConfirmation {
  * Codex refuses a second writer on its session, so taking one back while its client is still
  * open fails safely. Other providers would let both write, so the person closes it first.
  */
-const takeBackConfirmation = (driver: ProviderDriverKind): TakeBackConfirmation | null =>
+const takeBackConfirmation = (
+  driver: ProviderDriverKind,
+  resolve: MFunctionType,
+): TakeBackConfirmation | null =>
   driver === "codex"
     ? null
     : {
-        title: "Take the session back?",
-        description: `Close it in ${nativeClientName(driver)} first. T3 Code and the terminal would both write to the same session.`,
-        confirmLabel: "Take back",
+        title: resolve(msg("Move back from the terminal?")),
+        description: resolve(
+          msg(
+            "Close the session in the terminal first. Turns made there stay with the agent but are not shown here.",
+          ),
+        ),
+        confirmLabel: resolve(msg("Move back")),
       };
 
 export interface TakeBackInput {
@@ -126,8 +140,11 @@ export interface TakeBackInput {
 }
 
 /** Resolves true once the thread is back, false when the person cancels or the server refuses. */
-export async function takeBackThread(input: TakeBackInput): Promise<boolean> {
-  const confirmation = takeBackConfirmation(input.out.driver);
+export async function takeBackThread(
+  input: TakeBackInput,
+  resolve: MFunctionType = mFallback,
+): Promise<boolean> {
+  const confirmation = takeBackConfirmation(input.out.driver, resolve);
   if (confirmation !== null && !(await input.confirm(confirmation))) return false;
   if ((await input.takeBack())._tag !== "Success") return false;
   input.refreshSession();
@@ -139,9 +156,15 @@ export async function takeBackThread(input: TakeBackInput): Promise<boolean> {
  * thread is taken back first and the message follows; nothing is queued behind the mark.
  */
 export async function takeBackAndSend<A>(
-  input: TakeBackInput & { readonly send: () => Promise<A> },
+  input: TakeBackInput & {
+    readonly send: () => Promise<A>;
+    /** False once the view shows another thread, so a send that waited goes nowhere else. */
+    readonly stillCurrent?: () => boolean;
+  },
+  resolve: MFunctionType = mFallback,
 ): Promise<A | undefined> {
-  return (await takeBackThread(input)) ? input.send() : undefined;
+  const tookBack = await takeBackThread(input, resolve);
+  return tookBack && (input.stillCurrent?.() ?? true) ? input.send() : undefined;
 }
 
 export function createNativeSessionAtoms<R, E>(

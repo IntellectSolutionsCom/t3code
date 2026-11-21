@@ -1,5 +1,5 @@
-import { nativeClientName } from "@t3tools/client-runtime/state/nativeSessions";
 import type { ScopedThreadRef } from "@t3tools/contracts";
+import { useGT } from "gt-react";
 import { TerminalIcon } from "lucide-react";
 
 import { usePrimarySettings } from "../../hooks/useSettings";
@@ -15,6 +15,7 @@ export function useNativeSessionOutBanner(
   ref: ScopedThreadRef | null,
 ): ReadonlyArray<ComposerBannerStackItem> {
   const timestampFormat = usePrimarySettings((settings) => settings.timestampFormat);
+  const gt = useGT();
   const takeBack = useTakeBack(ref);
   if (takeBack === null) return NONE;
   return [
@@ -22,11 +23,13 @@ export function useNativeSessionOutBanner(
       id: "native-session-out",
       variant: "info",
       icon: <TerminalIcon />,
-      title: `In ${nativeClientName(takeBack.out.driver)} since ${formatDayAwareTimestamp(takeBack.out.since, timestampFormat)}`,
-      description: "Take it back to send from here.",
+      title: gt("In terminal · paused here since {time}", {
+        time: formatDayAwareTimestamp(takeBack.out.since, timestampFormat),
+      }),
+      description: gt("Move it back to send from here."),
       actions: (
         <Button size="xs" variant="ghost" onClick={() => void takeBack.takeBack()}>
-          Take back
+          {gt("Move back")}
         </Button>
       ),
     },
