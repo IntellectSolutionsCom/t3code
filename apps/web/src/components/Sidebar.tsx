@@ -1302,7 +1302,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             [
               { id: "new-thread", label: gt("New thread") },
               ...(canLoadNativeSession(group.environmentId)
-                ? [{ id: "load-session", label: "Load a session into a thread…" }]
+                ? [{ id: "load-session", label: gt("Load a session into a thread…") }]
                 : []),
               { id: "copy-path", label: gt("Copy path") },
               ...(canPinProject(group)

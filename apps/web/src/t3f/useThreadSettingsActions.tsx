@@ -1,6 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { useGT } from "gt-react";
 import { SettingsIcon } from "lucide-react";
 
 import { ITEM_ICON_CLASS, type CommandPaletteActionItem } from "../components/CommandPalette.logic";
@@ -10,6 +11,7 @@ import { openThreadSettings, threadSettingsAvailable } from "./threadBadges";
 export function useThreadSettingsActions(
   thread: { readonly environmentId: EnvironmentId; readonly id: ThreadId } | null,
 ): CommandPaletteActionItem[] {
+  const gt = useGT();
   const available = useAtomValue(threadSettingsAvailable(thread?.environmentId ?? null));
   if (thread === null || !available) return [];
   const threadRef = scopeThreadRef(thread.environmentId, thread.id);
@@ -18,7 +20,7 @@ export function useThreadSettingsActions(
       kind: "action",
       value: "action:thread-settings",
       searchTerms: ["thread", "settings", "badge", "emoji", "label"],
-      title: "Thread settings",
+      title: gt("Thread settings"),
       icon: <SettingsIcon className={ITEM_ICON_CLASS} />,
       run: async () => {
         openThreadSettings(threadRef);

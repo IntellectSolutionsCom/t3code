@@ -242,7 +242,13 @@ export function buildThreadActionMenuItems(
       ? [{ id: "share-guest" as const, label: resolve(msg("Share with guest")), icon: "user-plus" }]
       : []),
     ...(state.canEditThreadSettings
-      ? [{ id: "thread-settings" as const, label: "Thread settings…", icon: "settings" }]
+      ? [
+          {
+            id: "thread-settings" as const,
+            label: resolve(msg("Thread settings…")),
+            icon: "settings",
+          },
+        ]
       : []),
     ...(state.projectFilter
       ? [
