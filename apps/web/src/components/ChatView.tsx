@@ -1906,8 +1906,10 @@ export default function ChatView(props: ChatViewProps) {
     if (!pinned && storedPinnedMessages.length >= MAX_PINNED_MESSAGES) {
       toastManager.add({
         type: "warning",
-        title: "This thread has the most pins it can hold",
-        description: `Unpin a message to pin another. A thread keeps up to ${MAX_PINNED_MESSAGES}.`,
+        title: gt("This thread has the most pins it can hold"),
+        description: gt("Unpin a message to pin another. A thread keeps up to {count}.", {
+          count: MAX_PINNED_MESSAGES,
+        }),
       });
       return;
     }

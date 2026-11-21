@@ -66,14 +66,14 @@ const UNAVAILABLE = {
 
 const PIN_COULD_NOT_LOAD = {
   _tag: "failed",
-  title: "Could not load the pinned message",
-  description: "Load earlier turns, then click the pin to try again.",
+  title: msg("Could not load the pinned message"),
+  description: msg("Load earlier turns, then click the pin to try again."),
 } as const;
 
 const PIN_UNAVAILABLE = {
   _tag: "failed",
-  title: "The pinned message is no longer in this thread",
-  description: "It may have been reverted or removed.",
+  title: msg("The pinned message is no longer in this thread"),
+  description: msg("It may have been reverted or removed."),
   unavailable: true,
 } as const;
 
@@ -264,12 +264,12 @@ const citedHistoryAtom = Atom.family(
         if (outcome._tag === "failed") {
           const toastId = toastManager.add({
             type: "warning",
-            title: pin ? outcome.title : m(outcome.title),
-            description: pin ? outcome.description : m(outcome.description),
+            title: m(outcome.title),
+            description: m(outcome.description),
             ...(pin && outcome.unavailable
               ? {
                   actionProps: {
-                    children: "Unpin",
+                    children: m(msg("Unpin", { $context: "remove a message pin" })),
                     onClick: () => {
                       toastManager.close(toastId);
                       updateStoredPinnedMessages(environmentId, threadId, (pins) =>

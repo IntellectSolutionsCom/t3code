@@ -1,11 +1,13 @@
 import { MessageId, type EnvironmentId, type ThreadId } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
+import { msg } from "gt-react";
 import { create } from "zustand";
 import {
   readLocalStorageValue,
   useLocalStorage,
   writeLocalStorageValue,
 } from "~/hooks/useLocalStorage";
+import { m } from "~/i18n/messages";
 import { toastManager } from "../ui/toast";
 
 export const MAX_PINNED_MESSAGES = 50;
@@ -158,8 +160,10 @@ export function updateStoredPinnedMessages(
   if (!saved) {
     toastManager.add({
       type: "error",
-      title: "Could not save pins",
-      description: "This browser refused to store them. Its storage may be full or blocked.",
+      title: m(msg("Could not save pins")),
+      description: m(
+        msg("This browser refused to store them. Its storage may be full or blocked."),
+      ),
     });
   }
 }

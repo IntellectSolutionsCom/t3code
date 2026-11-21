@@ -454,14 +454,11 @@ function LinkRequestSheet(props: {
               <T>
                 An agent here never gets more there than its own mode here either. Threads it starts
                 there cannot change that environment's own threads, projects or settings.
-              </T>
-              {" If that machine runs T3 Code "}
-              {EDITION_NAME}
-              {
-                ", it can still let agents here send messages to any of its threads, under Settings → "
-              }
-              {EDITION_NAME}
-              {" there."}
+              </T>{" "}
+              {gt(
+                "If that machine runs T3 Code {editionName}, it can still let agents here send messages to any of its threads, under Settings → {editionName} there.",
+                { editionName: EDITION_NAME },
+              )}
             </Text>
           </>
         )}

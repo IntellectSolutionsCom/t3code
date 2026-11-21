@@ -2,8 +2,8 @@ import { useAtomValue } from "@effect/atom-react";
 import { Link, useSearch } from "@tanstack/react-router";
 import { AuthAccessReadScope, EnvironmentId } from "@t3tools/contracts";
 import { DEFAULT_UNIFIED_SETTINGS } from "@t3tools/contracts/settings";
-import { CLOSE_BUTTON_TEXT } from "@t3tools/shared/closeButtonText";
 import { EDITION_NAME } from "@t3tools/shared/edition";
+import { msg, T, useGT, useMessages, Var } from "gt-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { isElectron } from "~/env";
@@ -35,6 +35,7 @@ import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings"
 
 /** What this edition adds to T3 Code, gathered in one section of its own. */
 export function EditionSettingsPanel() {
+  const gt = useGT();
   // As on Access: a link that names a machine opens the section on it.
   const linkedEnvironmentId = useSearch({
     strict: false,
@@ -58,7 +59,7 @@ export function EditionSettingsPanel() {
                   if (next !== null) setSelectedEnvironmentId(next);
                 }}
               >
-                <SelectTrigger size="sm" className="w-auto max-w-56" aria-label="Environment">
+                <SelectTrigger size="sm" className="w-auto max-w-56" aria-label={gt("Environment")}>
                   <SelectValue>
                     {settingsScopeEnvironmentLabel(environment, candidates)}
                   </SelectValue>
@@ -75,7 +76,9 @@ export function EditionSettingsPanel() {
                           {settingsScopeEnvironmentLabel(candidate, candidates)}
                         </span>
                         {candidate.connection.phase !== "connected" ? (
-                          <span className="shrink-0 text-xs text-muted-foreground">Offline</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            <T>Offline</T>
+                          </span>
                         ) : null}
                       </span>
                     </SelectItem>
@@ -100,6 +103,7 @@ export function LinkMessagesSettings({
   readonly connected?: boolean;
   readonly environmentPicker?: ReactNode;
 }) {
+  const gt = useGT();
   const session = useEnvironmentSessionState(environmentId);
   const hasReadScope = useEnvironmentScope(environmentId, AuthAccessReadScope);
   const readAccess =
@@ -139,23 +143,29 @@ export function LinkMessagesSettings({
     <SettingsSection id={search.id} title={search.title} headerAction={environmentPicker}>
       <div className={ITEM_ROW_CLASSNAME}>
         <p className="text-xs text-muted-foreground">
-          Lets agents on a machine linked here below full access send messages to any thread here. A
-          message can start an idle thread, which then acts with that thread's own permissions.
+          <T>
+            Lets agents on a machine linked here below full access send messages to any thread here.
+            A message can start an idle thread, which then acts with that thread's own permissions.
+          </T>
         </p>
       </div>
       {state.kind === "unreachable" ? (
-        <SettingsRow title="This machine cannot be reached right now." />
+        <SettingsRow title={gt("This machine cannot be reached right now.")} />
       ) : state.kind === "no-read-scope" ? (
-        <SettingsRow title="This connection cannot view linked machines." />
+        <SettingsRow title={gt("This connection cannot view linked machines.")} />
       ) : state.kind === "unsupported" ? (
         <SettingsRow
-          title="This machine cannot allow messages from links."
-          description="It runs a version without this setting."
+          title={gt("This machine cannot allow messages from links.")}
+          description={gt("It runs a version without this setting.")}
         />
       ) : state.kind === "error" ? (
-        <SettingsRow title="Could not load linked machines" description={state.message} />
+        <SettingsRow title={gt("Could not load linked machines")} description={state.message} />
       ) : state.kind === "loading" ? (
-        <div className={ITEM_ROW_CLASSNAME} role="status" aria-label="Loading linked machines">
+        <div
+          className={ITEM_ROW_CLASSNAME}
+          role="status"
+          aria-label={gt("Loading linked machines")}
+        >
           <div className="space-y-2">
             <Skeleton shape="pill" className="h-4 w-36" />
             <Skeleton shape="pill" className="h-3 w-full max-w-xs" />
@@ -165,8 +175,10 @@ export function LinkMessagesSettings({
         <>
           {state.rows.length === 0 ? (
             <SettingsRow
-              title="No machine is linked here below full access"
-              description="Turn on Linked environments in Settings → Labs on both machines. On the other one, choose Link under Settings → Environments, pick this machine and an access level below full access."
+              title={gt("No machine is linked here below full access")}
+              description={gt(
+                "Turn on Linked environments in Settings → Labs on both machines. On the other one, choose Link under Settings → Environments, pick this machine and an access level below full access.",
+              )}
             />
           ) : (
             state.rows.map((row) => (
@@ -181,15 +193,20 @@ export function LinkMessagesSettings({
           {state.rows.length > 0 && !canSet ? (
             <div className={ITEM_ROW_CLASSNAME}>
               <p className="text-xs text-muted-foreground">
-                Changing these needs a connection that may manage clients and operate threads here.
+                <T>
+                  Changing these needs a connection that may manage clients and operate threads
+                  here.
+                </T>
               </p>
             </div>
           ) : null}
           {state.unconfirmed ? (
             <div className={ITEM_ROW_CLASSNAME}>
               <p className="text-xs text-muted-foreground">
-                Agents connected before this version can be confirmed by sending one message or
-                renewing the link.
+                <T>
+                  Agents connected before this version can be confirmed by sending one message or
+                  renewing the link.
+                </T>
               </p>
             </div>
           ) : null}
@@ -208,6 +225,7 @@ function LinkMessageGrantRow({
   readonly row: LinkMessageRow;
   readonly canSet: boolean;
 }) {
+  const gt = useGT();
   const setGrant = useAtomCommand(linkMessageGrantEnvironment.set);
   const [saving, setSaving] = useState(false);
   return (
@@ -222,7 +240,7 @@ function LinkMessageGrantRow({
         <Switch
           checked={row.granted}
           disabled={!canSet || saving}
-          aria-label={`Allow ${row.label} to message any thread here`}
+          aria-label={gt("Allow {label} to message any thread here", { label: row.label })}
           onCheckedChange={(checked) => {
             setSaving(true);
             void setGrant({
@@ -236,19 +254,29 @@ function LinkMessageGrantRow({
   );
 }
 
+const CLOSE_BUTTON_OPTIONS = {
+  ask: msg("Ask every time"),
+  quit: msg("Quit T3 Code"),
+  keepRunning: msg("Keep running in the background"),
+} as const;
+
 function CloseButtonSettings() {
+  const gt = useGT();
+  const m = useMessages();
   const searchableSetting = useSearchableSetting();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   return (
-    <SettingsSection title="Window">
+    <SettingsSection title={gt("Window", { $context: "application window" })}>
       <SettingsRow
         {...searchableSetting("close-button")}
-        description={CLOSE_BUTTON_TEXT.setting.description}
+        description={gt(
+          "What the window's close button does on Linux and Windows. Ctrl+Q always quits while the window is open.",
+        )}
         resetAction={
           settings.closeButton !== DEFAULT_UNIFIED_SETTINGS.closeButton ? (
             <SettingResetButton
-              ariaLabel="Reset close button behavior to default"
+              ariaLabel={gt("Reset close button behavior to default")}
               onClick={() => updateSettings({ closeButton: DEFAULT_UNIFIED_SETTINGS.closeButton })}
             />
           ) : null
@@ -262,13 +290,17 @@ function CloseButtonSettings() {
               }
             }}
           >
-            <SelectTrigger size="sm" className="w-full sm:w-56" aria-label="Close button behavior">
-              <SelectValue>{CLOSE_BUTTON_TEXT.setting.options[settings.closeButton]}</SelectValue>
+            <SelectTrigger
+              size="sm"
+              className="w-full sm:w-56"
+              aria-label={gt("Close button behavior")}
+            >
+              <SelectValue>{m(CLOSE_BUTTON_OPTIONS[settings.closeButton])}</SelectValue>
             </SelectTrigger>
             <SelectPopup align="end" alignItemWithTrigger={false}>
-              {Object.entries(CLOSE_BUTTON_TEXT.setting.options).map(([value, label]) => (
+              {Object.entries(CLOSE_BUTTON_OPTIONS).map(([value, label]) => (
                 <SelectItem hideIndicator key={value} value={value}>
-                  {label}
+                  {m(label)}
                 </SelectItem>
               ))}
             </SelectPopup>
@@ -288,15 +320,17 @@ export function LinkMessagesPointer({ environmentId }: { readonly environmentId:
   if (grants.data?.supported !== true) return null;
   return (
     <p className="px-4 py-3 text-xs text-muted-foreground">
-      Linked machines below full access can be allowed to send messages to your threads in{" "}
-      <Link
-        to="/settings/edition"
-        search={{ machine: environmentId }}
-        className="underline underline-offset-2"
-      >
-        Settings → {EDITION_NAME}
-      </Link>
-      .
+      <T>
+        Linked machines below full access can be allowed to send messages to your threads in{" "}
+        <Link
+          to="/settings/edition"
+          search={{ machine: environmentId }}
+          className="underline underline-offset-2"
+        >
+          Settings → <Var>{EDITION_NAME}</Var>
+        </Link>
+        .
+      </T>
     </p>
   );
 }
