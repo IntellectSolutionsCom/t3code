@@ -5,6 +5,7 @@ import {
   CommandId,
   NodeId,
   ProjectId,
+  ProviderDriverKind,
   ProviderInstanceId,
   ProviderSessionId,
   ProviderThreadId,
@@ -16,6 +17,7 @@ import {
   VcsProcessExitError,
   type OrchestrationV2ThreadProjection,
 } from "@t3tools/contracts";
+import { ProviderAdapterRollbackThreadError } from "@t3tools/provider-core/server/ProviderAdapter";
 import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
@@ -43,6 +45,7 @@ import * as RuntimeRequestService from "./RuntimeRequestService.ts";
 import * as ThreadTitleRegenerationService from "./ThreadTitleRegenerationService.ts";
 import * as ThreadManagementService from "./ThreadManagementService.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import { NativeSessionRestoreRefusedError } from "../t3f/NativeSessionRestoreRefusedError.ts";
 
 const threadId = ThreadId.make("thread:effect-worker-restart");
 const oldSessionId = ProviderSessionId.make("provider-session:effect-worker-restart:old");
@@ -236,13 +239,17 @@ const lockedIndexMessage =
   "Git's index is locked. Wait for other Git operations to finish, then try again.";
 const rollbackCheckpointId = CheckpointId.make("checkpoint:effect-worker-rollback");
 const rollbackScopeId = CheckpointScopeId.make("checkpoint-scope:effect-worker-rollback");
-const restoreFailure = (detail: string) =>
+const rollbackFailure = (cause: unknown) =>
   new CheckpointRollbackService.CheckpointRollbackExecutionError({
     reason: "unexpected-failure",
     threadId,
     providerThreadId,
     checkpointId: rollbackCheckpointId,
-    cause: new CheckpointService.CheckpointRestoreError({
+    cause,
+  });
+const restoreFailure = (detail: string) =>
+  rollbackFailure(
+    new CheckpointService.CheckpointRestoreError({
       scopeId: rollbackScopeId,
       checkpointId: rollbackCheckpointId,
       cause: new VcsProcessExitError({
@@ -254,9 +261,30 @@ const restoreFailure = (detail: string) =>
         failureKind: "command-failed",
       }),
     }),
-  });
+  );
+const nativeSessionRefusal = new NativeSessionRestoreRefusedError({
+  driver: ProviderDriverKind.make("codex"),
+  providerThreadId,
+  checkpointId: rollbackCheckpointId,
+});
 
 it.effect.each([
+  {
+    name: "a native-session take-back",
+    failure: rollbackFailure(nativeSessionRefusal),
+    message: nativeSessionRefusal.message,
+  },
+  {
+    name: "an adapter rollback failure",
+    failure: rollbackFailure(
+      new ProviderAdapterRollbackThreadError({
+        driver: ProviderDriverKind.make("codex"),
+        providerThreadId,
+        checkpointId: rollbackCheckpointId,
+      }),
+    ),
+    message: CheckpointRollbackService.ROLLBACK_FAILED_MESSAGE,
+  },
   {
     name: "a held Git index lock",
     failure: restoreFailure(lockedIndexMessage),

@@ -1,5 +1,12 @@
-import { PROVIDER_DISPLAY_NAMES, type ProviderThreadId, type ThreadId } from "@t3tools/contracts";
+import {
+  type OrchestrationV2ProviderThread,
+  PROVIDER_DISPLAY_NAMES,
+  ProviderDriverKind,
+  type ProviderThreadId,
+  type ThreadId,
+} from "@t3tools/contracts";
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -7,6 +14,10 @@ import * as Option from "effect/Option";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import * as ProviderSessionManager from "../orchestration-v2/ProviderSessionManager.ts";
 import { type NativeSessionMark, NativeSessionOut } from "./NativeSessionOut.ts";
+import {
+  crossedTakeBackMessage,
+  NativeSessionRestoreRefusedError,
+} from "./NativeSessionRestoreRefusedError.ts";
 
 /**
  * A turn for a thread that is out is refused, not held: it fails as upstream fails a native
@@ -20,8 +31,11 @@ const refuseWhileOut = (mark: NativeSessionMark, providerThreadId: ProviderThrea
     cause: `Handed out at ${mark.since}`,
   });
 
-export interface NativeSessionGateMarks {
+const exactRewindDrivers = new Set([ProviderDriverKind.make("claude")]);
+
+interface NativeSessionGateMarks {
   readonly get: (threadId: ThreadId) => Effect.Effect<NativeSessionMark | undefined>;
+  readonly getTakeBack: NativeSessionOut["Service"]["getTakeBack"];
   /** Removes a mark the thread no longer matches. */
   readonly drop: (threadId: ThreadId) => Effect.Effect<void>;
 }
@@ -38,6 +52,27 @@ export const makeGate = Effect.fn("NativeSessionGate.make")(function* (
   const projections = yield* ProjectionStore.ProjectionStoreV2;
   const markFor = (threadId: ThreadId | undefined) =>
     threadId === undefined ? Effect.undefined : marks.get(threadId);
+
+  const crossesTakeBack = Effect.fn("NativeSessionGate.crossesTakeBack")(function* (
+    providerThread: OrchestrationV2ProviderThread,
+    startedAt: DateTime.Utc | null,
+  ) {
+    const { appThreadId, driver, nativeThreadRef } = providerThread;
+    if (
+      appThreadId === null ||
+      nativeThreadRef?.nativeId == null ||
+      exactRewindDrivers.has(driver)
+    ) {
+      return false;
+    }
+    const takeBack = yield* marks.getTakeBack(appThreadId);
+    return (
+      takeBack !== undefined &&
+      takeBack.driver === driver &&
+      takeBack.nativeId === nativeThreadRef.nativeId &&
+      (startedAt === null || DateTime.toEpochMillis(startedAt) < Date.parse(takeBack.takenBackAt))
+    );
+  });
 
   const gateRuntime = (
     runtime: ProviderAdapter.ProviderAdapterV2SessionRuntime,
@@ -59,6 +94,34 @@ export const makeGate = Effect.fn("NativeSessionGate.make")(function* (
             : Effect.fail(refuseWhileOut(mark, input.providerThread.id)),
         ),
       ),
+    rollbackThread: Effect.fn("NativeSessionGate.rollbackThread")(function* (input) {
+      const { providerThread, target } = input;
+      const startedAt = target.type === "thread_start" ? null : target.providerTurn.startedAt;
+      if (yield* crossesTakeBack(providerThread, startedAt)) {
+        return yield* new NativeSessionRestoreRefusedError({
+          driver: providerThread.driver,
+          providerThreadId: providerThread.id,
+          checkpointId: target.checkpointId,
+        });
+      }
+      return yield* runtime.rollbackThread(input);
+    }),
+    forkThread: Effect.fn("NativeSessionGate.forkThread")(function* (input) {
+      const { sourceProviderThread, sourceProviderTurns, providerTurnId } = input;
+      if (providerTurnId !== undefined) {
+        const target = sourceProviderTurns?.find(
+          (turn) => turn.id === providerTurnId && turn.providerThreadId === sourceProviderThread.id,
+        );
+        if (yield* crossesTakeBack(sourceProviderThread, target?.startedAt ?? null)) {
+          return yield* new ProviderAdapter.ProviderAdapterForkThreadError({
+            driver: sourceProviderThread.driver,
+            providerThreadId: sourceProviderThread.id,
+            cause: crossedTakeBackMessage(sourceProviderThread.driver, "fork"),
+          });
+        }
+      }
+      return yield* runtime.forkThread(input);
+    }),
   });
 
   const open = Effect.fn("NativeSessionGate.open")(function* (
@@ -107,6 +170,7 @@ export const layerOver = <E, R>(
       if (Option.isNone(out)) return manager;
       return yield* makeGate(manager, {
         get: out.value.get,
+        getTakeBack: out.value.getTakeBack,
         drop: (threadId) => out.value.clear(threadId).pipe(Effect.ignore),
       });
     }),

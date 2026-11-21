@@ -166,8 +166,22 @@ const makeMarks = Effect.gen(function* () {
       });
       return mark;
     });
+  const takeBacks = yield* Ref.make<
+    ReadonlyMap<ThreadId, NativeSessionMark & { readonly takenBackAt: string }>
+  >(new Map());
   return NativeSessionOut.of({
     get,
+    getTakeBack: (threadId) =>
+      Ref.get(takeBacks).pipe(Effect.map((current) => current.get(threadId))),
+    takeBack: (threadId, takenBackAt) =>
+      Effect.gen(function* () {
+        const mark = yield* clear(threadId);
+        if (mark !== undefined) {
+          yield* Ref.update(takeBacks, (current) =>
+            new Map(current).set(threadId, { ...mark, takenBackAt }),
+          );
+        }
+      }),
     set: (mark) =>
       SubscriptionRef.update(marks, (current) => new Map(current).set(mark.threadId, mark)),
     clear,
@@ -250,6 +264,7 @@ const withThread = <A, E>(
             wrapProviderSessionManager: (manager) =>
               NativeSessionGate.makeGate(manager, {
                 get: out.get,
+                getTakeBack: out.getTakeBack,
                 drop: (threadId) => out.clear(threadId).pipe(Effect.ignore),
               }),
           },
@@ -364,6 +379,10 @@ it.live("hands a thread out by releasing its session, and takes it back once", (
         [{ message: takeBackNotice(driver), level: "info" }],
       );
       assert.equal(notices[0]!.index, back.turnItems.length - 1);
+      assert.equal(
+        (yield* out.getTakeBack(threadId))?.takenBackAt,
+        DateTime.formatIso(back.turnItems.at(-1)!.startedAt!),
+      );
 
       yield* send("back");
       const projection = yield* orchestrator.getThreadProjection(threadId);
@@ -387,6 +406,7 @@ it.effect("takes back a deleted thread by clearing its mark", () =>
 
       yield* handout.takeBack(threadId);
       assert.isUndefined(yield* out.get(threadId));
+      assert.isUndefined(yield* out.getTakeBack(threadId));
     }),
   ),
 );
