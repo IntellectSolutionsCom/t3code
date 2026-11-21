@@ -2196,6 +2196,41 @@
   "8fffd1cf07b7fbc6": "キーボードショートカットの構成が無効です",
   "9e4394e5b89e57a1": "スレッドを復元しています…",
   "5579a5d039c6962c": "{count, plural, other {以前のバージョンから {total} 件のスレッドを移行しています。完了するまで作業を続けられます。}}",
+  "7635bef1a86f132a": "Untitled session",
+  "b16fa0543646824e": "{provider} (no answer in time)",
+  "a89deb6ac6ffec10": "{provider} (failed)",
+  "85dcd20169d7353a": "Load a session into a thread",
+  "851fc9eae83499ad": [
+    "Provider sessions that ran in ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " in the last 30 days, including ones started outside ",
+    {
+      "i": 2,
+      "k": "_gt_value_2",
+      "v": "v"
+    },
+    "."
+  ],
+  "ee736e7c2555de83": "Reading sessions…",
+  "088a3c43a5e83433": "No provider sessions ran in this folder in the last 30 days.",
+  "185b1f0dcf2e5aa5": "Open thread",
+  "e580c507bc4cf87e": "Its thread was deleted",
+  "5a0125dd9241cdec": "読み込んでいます…",
+  "9557032a128c7f4b": "Load",
+  "83e2c02c591df703": [
+    "Could not list the sessions of",
+    " ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "."
+  ],
   "8117d2b1eaef9f82": [
     "この環境は ",
     {
@@ -2437,6 +2472,7 @@
   "e54720cac68f2adb": "すべてのプロジェクト",
   "ac47f86df1c31a4a": "ブランチをコピーできませんでした",
   "4e6305459e784fea": "スレッド ID をコピーできませんでした",
+  "2e091eb91efe6823": "Load a session into a thread…",
   "5a79b7c910831c76": "スレッドのタイトルは空にできません",
   "5c14b37b13312503": "スレッドの名前を変更できませんでした",
   "fc97f746bdabe59f": "スレッドを対応済みにできませんでした",
@@ -2618,7 +2654,6 @@
   "a849f652c814c048": "Command copied",
   "03eba73d4cd1e865": "Could not copy the session id",
   "ee055febba11120e": "Could not copy the command",
-  "2e091eb91efe6823": "Load a session into a thread…",
   "5351d847a484b4d6": "Could not move the session to the terminal",
   "2d85ed59268246fe": "Move the session back",
   "cf5fce12811698ee": "Unpauses this thread; send from here again",
@@ -2739,6 +2774,7 @@
   "6dd1f458bcd6a2ea": "再生成しています…",
   "de30fdae5b3fea98": "タイトルを再生成",
   "dffd2e20f7ff5aa1": "未読にする",
+  "5794a3bc1e2fbfe5": "Thread settings…",
   "3364346f40934e88": "すべてのプロジェクトを表示",
   "666f3ac177c116b6": "{project} で絞り込み",
   "1385e2d8bd696370": "プロジェクトに変換",
@@ -3040,6 +3076,18 @@
   "1e358a7392662403": "ターミナルの起動入力が無効です",
   "78afe8f657a424b5": "この環境は使用量を報告できませんでした。",
   "7e007018635dcd2b": "この接続ではスレッドやプロジェクトを変更できません。",
+  "8bb9c664fe25784c": "Could not save the badge.",
+  "f3b20953d956bb29": "Choose a symbol above, or type or paste one emoji.",
+  "c9d69b000e7abc14": "Type or paste an emoji",
+  "11f733184d6914f2": "Up to 24 characters",
+  "02975f31dd989537": "Thread settings",
+  "f80878cb4341bfbe": "A badge puts one emoji and a short label beside the thread's title.",
+  "8e7c2856e42069c8": "Symbol",
+  "c587dc03a5a5c831": "Label",
+  "f3a763fb0693816b": "Clear badge",
+  "ece5e10bd5b5769d": "Saving...",
+  "8c0b7f243491f2b0": "Save",
+  "279ab25bdca98778": "Thread settings",
   "87e3e1be8d076ca6": "この環境に接続できませんでした。もう一度お試しください。",
   "74a8fc3d3e10acaf": "このサインインリンクは不完全です",
   "820397d04d4ea2df": "このページを閉じて、エージェントからもう一度サインインを開始してください。",
@@ -3805,7 +3853,6 @@
   "a06eb47a82969918": "サブエージェント",
   "d567966a45ff32be": "サブエージェントの作業",
   "4740c38b2edd194d": "読み取り専用です。これらのサブエージェントはメッセージを受け付けません。",
-  "5a0125dd9241cdec": "読み込んでいます…",
   "292cccd1075abd6e": "この呼び出しで開始されたサブエージェントの記録がプロバイダーにありません。",
   "893bb44a7b9c9094": "更新",
   "9c1ae7fa9c9b2d0d": "以前のステップは表示されていません。",

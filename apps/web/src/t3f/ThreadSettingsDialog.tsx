@@ -5,7 +5,7 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 import { type ScopedThreadRef, T3fThreadBadgeError } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
-import { useMessages } from "gt-react";
+import { T, useGT, useMessages } from "gt-react";
 import { useState } from "react";
 
 import { Button } from "~/components/ui/button";
@@ -49,6 +49,7 @@ function ThreadSettingsDialog({
   readonly onClose: () => void;
 }) {
   const m = useMessages();
+  const gt = useGT();
   const current = useThreadBadge(threadRef);
   const canSet = useAtomValue(threadBadges.set.permissionAtom(threadRef.environmentId));
   const setBadge = useAtomCommand(threadBadges.set, { reportFailure: false });
@@ -94,7 +95,7 @@ function ThreadSettingsDialog({
           }
         : {
             field: null,
-            message: error instanceof Error ? error.message : "Could not save the badge.",
+            message: error instanceof Error ? error.message : gt("Could not save the badge."),
           },
     );
   };
@@ -108,9 +109,11 @@ function ThreadSettingsDialog({
     >
       <DialogPopup className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Thread settings</DialogTitle>
+          <DialogTitle>
+            <T>Thread settings</T>
+          </DialogTitle>
           <DialogDescription>
-            A badge puts one emoji and a short label beside the thread&apos;s title.
+            <T>A badge puts one emoji and a short label beside the thread&apos;s title.</T>
           </DialogDescription>
         </DialogHeader>
         <DialogPanel>
@@ -122,7 +125,7 @@ function ThreadSettingsDialog({
               if (!trimmedSymbol) {
                 setFailure({
                   field: "symbol",
-                  message: "Choose a symbol above, or type or paste one emoji.",
+                  message: gt("Choose a symbol above, or type or paste one emoji."),
                 });
                 return;
               }
@@ -131,7 +134,7 @@ function ThreadSettingsDialog({
           >
             <div className="grid gap-1.5">
               <Label id="thread-badge-symbol-label" htmlFor="thread-badge-symbol">
-                Symbol
+                <T>Symbol</T>
               </Label>
               <ScrollArea scrollFade className="max-h-64">
                 <div
@@ -163,17 +166,19 @@ function ThreadSettingsDialog({
                 id="thread-badge-symbol"
                 autoFocus
                 value={symbol}
-                placeholder="Type or paste an emoji"
+                placeholder={gt("Type or paste an emoji")}
                 aria-invalid={failure?.field === "symbol" || undefined}
                 onChange={(event) => changeSymbol(event.currentTarget.value)}
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="thread-badge-label">Label</Label>
+              <Label htmlFor="thread-badge-label">
+                <T context="noun, the text shown on a thread badge">Label</T>
+              </Label>
               <Input
                 id="thread-badge-label"
                 value={label}
-                placeholder="Up to 24 characters"
+                placeholder={gt("Up to 24 characters")}
                 aria-invalid={failure?.field === "label" || undefined}
                 onChange={(event) => changeLabel(event.currentTarget.value)}
               />
@@ -194,14 +199,14 @@ function ThreadSettingsDialog({
               disabled={!canSet || saving}
               onClick={() => void save(null)}
             >
-              Clear badge
+              <T>Clear badge</T>
             </Button>
           ) : null}
           <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>
-            Cancel
+            <T>Cancel</T>
           </Button>
           <Button size="sm" type="submit" form="thread-settings-form" disabled={!canSet || saving}>
-            {saving ? "Saving..." : "Save"}
+            {saving ? <T>Saving...</T> : <T context="verb, save the thread badge">Save</T>}
           </Button>
         </DialogFooter>
       </DialogPopup>

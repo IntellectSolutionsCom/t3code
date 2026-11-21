@@ -2197,6 +2197,41 @@
   "8fffd1cf07b7fbc6": "잘못된 단축키 구성",
   "9e4394e5b89e57a1": "스레드를 복원하는 중…",
   "5579a5d039c6962c": "{count, plural, other {이전 버전에서 스레드 {total}개를 마이그레이션하는 중입니다. 완료되는 동안 계속 작업할 수 있습니다.}}",
+  "7635bef1a86f132a": "Untitled session",
+  "b16fa0543646824e": "{provider} (no answer in time)",
+  "a89deb6ac6ffec10": "{provider} (failed)",
+  "85dcd20169d7353a": "Load a session into a thread",
+  "851fc9eae83499ad": [
+    "Provider sessions that ran in ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " in the last 30 days, including ones started outside ",
+    {
+      "i": 2,
+      "k": "_gt_value_2",
+      "v": "v"
+    },
+    "."
+  ],
+  "ee736e7c2555de83": "Reading sessions…",
+  "088a3c43a5e83433": "No provider sessions ran in this folder in the last 30 days.",
+  "185b1f0dcf2e5aa5": "Open thread",
+  "e580c507bc4cf87e": "Its thread was deleted",
+  "5a0125dd9241cdec": "불러오는 중…",
+  "9557032a128c7f4b": "Load",
+  "83e2c02c591df703": [
+    "Could not list the sessions of",
+    " ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "."
+  ],
   "8117d2b1eaef9f82": [
     "이 환경은 ",
     {
@@ -2438,6 +2473,7 @@
   "e54720cac68f2adb": "모든 프로젝트",
   "ac47f86df1c31a4a": "브랜치를 복사하지 못했습니다",
   "4e6305459e784fea": "스레드 ID를 복사하지 못했습니다",
+  "2e091eb91efe6823": "Load a session into a thread…",
   "5a79b7c910831c76": "스레드 제목은 비워 둘 수 없습니다",
   "5c14b37b13312503": "스레드 이름을 바꾸지 못했습니다",
   "fc97f746bdabe59f": "스레드를 정리하지 못했습니다",
@@ -2619,7 +2655,6 @@
   "a849f652c814c048": "Command copied",
   "03eba73d4cd1e865": "Could not copy the session id",
   "ee055febba11120e": "Could not copy the command",
-  "2e091eb91efe6823": "Load a session into a thread…",
   "5351d847a484b4d6": "Could not move the session to the terminal",
   "2d85ed59268246fe": "Move the session back",
   "cf5fce12811698ee": "Unpauses this thread; send from here again",
@@ -2740,6 +2775,7 @@
   "6dd1f458bcd6a2ea": "다시 생성하는 중…",
   "de30fdae5b3fea98": "제목 다시 생성",
   "dffd2e20f7ff5aa1": "읽지 않음으로 표시",
+  "5794a3bc1e2fbfe5": "Thread settings…",
   "3364346f40934e88": "모든 프로젝트 표시",
   "666f3ac177c116b6": "{project}(으)로 필터",
   "1385e2d8bd696370": "프로젝트로 전환",
@@ -3041,6 +3077,18 @@
   "1e358a7392662403": "잘못된 터미널 실행 입력",
   "78afe8f657a424b5": "이 환경에서 사용량을 보고할 수 없습니다.",
   "7e007018635dcd2b": "이 연결로는 스레드나 프로젝트를 변경할 수 없습니다.",
+  "8bb9c664fe25784c": "Could not save the badge.",
+  "f3b20953d956bb29": "Choose a symbol above, or type or paste one emoji.",
+  "c9d69b000e7abc14": "Type or paste an emoji",
+  "11f733184d6914f2": "Up to 24 characters",
+  "02975f31dd989537": "Thread settings",
+  "f80878cb4341bfbe": "A badge puts one emoji and a short label beside the thread's title.",
+  "8e7c2856e42069c8": "Symbol",
+  "c587dc03a5a5c831": "Label",
+  "f3a763fb0693816b": "Clear badge",
+  "ece5e10bd5b5769d": "Saving...",
+  "8c0b7f243491f2b0": "Save",
+  "279ab25bdca98778": "Thread settings",
   "87e3e1be8d076ca6": "이 환경에 연결할 수 없습니다. 다시 시도하세요.",
   "74a8fc3d3e10acaf": "이 로그인 링크가 불완전합니다",
   "820397d04d4ea2df": "이 페이지를 닫고 에이전트에서 로그인을 다시 시작하세요.",
@@ -3803,7 +3851,6 @@
   "a06eb47a82969918": "서브에이전트",
   "d567966a45ff32be": "서브에이전트 작업",
   "4740c38b2edd194d": "읽기 전용입니다. 이 서브에이전트는 메시지를 받을 수 없습니다.",
-  "5a0125dd9241cdec": "불러오는 중…",
   "292cccd1075abd6e": "제공자에 이 호출이 시작한 서브에이전트 기록이 없습니다.",
   "893bb44a7b9c9094": "새로 고침",
   "9c1ae7fa9c9b2d0d": "이전 단계는 표시되지 않습니다.",

@@ -2198,6 +2198,41 @@
   "8fffd1cf07b7fbc6": "Invalid keybindings configuration",
   "9e4394e5b89e57a1": "Restoring your threads…",
   "5579a5d039c6962c": "{count, plural, one {Migrating {total} thread from the previous version. You can keep working while this finishes.} other {Migrating {total} threads from the previous version. You can keep working while this finishes.}}",
+  "7635bef1a86f132a": "Untitled session",
+  "b16fa0543646824e": "{provider} (no answer in time)",
+  "a89deb6ac6ffec10": "{provider} (failed)",
+  "85dcd20169d7353a": "Load a session into a thread",
+  "851fc9eae83499ad": [
+    "Provider sessions that ran in ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " in the last 30 days, including ones started outside ",
+    {
+      "i": 2,
+      "k": "_gt_value_2",
+      "v": "v"
+    },
+    "."
+  ],
+  "ee736e7c2555de83": "Reading sessions…",
+  "088a3c43a5e83433": "No provider sessions ran in this folder in the last 30 days.",
+  "185b1f0dcf2e5aa5": "Open thread",
+  "e580c507bc4cf87e": "Its thread was deleted",
+  "5a0125dd9241cdec": "Loading…",
+  "9557032a128c7f4b": "Load",
+  "83e2c02c591df703": [
+    "Could not list the sessions of",
+    " ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "."
+  ],
   "8117d2b1eaef9f82": [
     "This environment is managed by ",
     {
@@ -2439,6 +2474,7 @@
   "e54720cac68f2adb": "All projects",
   "ac47f86df1c31a4a": "Failed to copy branch",
   "4e6305459e784fea": "Failed to copy thread ID",
+  "2e091eb91efe6823": "Load a session into a thread…",
   "5a79b7c910831c76": "Thread title cannot be empty",
   "5c14b37b13312503": "Failed to rename thread",
   "fc97f746bdabe59f": "Failed to settle thread",
@@ -2620,7 +2656,6 @@
   "a849f652c814c048": "Command copied",
   "03eba73d4cd1e865": "Could not copy the session id",
   "ee055febba11120e": "Could not copy the command",
-  "2e091eb91efe6823": "Load a session into a thread…",
   "5351d847a484b4d6": "Could not move the session to the terminal",
   "2d85ed59268246fe": "Move the session back",
   "cf5fce12811698ee": "Unpauses this thread; send from here again",
@@ -2741,6 +2776,7 @@
   "6dd1f458bcd6a2ea": "Regenerating…",
   "de30fdae5b3fea98": "Regenerate title",
   "dffd2e20f7ff5aa1": "Mark unread",
+  "5794a3bc1e2fbfe5": "Thread settings…",
   "3364346f40934e88": "Show all projects",
   "666f3ac177c116b6": "Filter by {project}",
   "1385e2d8bd696370": "Turn into project",
@@ -3042,6 +3078,18 @@
   "1e358a7392662403": "Invalid terminal launch input",
   "78afe8f657a424b5": "This environment could not report usage.",
   "7e007018635dcd2b": "This connection cannot change threads or projects.",
+  "8bb9c664fe25784c": "Could not save the badge.",
+  "f3b20953d956bb29": "Choose a symbol above, or type or paste one emoji.",
+  "c9d69b000e7abc14": "Type or paste an emoji",
+  "11f733184d6914f2": "Up to 24 characters",
+  "02975f31dd989537": "Thread settings",
+  "f80878cb4341bfbe": "A badge puts one emoji and a short label beside the thread's title.",
+  "8e7c2856e42069c8": "Symbol",
+  "c587dc03a5a5c831": "Label",
+  "f3a763fb0693816b": "Clear badge",
+  "ece5e10bd5b5769d": "Saving...",
+  "8c0b7f243491f2b0": "Save",
+  "279ab25bdca98778": "Thread settings",
   "87e3e1be8d076ca6": "Could not reach this environment. Try again.",
   "74a8fc3d3e10acaf": "This sign-in link is incomplete",
   "820397d04d4ea2df": "Close this page and start the sign-in again from your agent.",
@@ -3813,7 +3861,6 @@
   "a06eb47a82969918": "Subagent",
   "d567966a45ff32be": "Subagent work",
   "4740c38b2edd194d": "Read only. These subagents cannot take messages.",
-  "5a0125dd9241cdec": "Loading…",
   "292cccd1075abd6e": "The provider has no record of which subagents this call started.",
   "893bb44a7b9c9094": "Refresh",
   "9c1ae7fa9c9b2d0d": "Earlier steps are not shown.",

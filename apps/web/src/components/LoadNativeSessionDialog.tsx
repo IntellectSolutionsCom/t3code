@@ -8,6 +8,7 @@ import {
 } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { Atom } from "effect/reactivity";
+import { T, useGT, Var } from "gt-react";
 import { useState } from "react";
 
 import { brandProviderInstanceEntries, deriveProviderInstanceEntries } from "~/providerInstances";
@@ -67,6 +68,7 @@ const sessionKey = (session: T3fNativeSessionListItem) =>
   `${session.providerInstanceId}\0${session.nativeId}`;
 
 function LoadNativeSessionDialog({ target }: { readonly target: LoadNativeSessionTarget }) {
+  const gt = useGT();
   const navigate = useNavigate();
   const list = useEnvironmentQuery(
     nativeSessionEnvironment.list({
@@ -121,10 +123,14 @@ function LoadNativeSessionDialog({ target }: { readonly target: LoadNativeSessio
     <Dialog open onOpenChange={(open) => (open ? undefined : close())}>
       <DialogPopup className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Load a session into a thread</DialogTitle>
+          <DialogTitle>
+            <T>Load a session into a thread</T>
+          </DialogTitle>
           <DialogDescription>
-            Provider sessions that ran in {target.displayName} in the last 30 days, including ones
-            started outside T3 Code.
+            <T>
+              Provider sessions that ran in <Var>{target.displayName}</Var> in the last 30 days,
+              including ones started outside <Var>{"T3 Code"}</Var>.
+            </T>
           </DialogDescription>
         </DialogHeader>
         <DialogPanel>
@@ -132,11 +138,11 @@ function LoadNativeSessionDialog({ target }: { readonly target: LoadNativeSessio
             <p className="text-sm text-destructive-foreground">{list.error}</p>
           ) : sessions === null ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Spinner /> Reading sessions…
+              <Spinner /> <T>Reading sessions…</T>
             </div>
           ) : sessions.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No provider sessions ran in this folder in the last 30 days.
+              <T>No provider sessions ran in this folder in the last 30 days.</T>
             </p>
           ) : (
             <ul className="divide-y divide-border/60">
@@ -144,7 +150,7 @@ function LoadNativeSessionDialog({ target }: { readonly target: LoadNativeSessio
                 <li key={sessionKey(session)} className="flex items-center gap-3 py-2">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-foreground">
-                      {session.name ?? "Untitled session"}
+                      {session.name ?? gt("Untitled session")}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
                       {providerLabel(session)}
@@ -159,11 +165,11 @@ function LoadNativeSessionDialog({ target }: { readonly target: LoadNativeSessio
                       variant="outline"
                       onClick={() => openThread(session.threadId)}
                     >
-                      Open thread
+                      <T context="verb, navigate to the thread">Open thread</T>
                     </Button>
                   ) : session.threadDeleted ? (
                     <span className="shrink-0 text-xs text-muted-foreground">
-                      Its thread was deleted
+                      <T>Its thread was deleted</T>
                     </span>
                   ) : (
                     <Button
@@ -172,7 +178,11 @@ function LoadNativeSessionDialog({ target }: { readonly target: LoadNativeSessio
                       disabled={!canAdopt || loading !== null}
                       onClick={() => void load(session)}
                     >
-                      {loading === sessionKey(session) ? "Loading…" : "Load"}
+                      {loading === sessionKey(session) ? (
+                        <T>Loading…</T>
+                      ) : (
+                        <T context="verb, load a provider session into a thread">Load</T>
+                      )}
                     </Button>
                   )}
                 </li>
@@ -181,14 +191,20 @@ function LoadNativeSessionDialog({ target }: { readonly target: LoadNativeSessio
           )}
           {unlisted.length > 0 ? (
             <p className="mt-3 text-xs text-muted-foreground">
-              Could not list the sessions of{" "}
-              {unlisted
-                .map(
-                  (agent) =>
-                    `${providerLabel(agent)} (${agent.reason === "timed_out" ? "no answer in time" : "failed"})`,
-                )
-                .join(", ")}
-              .
+              <T>
+                Could not list the sessions of{" "}
+                <Var>
+                  {unlisted
+                    .map((agent) => {
+                      const provider = providerLabel(agent);
+                      return agent.reason === "timed_out"
+                        ? gt("{provider} (no answer in time)", { provider })
+                        : gt("{provider} (failed)", { provider });
+                    })
+                    .join(", ")}
+                </Var>
+                .
+              </T>
             </p>
           ) : null}
         </DialogPanel>

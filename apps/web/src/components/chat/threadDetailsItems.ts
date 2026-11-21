@@ -18,7 +18,7 @@ export const THREAD_DETAILS_ITEMS = [
     label: msg("Servers", { $context: "thread details item: running dev servers" }),
     defaultVisible: true,
   },
-  { id: "nativeSession", label: "Native session", defaultVisible: true },
+  { id: "nativeSession", label: msg("Native session"), defaultVisible: true },
   { id: "automations", label: msg("Automations"), defaultVisible: true },
   {
     id: "lineage",
