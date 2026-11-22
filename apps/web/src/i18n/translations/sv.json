@@ -6162,15 +6162,15 @@
   ],
   "216ab7514aea1d61": "Starta utan agent",
   "501ce2d99da8bfd1": "Konfigurera en agent för att starta.",
-  "71f3822326109c8e": [
-    "T3 Code samlar in anonym användningsdata för att förbättra appen. Se",
+  "6a82c4adaccb38aa": [
+    "No usage data is sent unless you switch it on. See the",
     " ",
     {
       "t": "a",
       "i": 1,
-      "c": "integritetspolicyn"
+      "c": "privacy policy"
     },
-    " för att välja bort det."
+    "."
   ],
   "b33f35083757b42c": [
     "Se",
@@ -10058,7 +10058,7 @@
   "c424bee294b9f778": "Miljön hanteras av {organization}. Vissa inställningar och funktioner följer dess policy.",
   "82d9538af590f58c": "Se dina agenter, importera projekt och konfigurera din telefon.",
   "6a48fd0a37e725a1": "Juridiskt",
-  "d6d3ea46ac979e1c": "Hur vi hanterar dina data, inklusive de anonyma användningsdata som T3 Code samlar in.",
+  "ac998b4a1d7ed0af": "How we handle your data, including usage data, which is sent only when switched on.",
   "e741b1ab9396053a": "Hur vi hanterar dina data. {telemetryOff}",
   "0bffbbf4d7f780c0": "Meddelanden för beroenden, resurser och valfria verktyg som T3 Code använder.",
   "e39a57514be028e9": "Granska",
