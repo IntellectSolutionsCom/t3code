@@ -1,6 +1,12 @@
 import { assert, it } from "@effect/vitest";
 import {
   CheckpointId,
+  EnvironmentId,
+  MessageId,
+  type OrchestrationV2ConversationMessage,
+  type OrchestrationV2Run,
+  type OrchestrationV2TurnItem,
+  RunId,
   NodeId,
   type OrchestrationV2ProviderThread,
   type OrchestrationV2ProviderTurn,
@@ -11,14 +17,27 @@ import {
   ProviderTurnId,
   ThreadId,
 } from "@t3tools/contracts";
+import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import * as ByteSize from "effect/ByteSize";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+
+import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
+import * as EventSink from "../orchestration-v2/EventSink.ts";
 
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import * as ProviderSessionManager from "../orchestration-v2/ProviderSessionManager.ts";
+import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecutor.ts";
+import * as SqlitePersistence from "../persistence/Sqlite.ts";
+import * as ServerSettings from "../serverSettings.ts";
+import * as NativeSessionOut from "./NativeSessionOut.ts";
+import { makeOutsideTurnPreflight } from "./nativeSessionOutsideTurns.ts";
 import { makeGate } from "./nativeSessionGate.ts";
 import { isNativeSessionRestoreRefusedError } from "./NativeSessionRestoreRefusedError.ts";
 
@@ -28,7 +47,22 @@ const between = "2026-11-21T12:02:00.000Z";
 const secondTakeBack = "2026-11-21T12:03:00.000Z";
 const after = "2026-11-21T12:04:00.000Z";
 
+const outLayer = Layer.effect(NativeSessionOut.NativeSessionOut, NativeSessionOut.make).pipe(
+  Layer.provide(SqlitePersistence.layerMemory),
+  Layer.provide(
+    Layer.mock(ServerEnvironment.ServerEnvironment)({
+      getEnvironmentId: Effect.succeed(EnvironmentId.make("here")),
+    }),
+  ),
+);
+
 it.effect.each([
+  {
+    name: "Codex restore before a noticed outside turn",
+    noticed: true,
+    startedAt: before,
+    refused: true,
+  },
   { name: "Codex restore before take-back", startedAt: before, refused: true },
   { name: "Codex restore to thread start", atStart: true, refused: true },
   { name: "Codex restore with an unknown start", refused: true },
@@ -119,21 +153,26 @@ it.effect.each([
       ProviderAdapter.ProviderAdapterV2SessionRuntime,
       "rollbackThread" | "forkThread"
     >;
+    const out = yield* NativeSessionOut.NativeSessionOut;
+    if (scenario.noticed)
+      yield* out.notice({ threadId, driver, nativeId: "native", since: firstTakeBack });
     const marks = {
       get: () => Effect.undefined,
       drop: () => Effect.void,
       getTakeBack: () =>
-        Effect.succeed(
-          scenario.neverHandedOut
-            ? undefined
-            : {
-                threadId,
-                driver,
-                nativeId: "native",
-                since: before,
-                takenBackAt: scenario.takenBackAt ?? firstTakeBack,
-              },
-        ),
+        scenario.noticed
+          ? out.getTakeBack(threadId)
+          : Effect.succeed(
+              scenario.neverHandedOut
+                ? undefined
+                : {
+                    threadId,
+                    driver,
+                    nativeId: "native",
+                    since: before,
+                    takenBackAt: scenario.takenBackAt ?? firstTakeBack,
+                  },
+            ),
     };
     const gated = yield* Effect.gen(function* () {
       return yield* makeGate(yield* ProviderSessionManager.ProviderSessionManagerV2, marks);
@@ -173,15 +212,15 @@ it.effect.each([
       assert(result._tag === "Failure");
       if (scenario.fork) {
         assert(result.failure._tag === "ProviderAdapterForkThreadError");
-        assert.include(String(result.failure.cause), "moved back from the terminal");
+        assert.include(String(result.failure.cause), "last used in the terminal");
       } else {
         assert(isNativeSessionRestoreRefusedError(result.failure));
-        assert.include(result.failure.message, "moved back from the terminal");
+        assert.include(result.failure.message, "last used in the terminal");
       }
     } else {
       assert.equal(result._tag, "Success");
     }
-  }).pipe(Effect.provide(Layer.mock(ProjectionStore.ProjectionStoreV2)({}))),
+  }).pipe(Effect.provide(Layer.merge(outLayer, Layer.mock(ProjectionStore.ProjectionStoreV2)({})))),
 );
 
 /** A gated Codex session over fakes: the manager's live runtime, the name the step finds, what reached it. */
@@ -396,4 +435,296 @@ it.effect.each([
 
     assert.equal(held.title, expected);
   }),
+);
+
+const outsideMessage =
+  "1 turn was made in the terminal since this thread's last message. The agent has them; they are not shown here.";
+const busyMessage =
+  "1 turn was made in the terminal since this thread's last message. The agent here may not have them.";
+const splitMessage =
+  "Turns were made in the terminal while this thread still held the session. The agent here does not have them. To keep working there, choose Move to terminal.";
+
+it.effect.each([
+  { name: "live Codex without reading", driver: "codex", live: true, calls: ["open"] },
+  {
+    name: "Codex reopening on an outside turn",
+    driver: "codex",
+    message: outsideMessage,
+    calls: ["stat", "read", "notice", "open", "adopt"],
+  },
+  {
+    name: "Claude releases before reopening and adopting",
+    driver: "claudeAgent",
+    live: true,
+    release: "released",
+    message: outsideMessage,
+    calls: ["stat", "read", "release", "notice", "open", "adopt"],
+  },
+  {
+    name: "Claude releases and adopts after cleanup fails",
+    driver: "claudeAgent",
+    live: true,
+    release: "failed-after-removal",
+    message: outsideMessage,
+    calls: ["stat", "read", "release", "notice", "open", "adopt"],
+  },
+  {
+    name: "busy Claude keeps the live runtime",
+    driver: "claudeAgent",
+    live: true,
+    release: "busy",
+    message: busyMessage,
+    calls: ["stat", "read", "release", "notice", "open"],
+  },
+  {
+    name: "Claude split without releasing",
+    driver: "claudeAgent",
+    live: true,
+    split: true,
+    message: splitMessage,
+    calls: ["stat", "read", "notice", "open"],
+  },
+  {
+    name: "Codex retries without a duplicate or refusal",
+    driver: "codex",
+    retry: true,
+    message: outsideMessage,
+    calls: ["stat", "read", "notice", "open", "adopt", "stat", "read", "open", "adopt"],
+  },
+  {
+    name: "Claude attributes an interrupted T3 prompt with one transcript read",
+    driver: "claudeAgent",
+    live: true,
+    interrupted: true,
+    calls: ["stat", "read", "open"],
+  },
+  {
+    name: "Claude skips a pinned rollback",
+    driver: "claudeAgent",
+    live: true,
+    pinned: true,
+    calls: ["open"],
+  },
+  { name: "another driver passes through", driver: "pi", calls: ["open", "adopt"] },
+  {
+    name: "Codex checks unchanged mtime without reading",
+    driver: "codex",
+    stale: true,
+    calls: ["stat", "open", "adopt"],
+  },
+  {
+    name: "Claude keeps a live session a background command woke",
+    driver: "claudeAgent",
+    live: true,
+    outside: {
+      content:
+        '<task-notification>\n<task-id>bifwzfwct</task-id>\n<status>completed</status>\n<summary>Background command "build" completed</summary>\n</task-notification>',
+      origin: { kind: "task-notification" },
+    },
+    calls: ["stat", "read", "open"],
+  },
+])("$name", (scenario) =>
+  Effect.gen(function* () {
+    const driver = ProviderDriverKind.make(scenario.driver);
+    const instanceId = ProviderInstanceId.make(driver);
+    const threadId = ThreadId.make("thread");
+    const providerSessionId = ProviderSessionId.make("session");
+    const providerThreadId = ProviderThreadId.make("provider-thread");
+    const runId = RunId.make("latest");
+    const userMessageId = MessageId.make("interrupted");
+    const nativeId = "5a3356c8-4ff1-46f9-908c-637454f147c4";
+    const nativeThreadRef = { driver, nativeId, strength: "strong" as const };
+    const completedAt = DateTime.makeUnsafe(before);
+    const rootTurn = { nativeTurnRef: { ...nativeThreadRef, nativeId: "ours" }, completedAt };
+    const calls: Array<string> = [];
+    const notices: Array<OrchestrationV2TurnItem> = [];
+    const titles: Array<string> = [];
+    const runtime = {
+      startTurn: (input: { readonly appThread: { readonly title: string } }) =>
+        Effect.sync(() => void titles.push(input.appThread.title)),
+    } as unknown as ProviderAdapter.ProviderAdapterV2SessionRuntime;
+    let current = scenario.live ? runtime : undefined;
+    const manager = Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({
+      get: () => Effect.sync(() => Option.fromNullishOr(current)),
+      open: () =>
+        Effect.sync(() => {
+          calls.push("open");
+          return (current ??= { ...runtime });
+        }),
+      releaseUnlessBusy: () =>
+        Effect.suspend(() => {
+          calls.push("release");
+          if (scenario.release === "busy") return Effect.succeed(false);
+          current = undefined;
+          return scenario.release === "failed-after-removal"
+            ? Effect.fail(
+                new ProviderSessionManager.ProviderSessionReleaseError({
+                  providerSessionId,
+                  reason: "manual_shutdown",
+                  cause: "cleanup",
+                }),
+              )
+            : Effect.succeed(true);
+        }),
+    });
+    const rows =
+      driver === "claudeAgent"
+        ? [
+            { type: "assistant", uuid: "ours" },
+            {
+              type: "user",
+              uuid: "outside",
+              parentUuid: scenario.split ? "sibling" : "ours",
+              message: { content: scenario.outside?.content ?? "outside" },
+              origin: scenario.outside?.origin,
+            },
+          ]
+        : ["ours", "outside"].map((turn_id) => ({
+            type: "event_msg",
+            payload: { type: "task_started", turn_id },
+          }));
+    const bytes = new TextEncoder().encode(
+      rows.map((row) => JSON.stringify(row)).join("\n") + "\n",
+    );
+    const file = {
+      seek: () => Effect.succeed(0n),
+      readAlloc: () =>
+        Effect.sync(() => {
+          calls.push("read");
+          return Option.some(bytes);
+        }),
+    } as unknown as FileSystem.File;
+    const out = yield* NativeSessionOut.NativeSessionOut;
+    const gated = yield* Effect.gen(function* () {
+      const sessions = yield* ProviderSessionManager.ProviderSessionManagerV2;
+      return yield* makeGate(
+        sessions,
+        {
+          get: out.get,
+          drop: (id) => out.clear(id).pipe(Effect.ignore),
+          getTakeBack: out.getTakeBack,
+        },
+        {
+          sync: () =>
+            Effect.sync(() => {
+              calls.push("adopt");
+              return "terminal title";
+            }),
+          learn: () => Effect.void,
+        },
+        yield* makeOutsideTurnPreflight(sessions, out),
+      );
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          manager,
+          ThreadCommandExecutor.layer,
+          IdAllocator.layer,
+          Path.layer,
+          FileSystem.layerNoop({
+            readDirectory: (path) =>
+              Effect.succeed(
+                path.endsWith("sessions")
+                  ? ["2026"]
+                  : path.endsWith("/2026")
+                    ? ["11"]
+                    : path.endsWith("/11")
+                      ? ["21"]
+                      : path.endsWith("/21")
+                        ? [`rollout-session-${nativeId}.jsonl`]
+                        : ["project"],
+              ),
+            exists: () => Effect.succeed(true),
+            stat: () =>
+              Effect.sync(() => {
+                calls.push("stat");
+                return {
+                  type: "File",
+                  size: ByteSize.bytes(bytes.length),
+                  mtime: Option.some(
+                    DateTime.toDateUtc(DateTime.makeUnsafe(scenario.stale ? before : after)),
+                  ),
+                } as FileSystem.File.Info;
+              }),
+            open: () => Effect.succeed(file),
+          }),
+          ServerSettings.layerTest(),
+          Layer.mock(ProjectionStore.ProjectionStoreV2)({
+            getThreadShell: () =>
+              Effect.succeed({ activeProviderThreadId: providerThreadId } as never),
+            getThreadRecords: () =>
+              Effect.succeed({
+                providerThreads: [
+                  {
+                    id: providerThreadId,
+                    appThreadId: threadId,
+                    providerInstanceId: instanceId,
+                    driver,
+                    nativeThreadRef,
+                    nativeConversationHeadRef: scenario.pinned ? nativeThreadRef : null,
+                  },
+                ],
+                providerTurns: [rootTurn],
+                runs: [
+                  {
+                    id: runId,
+                    providerThreadId,
+                    userMessageId,
+                    startedAt: scenario.interrupted ? DateTime.makeUnsafe(between) : null,
+                  },
+                ] satisfies Array<Partial<OrchestrationV2Run>>,
+              } as never),
+            getMessagesById: (_threadId, messageIds) =>
+              Effect.succeed(
+                new Map(
+                  scenario.interrupted && messageIds.includes(userMessageId)
+                    ? [[userMessageId, { text: "outside" } as OrchestrationV2ConversationMessage]]
+                    : [],
+                ),
+              ),
+            getTurnItem: ({ itemId }) =>
+              Effect.succeed(notices.find((item) => item.id === itemId) ?? null),
+          }),
+          Layer.mock(EventSink.EventSinkV2)({
+            write: ({ events }) =>
+              Effect.sync(() => {
+                const event = events[0];
+                assert(event?.type === "turn-item.updated");
+                notices.push(event.payload);
+                calls.push("notice");
+                return [];
+              }),
+          }),
+        ),
+      ),
+      Effect.provideService(HostProcess.HomeDirectory, "/home/test"),
+      Effect.provideService(HostProcess.Environment, {}),
+    );
+    const open = gated.open({
+      threadId,
+      providerSessionId,
+      modelSelection: { instanceId, model: "model" },
+      initialNativeThreadId: nativeId,
+      runtimePolicy: {} as never,
+    });
+    yield* (yield* open).startTurn({ threadId, appThread: { title: "T3 title" } } as never);
+    if (scenario.retry) {
+      current = undefined;
+      yield* open;
+    }
+
+    assert.deepEqual(calls, scenario.calls);
+    assert.deepEqual(titles, [scenario.calls.includes("adopt") ? "terminal title" : "T3 title"]);
+    assert.deepEqual(
+      notices.flatMap((item) =>
+        item.type === "system_notice" ? [[item.runId, item.message]] : [],
+      ),
+      scenario.message === undefined ? [] : [[runId, scenario.message]],
+    );
+    if (scenario.message === undefined) assert.isUndefined(yield* out.getTakeBack(threadId));
+    else assert.equal((yield* out.getTakeBack(threadId))?.nativeId, nativeId);
+    assert.isUndefined(yield* out.get(threadId));
+    if (scenario.release === "busy" || (scenario.live && !scenario.calls.includes("release")))
+      assert.strictEqual(current, runtime);
+  }).pipe(Effect.provide(outLayer)),
 );

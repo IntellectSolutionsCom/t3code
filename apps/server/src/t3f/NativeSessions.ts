@@ -1,13 +1,8 @@
 import {
-  ClaudeSettings,
-  CodexSettings,
   CommandId,
   type OrchestrationV2ProviderThread,
-  type ProviderInstanceConfig,
-  ProviderInstanceId,
   T3fNativeSessionError,
   type ProjectId,
-  type ServerSettings as ServerSettingsValue,
   type T3fNativeSessionAdoptInput,
   type T3fNativeSessionAdoptResult,
   type T3fNativeSessionIdentifyResult,
@@ -15,17 +10,15 @@ import {
   type T3fNativeSessionOutThreads,
   type ThreadId,
 } from "@t3tools/contracts";
-import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
 import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Context from "effect/Context";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
+import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
 import * as RuntimeLayer from "../orchestration-v2/runtimeLayer.ts";
@@ -33,10 +26,16 @@ import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecuto
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as AcpRegistrySessions from "../provider/AcpRegistrySessions.ts";
-import { resolveClaudeHomePath } from "../provider/Drivers/ClaudeHome.ts";
-import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { makeAdoption } from "./nativeSessionAdoption.ts";
+import {
+  findClaudeTranscript,
+  instanceHome,
+  instanceOf,
+  NATIVE_SESSION_TAIL_BYTES,
+  openTail,
+  readTail,
+} from "./nativeSessionFiles.ts";
 import { makeHandout } from "./nativeSessionHandout.ts";
 import * as NativeSessionKnownNames from "./NativeSessionKnownNames.ts";
 import * as NativeSessionOut from "./NativeSessionOut.ts";
@@ -71,17 +70,10 @@ export class NativeSessions extends Context.Service<
 
 const COMMAND_NOTE =
   "Continuing this session in the provider's own client is not yet verified, so no command is shown.";
-// Claude repeats a session's custom title every few records, and Codex names live near the index's end.
-const NAME_TAIL_BYTES = 2 * 1024 * 1024;
 // The index is shared by every session, so a miss in the tail reads on up to this much.
 const CODEX_INDEX_MAX_BYTES = 64 * 1024 * 1024;
 // Pi writes a session's first name at its start, which upstream's scanner reads in this window.
 const PI_NAME_HEAD_BYTES = 32 * 1024;
-
-const NO_HOME = { run: null, state: null } as const;
-
-const decodeClaudeSettings = Schema.decodeUnknownOption(ClaudeSettings);
-const decodeCodexSettings = Schema.decodeUnknownOption(CodexSettings);
 
 const storageError = (cause: unknown) =>
   Effect.logWarning("A thread's native session could not be read.", { cause }).pipe(
@@ -106,94 +98,8 @@ export const make = Effect.gen(function* () {
   const threads = yield* ThreadManagementService.ThreadManagementService;
   const projects = yield* ProjectService.ProjectService;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
-  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-
-  /** An open file whose last records can be read, after its first `headBytes` when the two do not overlap. */
-  const openTail = Effect.fn("NativeSessions.openTail")(function* (
-    filePath: string,
-    headBytes = 0,
-  ) {
-    const file = yield* fs.open(filePath, { flag: "r" });
-    const size = Number((yield* file.stat).size);
-    const read = (bytes: number) =>
-      file.readAlloc(bytes).pipe(
-        Effect.map(
-          Option.match({
-            onNone: () => "",
-            onSome: (chunk) => new TextDecoder().decode(chunk),
-          }),
-        ),
-      );
-    return {
-      size,
-      window: Effect.fn("NativeSessions.readWindow")(function* (windowBytes: number) {
-        const start = Math.max(0, size - windowBytes);
-        if (start <= headBytes) {
-          yield* file.seek(0n, "start");
-          return yield* read(size);
-        }
-        const head = headBytes > 0 ? yield* read(headBytes) : "";
-        yield* file.seek(BigInt(start), "start");
-        const tail = yield* read(size - start);
-        // Both reads can end or start mid-record.
-        return `${head.slice(0, head.lastIndexOf("\n") + 1)}${tail.slice(tail.indexOf("\n") + 1)}`;
-      }),
-    };
-  });
-
-  const readTail = (filePath: string, headBytes = 0) =>
-    Effect.scoped(
-      openTail(filePath, headBytes).pipe(Effect.flatMap((file) => file.window(NAME_TAIL_BYTES))),
-    );
-
-  /** Where the session runs and where its state lives; null where that is the provider's default. */
-  const instanceHome = Effect.fn("NativeSessions.instanceHome")(function* (
-    driver: string,
-    instance: ProviderInstanceConfig | undefined,
-  ) {
-    const home = yield* HostProcess.HomeDirectory;
-    const environment = yield* mergeProviderInstanceEnvironment(
-      instance?.environment,
-      yield* HostProcess.Environment,
-    );
-    if (driver === "claudeAgent") {
-      const config = decodeClaudeSettings(instance?.config ?? {});
-      if (Option.isNone(config)) return NO_HOME;
-      const resolved = yield* resolveClaudeHomePath(config.value, environment).pipe(
-        Effect.provideService(Path.Path, path),
-      );
-      const custom = resolved === path.resolve(home, ".claude") ? null : resolved;
-      return { run: custom, state: custom };
-    }
-    if (driver === "codex") {
-      const config = decodeCodexSettings(instance?.config ?? {});
-      if (Option.isNone(config)) return NO_HOME;
-      const fromEnvironment = environment.CODEX_HOME?.trim();
-      const layout = yield* resolveCodexHomeLayout(
-        !config.value.homePath.trim() && fromEnvironment
-          ? { ...config.value, homePath: fromEnvironment }
-          : config.value,
-      ).pipe(Effect.provideService(Path.Path, path));
-      const custom = (homePath: string) =>
-        homePath === path.resolve(home, ".codex") ? null : homePath;
-      // An auth overlay runs in its own home, which links the shared one's session index.
-      return {
-        run: custom(layout.effectiveHomePath ?? layout.sharedHomePath),
-        state: custom(layout.sharedHomePath),
-      };
-    }
-    return NO_HOME;
-  });
-
-  const instanceOf = (
-    settings: ServerSettingsValue,
-    providerThread: OrchestrationV2ProviderThread,
-  ): ProviderInstanceConfig | undefined =>
-    settings.providerInstances[providerThread.providerInstanceId] ??
-    (providerThread.providerInstanceId === ProviderInstanceId.make(providerThread.driver)
-      ? { driver: providerThread.driver }
-      : undefined);
+  const fileServices = yield* Effect.context<FileSystem.FileSystem | Path.Path>();
 
   /** A name, null when the session is confirmed to have none, or a failure when it cannot be told. */
   const readName = Effect.fn("NativeSessions.readName")(function* (
@@ -204,19 +110,10 @@ export const make = Effect.gen(function* () {
     const homeDirectory = yield* HostProcess.HomeDirectory;
     switch (providerThread.driver) {
       case "claudeAgent": {
-        // Claude names the project folder after the resolved, possibly hashed, cwd; find the session instead.
-        const projectsDir = path.join(home ?? path.join(homeDirectory, ".claude"), "projects");
-        const locate = Effect.gen(function* () {
-          const entries = yield* fs
-            .readDirectory(projectsDir)
-            .pipe(Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed([])));
-          for (const entry of entries) {
-            const candidate = path.join(projectsDir, entry, `${nativeId}.jsonl`);
-            if (yield* fs.exists(candidate)) return candidate;
-          }
-          return undefined;
-        });
-        const located = yield* locate;
+        const located = yield* findClaudeTranscript(
+          home ?? path.join(homeDirectory, ".claude"),
+          nativeId,
+        );
         if (located === undefined) return null;
         return yield* readTail(located).pipe(
           Effect.map(claudeSessionName),
@@ -228,8 +125,8 @@ export const make = Effect.gen(function* () {
         return yield* Effect.scoped(
           Effect.gen(function* () {
             const { size, window } = yield* openTail(index);
-            const tail = codexSessionName(yield* window(NAME_TAIL_BYTES), nativeId);
-            if (tail !== null || size <= NAME_TAIL_BYTES) return tail;
+            const tail = codexSessionName(yield* window(NATIVE_SESSION_TAIL_BYTES), nativeId);
+            if (tail !== null || size <= NATIVE_SESSION_TAIL_BYTES) return tail;
             // Other sessions can push this one's last name out of the tail.
             const wider = codexSessionName(yield* window(CODEX_INDEX_MAX_BYTES), nativeId);
             if (wider === null && size > CODEX_INDEX_MAX_BYTES) {
@@ -243,7 +140,7 @@ export const make = Effect.gen(function* () {
         ).pipe(Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(null)));
       }
       case "pi":
-        return piSessionName(yield* readTail(nativeId, PI_NAME_HEAD_BYTES));
+        return piSessionName(yield* readTail(nativeId, { headBytes: PI_NAME_HEAD_BYTES }));
       default:
         return providerThread.nativeMetadata?.title?.trim() || null;
     }
@@ -267,8 +164,12 @@ export const make = Effect.gen(function* () {
     const nativeId = namedSessionId(active);
     if (active === undefined || nativeId === undefined) return undefined;
     const settings = yield* serverSettings.getSettings;
-    const home = yield* instanceHome(active.driver, instanceOf(settings, active));
-    const native = (yield* readName(active, nativeId, home.state))?.trim();
+    const home = yield* instanceHome(active.driver, instanceOf(settings, active)).pipe(
+      Effect.provide(fileServices),
+    );
+    const native = (yield* readName(active, nativeId, home.state).pipe(
+      Effect.provide(fileServices),
+    ))?.trim();
     return native ? { shell, active, nativeId, native } : undefined;
   });
 
@@ -339,8 +240,11 @@ export const make = Effect.gen(function* () {
     if (cwd === undefined) return yield* threadNotFound(threadId);
 
     const settings = yield* serverSettings.getSettings.pipe(Effect.catch(storageError));
-    const home = yield* instanceHome(active.driver, instanceOf(settings, active));
+    const home = yield* instanceHome(active.driver, instanceOf(settings, active)).pipe(
+      Effect.provide(fileServices),
+    );
     const name = yield* readName(active, nativeId, home.state).pipe(
+      Effect.provide(fileServices),
       Effect.orElseSucceed(() => null),
     );
     const platform = yield* HostProcess.Platform;
