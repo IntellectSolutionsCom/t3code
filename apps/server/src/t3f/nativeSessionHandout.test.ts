@@ -38,6 +38,7 @@ import * as ThreadManagementService from "../orchestration-v2/ThreadManagementSe
 import { type NativeSessionMark, NativeSessionOut } from "./NativeSessionOut.ts";
 import * as NativeSessionGate from "./nativeSessionGate.ts";
 import { makeHandout } from "./nativeSessionHandout.ts";
+import * as NativeSessionTitleSync from "./NativeSessionTitleSync.ts";
 
 const driver = ProviderDriverKind.make("codex");
 const selection = {
@@ -195,6 +196,7 @@ const withThread = <A, E>(
     readonly threadId: ThreadId;
     readonly calls: Ref.Ref<Calls>;
     readonly out: NativeSessionOut["Service"];
+    readonly titleSync: NativeSessionTitleSync.NativeSessionTitleSync["Service"];
     readonly send: (text: string) => Effect.Effect<void, never, Scope.Scope>;
     readonly cwd: string;
   }) => Effect.Effect<A, E, Scope.Scope | HarnessServices>,
@@ -205,6 +207,7 @@ const withThread = <A, E>(
     const threadId = ThreadId.make(`thread:${name}`);
     const calls = yield* Ref.make<Calls>({ opens: 0, ensures: 0, resumes: 0, starts: 0 });
     const out = yield* makeMarks;
+    const titleSync = yield* NativeSessionTitleSync.make;
     return yield* Effect.gen(function* () {
       const orchestrator = yield* Orchestrator.OrchestratorV2;
       const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
@@ -254,7 +257,7 @@ const withThread = <A, E>(
         worktreePath: cwd,
       });
       yield* send("first");
-      return yield* test({ threadId, calls, out, send, cwd });
+      return yield* test({ threadId, calls, out, titleSync, send, cwd });
     }).pipe(
       Effect.provide(
         ProviderReplayHarness.layerWithRegistry(
@@ -262,11 +265,15 @@ const withThread = <A, E>(
           ProviderAdapterRegistry.layerSingle(makeAdapter(calls, held)),
           {
             wrapProviderSessionManager: (manager) =>
-              NativeSessionGate.makeGate(manager, {
-                get: out.get,
-                getTakeBack: out.getTakeBack,
-                drop: (threadId) => out.clear(threadId).pipe(Effect.ignore),
-              }),
+              NativeSessionGate.makeGate(
+                manager,
+                {
+                  get: out.get,
+                  getTakeBack: out.getTakeBack,
+                  drop: (threadId) => out.clear(threadId).pipe(Effect.ignore),
+                },
+                { sync: titleSync.sync, learn: () => Effect.void },
+              ),
           },
         ),
       ),
@@ -285,13 +292,17 @@ const REFUSAL = "This thread's session is in the terminal. Move it back here to 
 const errorMessages = (projection: OrchestrationV2ThreadProjection) =>
   projection.turnItems.flatMap((item) => (item.type === "error" ? [item.failure.message] : []));
 
-const handoutFor = (out: NativeSessionOut["Service"]) =>
+const handoutFor = (
+  out: NativeSessionOut["Service"],
+  titleSync: NativeSessionTitleSync.NativeSessionTitleSync["Service"],
+) =>
   Effect.gen(function* () {
     const orchestrator = yield* Orchestrator.OrchestratorV2;
     return yield* makeHandout.pipe(
       Effect.provide(
         Layer.mergeAll(
           Layer.succeed(NativeSessionOut, out),
+          Layer.succeed(NativeSessionTitleSync.NativeSessionTitleSync, titleSync),
           IdAllocator.layer,
           Layer.mock(ThreadManagementService.ThreadManagementService)({
             getThreadShell: orchestrator.getThreadShell,
@@ -345,11 +356,11 @@ it.live("refuses every send to an out thread without opening its session", () =>
 
 // Live: the effect worker retries an in-use refusal on its wall-clock backoff before the run fails.
 it.live("hands a thread out by releasing its session, and takes it back once", () =>
-  withThread("native-session-handout", ({ threadId, calls, out, send }) =>
+  withThread("native-session-handout", ({ threadId, calls, out, titleSync, send }) =>
     Effect.gen(function* () {
       const orchestrator = yield* Orchestrator.OrchestratorV2;
       const sessions = yield* ProviderSessionManager.ProviderSessionManagerV2;
-      const handout = yield* handoutFor(out);
+      const handout = yield* handoutFor(out, titleSync);
       const providerSessionId = (yield* orchestrator.getThreadProjection(threadId))
         .providerThreads[0]!.providerSessionId!;
 
@@ -396,11 +407,67 @@ it.live("hands a thread out by releasing its session, and takes it back once", (
   ),
 );
 
-it.effect("takes back a deleted thread by clearing its mark", () =>
-  withThread("native-session-deleted", ({ threadId, out }) =>
+it.effect("takes a thread back under the name its session was given in the terminal", () =>
+  withThread("native-session-renamed", ({ threadId, out, titleSync }) =>
     Effect.gen(function* () {
       const orchestrator = yield* Orchestrator.OrchestratorV2;
-      const handout = yield* handoutFor(out);
+      // The step renames through the orchestrator, so the thread's lock must be free by then.
+      yield* titleSync.bind((id) =>
+        orchestrator
+          .dispatch({
+            type: "thread.metadata.update",
+            commandId: CommandId.make(`command:rename:${id}`),
+            threadId: id,
+            title: "Renamed in the terminal",
+          })
+          .pipe(Effect.as("Renamed in the terminal"), Effect.orDie),
+      );
+      const handout = yield* handoutFor(out, titleSync);
+      yield* handout.handOut(threadId);
+
+      yield* handout.takeBack(threadId);
+
+      const { thread } = yield* orchestrator.getThreadProjection(threadId);
+      assert.equal(thread.title, "Renamed in the terminal");
+      assert.isTrue(thread.titleRenamed);
+    }),
+  ),
+);
+
+it.effect(
+  "a send that reopens the session renames the thread to the name it was given outside",
+  () =>
+    withThread("native-session-reopened", ({ threadId, out, titleSync, send }) =>
+      Effect.gen(function* () {
+        const orchestrator = yield* Orchestrator.OrchestratorV2;
+        const handout = yield* handoutFor(out, titleSync);
+        yield* handout.handOut(threadId);
+        yield* handout.takeBack(threadId);
+        yield* titleSync.bind((id) =>
+          orchestrator
+            .dispatch({
+              type: "thread.metadata.update",
+              commandId: CommandId.make(`command:rename:${id}`),
+              threadId: id,
+              title: "Renamed outside",
+            })
+            .pipe(Effect.as("Renamed outside"), Effect.orDie),
+        );
+
+        yield* send("again");
+
+        const projection = yield* orchestrator.getThreadProjection(threadId);
+        assert.equal(projection.runs.at(-1)?.status, "completed");
+        assert.equal(projection.thread.title, "Renamed outside");
+      }),
+    ),
+);
+
+it.effect("takes back a deleted thread by clearing its mark", () =>
+  withThread("native-session-deleted", ({ threadId, out, titleSync }) =>
+    Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const handout = yield* handoutFor(out, titleSync);
       yield* handout.handOut(threadId);
       yield* orchestrator.dispatch({
         type: "thread.delete",
@@ -420,12 +487,12 @@ const sibling = ThreadId.make("thread:native-session-sibling");
 it.effect("hands out one thread of a shared process by detaching it", () =>
   withThread(
     "native-session-shared",
-    ({ threadId, calls, out, send, cwd }) =>
+    ({ threadId, calls, out, titleSync, send, cwd }) =>
       Effect.gen(function* () {
         const orchestrator = yield* Orchestrator.OrchestratorV2;
         const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
         const sessions = yield* ProviderSessionManager.ProviderSessionManagerV2;
-        const handout = yield* handoutFor(out);
+        const handout = yield* handoutFor(out, titleSync);
         yield* orchestrator.dispatch({
           type: "thread.create",
           createdBy: "user",

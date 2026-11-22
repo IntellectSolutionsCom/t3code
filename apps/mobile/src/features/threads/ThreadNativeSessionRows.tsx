@@ -2,7 +2,6 @@ import { useAtomValue } from "@effect/atom-react";
 import {
   handOutRefusedDescription,
   nativeSessionCommandAction,
-  shortNativeSessionId,
 } from "@t3tools/client-runtime/state/nativeSessions";
 import {
   isAtomCommandInterrupted,
@@ -17,7 +16,6 @@ import { AppText as Text } from "../../components/ui/AppText";
 import { Button } from "../../components/ui/Button";
 import * as Dialog from "../../components/ui/Dialog";
 import { m } from "../../i18n/messages";
-import { cn } from "../../lib/cn";
 import { tryCopyTextWithHaptic } from "../../lib/copyTextWithHaptic";
 import {
   nativeSessionEnvironment,
@@ -51,7 +49,7 @@ export function ThreadNativeSessionRows() {
   );
   const handOutBlocker = useHandOutBlocker(thread);
   if (thread === null || session === null) return null;
-  const { nativeId, name, command, commandNote } = session;
+  const { nativeId, command, commandNote } = session;
   const commandAction = nativeSessionCommandAction(
     supportsHandOut && mayHandOut,
     takeBack !== null,
@@ -90,17 +88,7 @@ export function ThreadNativeSessionRows() {
       </Text>
       <View className="mx-4 overflow-hidden rounded-2xl bg-grouped-card">
         <View className="flex-row items-center gap-3 px-4 py-2.5">
-          <View className="min-w-0 flex-1 gap-0.5">
-            <Text
-              className={cn("text-sm text-foreground", name === null && "font-mono")}
-              selectable
-            >
-              {name ?? shortNativeSessionId(nativeId)}
-            </Text>
-            <Text className="text-xs text-foreground-muted">
-              <T>Session</T>
-            </Text>
-          </View>
+          <Text className="min-w-0 flex-1 text-sm text-foreground">{gt("Copy session id")}</Text>
           <CopyTextButton accessibilityLabel={gt("Copy session id")} text={nativeId} />
         </View>
       </View>

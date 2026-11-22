@@ -15,6 +15,7 @@ import * as ProviderSessionManager from "../orchestration-v2/ProviderSessionMana
 import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecutor.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import { NativeSessionOut } from "./NativeSessionOut.ts";
+import { NativeSessionTitleSync } from "./NativeSessionTitleSync.ts";
 
 const busy = (message: string) => new T3fNativeSessionError({ reason: "busy", message });
 
@@ -37,6 +38,7 @@ export const makeHandout = Effect.gen(function* () {
   const threadDispatch = yield* ThreadCommandExecutor.ThreadCommandExecutor;
   const sessions = yield* ProviderSessionManager.ProviderSessionManagerV2;
   const out = yield* NativeSessionOut;
+  const titleSync = yield* NativeSessionTitleSync;
   const eventSink = yield* EventSink.EventSinkV2;
   const ids = yield* IdAllocator.IdAllocatorV2;
 
@@ -195,6 +197,8 @@ export const makeHandout = Effect.gen(function* () {
         yield* out.takeBack(threadId, DateTime.formatIso(now)).pipe(Effect.catch(storage));
       }),
     );
+    // A rename is a command on this thread, which takes the lock just released.
+    yield* titleSync.sync(threadId);
   });
 
   const outThreads = out.marks.pipe(

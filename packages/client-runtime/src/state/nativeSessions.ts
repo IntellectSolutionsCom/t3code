@@ -44,7 +44,6 @@ export const orUnsupported = <E, R>(
 
 export interface NativeSessionRow {
   readonly nativeId: string;
-  readonly name: string | null;
   readonly command: string | null;
   readonly commandNote: string | null;
 }
@@ -57,7 +56,6 @@ export const activeNativeId = (
     ?.nativeThreadRef?.nativeId ?? null;
 
 export const nativeSessionRow = (input: {
-  readonly title: string;
   /** The client's own record of the session, for servers that cannot identify it. */
   readonly fallbackNativeId: string | null;
   readonly identify: NativeSessionIdentify | null;
@@ -67,15 +65,13 @@ export const nativeSessionRow = (input: {
     if (session === null) return null;
     return {
       nativeId: session.nativeId,
-      // Shown only when it differs from the thread's title, which providers already name sessions after.
-      name: session.name !== null && session.name !== input.title.trim() ? session.name : null,
       command: session.command,
       commandNote: session.commandNote,
     };
   }
   return input.fallbackNativeId === null
     ? null
-    : { nativeId: input.fallbackNativeId, name: null, command: null, commandNote: null };
+    : { nativeId: input.fallbackNativeId, command: null, commandNote: null };
 };
 
 export const outThread = (
@@ -91,9 +87,6 @@ export const handOutBlocker = (
   projection === null
     ? null
     : (handOutRefusal(projection.thread.id, projection.runs, projection.providerThreads) ?? null);
-
-export const shortNativeSessionId = (id: string): string =>
-  id.length <= 12 ? id : `${id.slice(0, 8)}…${id.slice(-4)}`;
 
 export const nativeSessionCommandAction = (canHandOut: boolean, isOut: boolean): "copy" | "move" =>
   canHandOut && !isOut ? "move" : "copy";
@@ -135,8 +128,6 @@ export interface TakeBackInput {
   readonly out: T3fNativeSessionOutThread;
   readonly confirm: (confirmation: TakeBackConfirmation) => Promise<boolean>;
   readonly takeBack: () => Promise<AtomCommandResult<unknown, unknown>>;
-  /** The session may have been renamed in its own client while it was out. */
-  readonly refreshSession: () => void;
 }
 
 /** Resolves true once the thread is back, false when the person cancels or the server refuses. */
@@ -146,9 +137,7 @@ export async function takeBackThread(
 ): Promise<boolean> {
   const confirmation = takeBackConfirmation(input.out.driver, resolve);
   if (confirmation !== null && !(await input.confirm(confirmation))) return false;
-  if ((await input.takeBack())._tag !== "Success") return false;
-  input.refreshSession();
-  return true;
+  return (await input.takeBack())._tag === "Success";
 }
 
 /**
