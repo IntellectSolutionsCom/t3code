@@ -1,6 +1,6 @@
 # Product usage data
 
-The T3 Code server sends product usage events to T3 Code's own endpoint at `ingest.t3.codes`,
+When switched on, the T3 Code server sends product usage events to T3 Code's own endpoint at `ingest.t3.codes`,
 associated with a hashed random identifier for the installation. To count how many installations one person
 uses, the server also sends a hashed identifier for your T3 Connect account when you are signed in
 to one, and a random identifier for each device that connects. The endpoint keeps a copy of each
@@ -71,10 +71,10 @@ separate from product events. Traces carry connection timings, request paths, en
 thread identifiers, and error types. They omit machine addresses, query strings, log lines,
 error messages, and stack frames.
 
-To disable product events and relay tracing from the server, set
-`T3CODE_TELEMETRY_ENABLED=false` or `DO_NOT_TRACK=1` in its environment before starting it.
-`DO_NOT_TRACK=1` wins over `T3CODE_TELEMETRY_ENABLED=true`. Relay tracing also stops
-when `T3CODE_OTEL_SDK_DISABLED` or `OTEL_SDK_DISABLED` turns OpenTelemetry export off.
+Product events are off unless `T3CODE_TELEMETRY_ENABLED=true` is in the server's environment
+when it starts (for the desktop app, see below), and `DO_NOT_TRACK=1` keeps them off even then.
+Setting it to `false` or setting `DO_NOT_TRACK=1` stops relay tracing too, as does turning OpenTelemetry
+export off with `T3CODE_OTEL_SDK_DISABLED` or `OTEL_SDK_DISABLED`.
 
 On a CI runner, the server sends no product events or relay traces by default. It treats a run as
 CI when a common CI variable is set, such as `CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, or `JENKINS_URL`.
