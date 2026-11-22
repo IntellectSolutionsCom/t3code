@@ -26,6 +26,7 @@ import {
 } from "@t3tools/shared/managedPolicyFile";
 
 import { telemetryChannel } from "../config.ts";
+import { isSourceBuild } from "../t3f/devPolicyPath.ts";
 import * as ManagedLimits from "./managedLimits.ts";
 import * as ManagedProviders from "./managedProviders.ts";
 import * as ManagedSettings from "./managedSettings.ts";
@@ -180,7 +181,7 @@ const make = Effect.gen(function* () {
   // Source builds may read a policy from elsewhere so it can be tried without root. Release
   // builds never do: any override a user can set is a way around the policy.
   const devPath =
-    telemetryChannel === "dev"
+    telemetryChannel === "dev" && isSourceBuild()
       ? yield* Config.option(Config.String("T3CODE_DEV_MANAGED_POLICY_PATH")).pipe(
           Effect.orElseSucceed(() => Option.none<string>()),
         )
