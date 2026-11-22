@@ -3,25 +3,19 @@ import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import {
   handOutRefusedDescription,
   nativeSessionCommandAction,
-  shortNativeSessionId,
 } from "@t3tools/client-runtime/state/nativeSessions";
 import {
   type AtomCommandResult,
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
-import {
-  AuthOrchestrationOperateScope,
-  type EnvironmentId,
-  type ThreadId,
-} from "@t3tools/contracts";
+import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { T, msg, useGT } from "gt-react";
-import { FingerprintIcon, LogOutIcon, TerminalIcon } from "lucide-react";
+import { CopyIcon, LogOutIcon, TerminalIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { namedClipboardTarget, useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { m } from "../../i18n/messages";
-import { cn } from "../../lib/utils";
 import {
   nativeSessionEnvironment,
   useCanHandOut,
@@ -31,9 +25,6 @@ import {
 } from "../../state/nativeSessions";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useEnvironment } from "../../state/environments";
-import { useEnvironmentScope } from "../../state/session";
-import { threadEnvironment } from "../../state/threads";
-import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
@@ -86,16 +77,12 @@ export function ThreadNativeSessionPanel(props: ThreadNativeSessionPanelProps) {
     nativeSessionEnvironment.handOut,
     gt("Could not move the session to the terminal"),
   );
-  const canRename = useEnvironmentScope(props.environmentId, AuthOrchestrationOperateScope);
   const environment = useEnvironment(props.environmentId)?.label ?? null;
   // The command runs on the machine that holds the session, which may not be this one.
   const commandHint = (command: string) =>
     environment === null
       ? command
       : gt("Run on {environment}:\n{command}", { environment, command });
-  const updateMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
-    reportFailure: false,
-  });
   const { copyToClipboard } = useCopyToClipboard<"id" | "command">({
     target: namedClipboardTarget("native session"),
     onCopy: (kind) =>
@@ -112,17 +99,7 @@ export function ThreadNativeSessionPanel(props: ThreadNativeSessionPanelProps) {
       ),
   });
   if (session === null) return null;
-  const { nativeId, name, command, commandNote } = session;
-
-  const renameThread = (title: string) =>
-    void updateMetadata({
-      environmentId: props.environmentId,
-      input: { threadId: props.threadId, title },
-    }).then((result) => {
-      if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
-        reportFailure(m(msg("Failed to rename thread")), squashAtomCommandFailure(result));
-      }
-    });
+  const { nativeId, command, commandNote } = session;
 
   // Copied before the request, while the click still counts as the person's gesture.
   const moveToTerminal = (command: string) => {
@@ -140,18 +117,10 @@ export function ThreadNativeSessionPanel(props: ThreadNativeSessionPanelProps) {
     >
       <ul className="m-0 list-none p-0">
         <SessionRow
-          icon={<FingerprintIcon aria-hidden className={THREAD_DETAILS_PANEL_ICON_CLASS} />}
-          value={name ?? shortNativeSessionId(nativeId)}
-          mono={name === null}
-          tooltip={gt("Copy session id {id}", { id: nativeId })}
+          icon={<CopyIcon aria-hidden className={THREAD_DETAILS_PANEL_ICON_CLASS} />}
+          value={gt("Copy session id")}
+          tooltip={gt("Copy session id")}
           onClick={() => copyToClipboard(nativeId, "id")}
-          action={
-            name !== null && canRename ? (
-              <ThreadDetailsControl variant="ghost" part="meta" onClick={() => renameThread(name)}>
-                <T>Use as title</T>
-              </ThreadDetailsControl>
-            ) : null
-          }
         />
         {takeBack !== null ? (
           <li className="flex flex-col gap-1 px-2.5 py-1.5">
@@ -224,9 +193,7 @@ function SessionRow(props: {
   readonly value: string;
   readonly tooltip: string;
   readonly onClick: () => void;
-  readonly mono?: boolean;
   readonly blockedBy?: string | null;
-  readonly action?: ReactNode;
 }) {
   const blocked = props.blockedBy != null;
   return (
@@ -248,9 +215,7 @@ function SessionRow(props: {
           >
             {props.icon}
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className={cn("truncate text-xs leading-4", props.mono && "font-mono")}>
-                {props.value}
-              </span>
+              <span className="truncate text-xs leading-4">{props.value}</span>
               {blocked ? (
                 <span className="whitespace-normal text-2xs font-normal leading-4 text-muted-foreground">
                   {props.blockedBy}
@@ -263,7 +228,6 @@ function SessionRow(props: {
           </TooltipPopup>
         </Tooltip>
       </div>
-      {props.action ? <div className="shrink-0 pe-1">{props.action}</div> : null}
     </li>
   );
 }

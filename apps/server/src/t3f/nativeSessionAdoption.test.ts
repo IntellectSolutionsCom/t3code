@@ -10,6 +10,7 @@ import {
   type OrchestrationV2AppThread,
   type OrchestrationV2ProviderThread,
 } from "@t3tools/contracts";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import type { ProviderInstance } from "@t3tools/provider-core/server/driver";
 import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import * as DateTime from "effect/DateTime";
@@ -35,6 +36,12 @@ import * as ProjectService from "../project/ProjectService.ts";
 import * as AcpRegistrySessions from "../provider/AcpRegistrySessions.ts";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import * as ProviderSessionManager from "../orchestration-v2/ProviderSessionManager.ts";
+import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
+import * as NativeSessionKnownNames from "./NativeSessionKnownNames.ts";
+import * as NativeSessionOut from "./NativeSessionOut.ts";
+import * as NativeSessions from "./NativeSessions.ts";
+import * as NativeSessionTitleSync from "./NativeSessionTitleSync.ts";
 import { makeAdoption } from "./nativeSessionAdoption.ts";
 import { matchesNativeSession, type NativeSessionScan } from "./nativeSessionFiles.ts";
 
@@ -96,9 +103,8 @@ const failingAgent = {
 } as unknown as ProviderInstance;
 
 /** The real importer over a scanner that knows the given transcripts and honours the filter. */
-const makeAdopter = Effect.fn(function* (
+const makeImporter = Effect.fn(function* (
   transcripts: ReadonlyArray<ReturnType<typeof transcript>>,
-  acpInstances: ReadonlyArray<ProviderInstance> = [],
 ) {
   const scans: Array<NativeSessionScan | undefined> = [];
   const fileSystem = yield* FileSystem.FileSystem;
@@ -160,11 +166,29 @@ const makeAdopter = Effect.fn(function* (
       ),
     ),
   );
-  const adoption = yield* makeAdoption.pipe(
+  return { scans, shared, importer, projections };
+});
+
+const makeAdopter = Effect.fn(function* (
+  transcripts: ReadonlyArray<ReturnType<typeof transcript>>,
+  acpInstances: ReadonlyArray<ProviderInstance> = [],
+  sessionName: string | null = null,
+) {
+  const { scans, shared, importer } = yield* makeImporter(transcripts);
+  const known = yield* NativeSessionKnownNames.make;
+  // The session's own explicit name, as the reader finds it; the importer's title is derived.
+  const explicitName = (threadId: ThreadId) =>
+    Effect.succeed(
+      sessionName === null
+        ? undefined
+        : { nativeId: threadId.slice("import:claudeAgent:".length), native: sessionName },
+    );
+  const adoption = yield* makeAdoption(explicitName).pipe(
     Effect.provide(
       Layer.mergeAll(
         shared,
         importer,
+        Layer.succeed(NativeSessionKnownNames.NativeSessionKnownNames, known),
         Layer.mock(ProviderInstanceRegistry.ProviderInstanceRegistry)({
           getInstance: (id) =>
             Effect.succeed(acpInstances.find((instance) => instance.instanceId === id)),
@@ -177,7 +201,55 @@ const makeAdopter = Effect.fn(function* (
       ),
     ),
   );
-  return { ...adoption, scans };
+  return { ...adoption, scans, known };
+});
+
+/** The real session service over a thread projection whose title the test can rename. */
+const makeSessions = Effect.fn(function* (
+  transcripts: ReadonlyArray<ReturnType<typeof transcript>>,
+  state: { title: string | null; readonly renames: Array<string> },
+) {
+  const { shared, importer, projections } = yield* makeImporter(transcripts);
+  const known = yield* NativeSessionKnownNames.make;
+  const titleSync = yield* NativeSessionTitleSync.make;
+  const sessions = yield* NativeSessions.make.pipe(
+    Effect.provide(
+      Layer.mergeAll(
+        shared,
+        importer,
+        Layer.succeed(NativeSessionKnownNames.NativeSessionKnownNames, known),
+        Layer.succeed(NativeSessionTitleSync.NativeSessionTitleSync, titleSync),
+        Layer.mock(ProviderInstanceRegistry.ProviderInstanceRegistry)({
+          getInstance: () => Effect.undefined,
+          listInstances: Effect.succeed([]),
+        }),
+        Layer.mock(AcpRegistrySessions.AcpRegistrySessions)({}),
+        Layer.mock(NativeSessionOut.NativeSessionOut)({ get: () => Effect.undefined }),
+        Layer.mock(ThreadCommandExecutor.ThreadCommandExecutor)({}),
+        Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({}),
+        Layer.succeed(EventSink.EventSinkV2, yield* EventSink.EventSinkV2),
+        Layer.succeed(IdAllocator.IdAllocatorV2, yield* IdAllocator.IdAllocatorV2),
+        Layer.mock(ThreadManagementService.ThreadManagementService)({
+          getThreadShell: (threadId) =>
+            projections.getThreadShell(threadId).pipe(
+              Effect.map((shell) =>
+                shell === null || state.title === null ? shell : { ...shell, title: state.title },
+              ),
+              Effect.orDie,
+            ),
+          getProjectThreadRecords: ({ threadId }, fields) =>
+            projections.getThreadRecords(threadId, fields).pipe(Effect.orDie),
+          dispatch: (command) =>
+            Effect.sync(() => {
+              const { title } = command as unknown as { readonly title: string };
+              state.renames.push(title);
+              state.title = title;
+            }) as never,
+        }),
+      ),
+    ),
+  );
+  return { ...sessions, titleSync, known };
 });
 
 /** A thread T3 Code started on the session, its provider thread id derived without the instance. */
@@ -264,20 +336,24 @@ const seedStartedThread = Effect.fn(function* (input: {
 describe("adopting a native session", () => {
   it.effect("gives one thread when adopted twice, and scans for that session alone", () =>
     Effect.gen(function* () {
-      const { adopt, scans } = yield* makeAdopter([
-        transcript({
-          provider: "claudeAgent",
-          providerInstanceId: claudeInstance,
-          providerSessionId: claudeSessionId,
-          filePath: `/home/u/.claude/projects/-p/${claudeSessionId}.jsonl`,
-        }),
-        transcript({
-          provider: "claudeAgent",
-          providerInstanceId: claudeInstance,
-          providerSessionId: "6b4467d9-5002-4a0a-a19d-748565025bd5",
-          filePath: "/home/u/.claude/projects/-p/6b4467d9-5002-4a0a-a19d-748565025bd5.jsonl",
-        }),
-      ]);
+      const { adopt, scans, known } = yield* makeAdopter(
+        [
+          transcript({
+            provider: "claudeAgent",
+            providerInstanceId: claudeInstance,
+            providerSessionId: claudeSessionId,
+            filePath: `/home/u/.claude/projects/-p/${claudeSessionId}.jsonl`,
+          }),
+          transcript({
+            provider: "claudeAgent",
+            providerInstanceId: claudeInstance,
+            providerSessionId: "6b4467d9-5002-4a0a-a19d-748565025bd5",
+            filePath: "/home/u/.claude/projects/-p/6b4467d9-5002-4a0a-a19d-748565025bd5.jsonl",
+          }),
+        ],
+        [],
+        "Named in the terminal",
+      );
       const input = { projectId, providerInstanceId: claudeInstance, nativeId: claudeSessionId };
 
       const first = yield* adopt(input);
@@ -288,6 +364,7 @@ describe("adopting a native session", () => {
         created: true,
       });
       expect(second).toEqual({ threadId: first.threadId, created: false });
+      expect(yield* known.get(first.threadId, claudeSessionId)).toEqual(["Named in the terminal"]);
       expect(scans).toEqual([
         { session: { providerInstanceId: claudeInstance, fileKey: claudeSessionId } },
       ]);
@@ -468,6 +545,51 @@ describe("adopting a native session", () => {
           adopt({ projectId, providerInstanceId: claudeInstance, nativeId: claudeSessionId }),
         ),
       ).toMatchObject({ _tag: "T3fNativeSessionError", reason: "session_not_found" });
+    }).pipe(Effect.scoped, Effect.provide(persistence)),
+  );
+
+  it.effect("keeps a rename made before the first send of an adopted Codex session", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const home = yield* fs.makeTempDirectoryScoped();
+      yield* Effect.gen(function* () {
+        const codexId = "0198a6c4-1f3e-7a52-9c1d-3b8e2f6a4d10";
+        // The session's name is older than the index's 2 MiB tail, which other sessions fill.
+        const others = `${JSON.stringify({ id: "other", thread_name: `${"x".repeat(1000)}${codexId}` })}\n`;
+        yield* fs.makeDirectory(`${home}/.codex`, { recursive: true });
+        yield* fs.writeFileString(
+          `${home}/.codex/session_index.jsonl`,
+          `${JSON.stringify({ id: codexId, thread_name: "Named in the terminal" })}\n${others.repeat(2200)}`,
+        );
+        const state = { title: null as string | null, renames: [] as Array<string> };
+        const { adopt, titleSync, known } = yield* makeSessions(
+          [
+            transcript({
+              provider: "codex",
+              providerInstanceId: ProviderInstanceId.make("codex"),
+              providerSessionId: codexId,
+              filePath: `/home/u/.codex/sessions/rollout-2026-09-01T10-00-00-${codexId}.jsonl`,
+            }),
+          ],
+          state,
+        );
+
+        const adopted = yield* adopt({
+          projectId,
+          providerInstanceId: ProviderInstanceId.make("codex"),
+          nativeId: codexId,
+        });
+        expect(yield* known.get(adopted.threadId, codexId)).toEqual(["Named in the terminal"]);
+        // Renamed in T3 Code before the first send; the session's own name is already known.
+        state.title = "Renamed in T3 Code";
+        yield* titleSync.sync(adopted.threadId);
+
+        expect(state.renames).toEqual([]);
+      }).pipe(
+        Effect.provideService(HostProcess.HomeDirectory, home),
+        Effect.provideService(HostProcess.Environment, {}),
+        Effect.provideService(HostProcess.Platform, "linux"),
+      );
     }).pipe(Effect.scoped, Effect.provide(persistence)),
   );
 });

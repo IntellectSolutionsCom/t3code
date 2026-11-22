@@ -9,6 +9,8 @@ import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
+import * as NativeSessionKnownNames from "./NativeSessionKnownNames.ts";
+import * as NativeSessionTitleSync from "./NativeSessionTitleSync.ts";
 
 /** A thread handed out to its provider's own client. */
 export interface NativeSessionMark {
@@ -184,4 +186,9 @@ export const make = Effect.gen(function* () {
   });
 });
 
-export const layer = Layer.effect(NativeSessionOut, make);
+/** Also carries the known names and the title sync the gate shares with the session service. */
+export const layer = Layer.mergeAll(
+  Layer.effect(NativeSessionOut, make),
+  NativeSessionKnownNames.layer,
+  NativeSessionTitleSync.layer,
+);

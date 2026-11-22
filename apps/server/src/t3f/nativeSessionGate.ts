@@ -12,7 +12,9 @@ import * as Option from "effect/Option";
 
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import * as ProviderSessionManager from "../orchestration-v2/ProviderSessionManager.ts";
+import { NativeSessionKnownNames } from "./NativeSessionKnownNames.ts";
 import { type NativeSessionMark, NativeSessionOut } from "./NativeSessionOut.ts";
+import { namedSessionId, NativeSessionTitleSync } from "./NativeSessionTitleSync.ts";
 import {
   crossedTakeBackMessage,
   NativeSessionRestoreRefusedError,
@@ -39,6 +41,11 @@ interface NativeSessionGateMarks {
   readonly drop: (threadId: ThreadId) => Effect.Effect<void>;
 }
 
+interface NativeSessionGateTitles {
+  readonly sync: NativeSessionTitleSync["Service"]["sync"];
+  readonly learn: NativeSessionKnownNames["Service"]["add"];
+}
+
 /**
  * Refuses every session T3 Code would open or resume for a thread that is out. It sits ahead of
  * the manager's loaded-thread shortcut, and refuses at open because some agents load the native
@@ -47,6 +54,7 @@ interface NativeSessionGateMarks {
 export const makeGate = Effect.fn("NativeSessionGate.make")(function* (
   manager: ProviderSessionManager.ProviderSessionManagerV2Shape,
   marks: NativeSessionGateMarks,
+  titles?: NativeSessionGateTitles,
 ) {
   const projections = yield* ProjectionStore.ProjectionStoreV2;
   const markFor = (threadId: ThreadId | undefined) =>
@@ -73,55 +81,129 @@ export const makeGate = Effect.fn("NativeSessionGate.make")(function* (
     );
   });
 
-  const gateRuntime = (
+  /** A title a runtime method is given may be written to the session, so it is a known name. */
+  const learnTitles = (
     runtime: ProviderAdapter.ProviderAdapterV2SessionRuntime,
-  ): ProviderAdapter.ProviderAdapterV2SessionRuntime => ({
-    ...runtime,
-    ensureThread: (input) =>
-      markFor(input.threadId).pipe(
-        Effect.flatMap((mark) =>
-          mark === undefined || input.existingProviderThread === undefined
-            ? runtime.ensureThread(input)
-            : Effect.fail(refuseWhileOut(mark, input.existingProviderThread.id)),
-        ),
-      ),
-    resumeThread: (input) =>
-      markFor(input.threadId ?? input.providerThread.appThreadId ?? undefined).pipe(
-        Effect.flatMap((mark) =>
-          mark === undefined
-            ? runtime.resumeThread(input)
-            : Effect.fail(refuseWhileOut(mark, input.providerThread.id)),
-        ),
-      ),
-    rollbackThread: Effect.fn("NativeSessionGate.rollbackThread")(function* (input) {
-      const { providerThread, target } = input;
-      const startedAt = target.type === "thread_start" ? null : target.providerTurn.startedAt;
-      if (yield* crossesTakeBack(providerThread, startedAt)) {
-        return yield* new NativeSessionRestoreRefusedError({
-          driver: providerThread.driver,
-          providerThreadId: providerThread.id,
-          checkpointId: target.checkpointId,
-        });
-      }
-      return yield* runtime.rollbackThread(input);
-    }),
-    forkThread: Effect.fn("NativeSessionGate.forkThread")(function* (input) {
-      const { sourceProviderThread, sourceProviderTurns, providerTurnId } = input;
-      if (providerTurnId !== undefined) {
-        const target = sourceProviderTurns?.find(
-          (turn) => turn.id === providerTurnId && turn.providerThreadId === sourceProviderThread.id,
+  ): ProviderAdapter.ProviderAdapterV2SessionRuntime => {
+    if (titles === undefined) return runtime;
+    const record = (input: unknown) => {
+      const { appThread, providerThread, threadId } = (input ?? {}) as {
+        readonly appThread?: { readonly title?: unknown };
+        readonly providerThread?: OrchestrationV2ProviderThread;
+        readonly threadId?: ThreadId;
+      };
+      const nativeId = namedSessionId(providerThread);
+      const app = threadId ?? providerThread?.appThreadId;
+      return typeof appThread?.title === "string" && nativeId !== undefined && app != null
+        ? titles.learn(app, nativeId, appThread.title).pipe(Effect.ignore)
+        : undefined;
+    };
+    return Object.fromEntries(
+      Object.entries(runtime).map(([name, method]) => [
+        name,
+        typeof method === "function"
+          ? (input: unknown, ...rest: ReadonlyArray<unknown>) => {
+              const result: unknown = method(input, ...rest);
+              const recorded = Effect.isEffect(result) ? record(input) : undefined;
+              // Typed loosely: the wrapper stands for every method, and each result is an Effect.
+              return recorded === undefined
+                ? result
+                : recorded.pipe(Effect.andThen(result as Effect.Effect<unknown>));
+            }
+          : method,
+      ]),
+    ) as unknown as ProviderAdapter.ProviderAdapterV2SessionRuntime;
+  };
+
+  /** `adopted` is the name this runtime's open took from the session; its first turn carries it. */
+  const gateTitles = (
+    learning: ProviderAdapter.ProviderAdapterV2SessionRuntime,
+    adopted?: { readonly threadId: ThreadId; readonly name: string },
+  ): ProviderAdapter.ProviderAdapterV2SessionRuntime => {
+    if (titles === undefined) return learning;
+    let unused = adopted;
+    return {
+      ...learning,
+      // The learning wrapper records the title the substituted turn carries.
+      startTurn: (input) => {
+        const name = unused?.threadId === input.threadId ? unused.name : undefined;
+        unused = undefined;
+        return learning.startTurn(
+          name === undefined ? input : { ...input, appThread: { ...input.appThread, title: name } },
         );
-        if (yield* crossesTakeBack(sourceProviderThread, target?.startedAt ?? null)) {
-          return yield* new ProviderAdapter.ProviderAdapterForkThreadError({
-            driver: sourceProviderThread.driver,
-            providerThreadId: sourceProviderThread.id,
-            cause: crossedTakeBackMessage("fork"),
+      },
+      // The title reaches the session either way, so it is known whether or not the push lands.
+      ...(learning.applyThreadTitle === undefined
+        ? {}
+        : {
+            applyThreadTitle: (input) => {
+              const { appThreadId } = input.providerThread;
+              const nativeId = namedSessionId(input.providerThread);
+              if (appThreadId === null || nativeId === undefined) {
+                return learning.applyThreadTitle!(input);
+              }
+              return titles
+                .learn(appThreadId, nativeId, input.title)
+                .pipe(Effect.ignore, Effect.andThen(learning.applyThreadTitle!(input)));
+            },
+          }),
+    };
+  };
+
+  const gateRuntime = (
+    raw: ProviderAdapter.ProviderAdapterV2SessionRuntime,
+    adopted?: { readonly threadId: ThreadId; readonly name: string },
+  ): ProviderAdapter.ProviderAdapterV2SessionRuntime => {
+    const runtime = learnTitles(raw);
+    return {
+      ...gateTitles(runtime, adopted),
+      ensureThread: (input) =>
+        markFor(input.threadId).pipe(
+          Effect.flatMap((mark) =>
+            mark === undefined || input.existingProviderThread === undefined
+              ? runtime.ensureThread(input)
+              : Effect.fail(refuseWhileOut(mark, input.existingProviderThread.id)),
+          ),
+        ),
+      resumeThread: (input) =>
+        markFor(input.threadId ?? input.providerThread.appThreadId ?? undefined).pipe(
+          Effect.flatMap((mark) =>
+            mark === undefined
+              ? runtime.resumeThread(input)
+              : Effect.fail(refuseWhileOut(mark, input.providerThread.id)),
+          ),
+        ),
+      rollbackThread: Effect.fn("NativeSessionGate.rollbackThread")(function* (input) {
+        const { providerThread, target } = input;
+        const startedAt = target.type === "thread_start" ? null : target.providerTurn.startedAt;
+        if (yield* crossesTakeBack(providerThread, startedAt)) {
+          return yield* new NativeSessionRestoreRefusedError({
+            driver: providerThread.driver,
+            providerThreadId: providerThread.id,
+            checkpointId: target.checkpointId,
           });
         }
-      }
-      return yield* runtime.forkThread(input);
-    }),
-  });
+        return yield* runtime.rollbackThread(input);
+      }),
+      forkThread: Effect.fn("NativeSessionGate.forkThread")(function* (input) {
+        const { sourceProviderThread, sourceProviderTurns, providerTurnId } = input;
+        if (providerTurnId !== undefined) {
+          const target = sourceProviderTurns?.find(
+            (turn) =>
+              turn.id === providerTurnId && turn.providerThreadId === sourceProviderThread.id,
+          );
+          if (yield* crossesTakeBack(sourceProviderThread, target?.startedAt ?? null)) {
+            return yield* new ProviderAdapter.ProviderAdapterForkThreadError({
+              driver: sourceProviderThread.driver,
+              providerThreadId: sourceProviderThread.id,
+              cause: crossedTakeBackMessage("fork"),
+            });
+          }
+        }
+        return yield* runtime.forkThread(input);
+      }),
+    };
+  };
 
   const open = Effect.fn("NativeSessionGate.open")(function* (
     input: Parameters<ProviderSessionManager.ProviderSessionManagerV2Shape["open"]>[0],
@@ -142,7 +224,18 @@ export const makeGate = Effect.fn("NativeSessionGate.make")(function* (
         });
       }
     }
-    return gateRuntime(yield* manager.open(input));
+    const before = yield* manager.get(input.providerSessionId);
+    const runtime = yield* manager.open(input);
+    // The manager can replace a live runtime, so a reused one is told by identity.
+    if (titles === undefined || (Option.isSome(before) && before.value === runtime)) {
+      return gateRuntime(runtime);
+    }
+    // A name set outside while T3 Code held no session is read once, when the session opens again.
+    const name = yield* titles.sync(input.threadId);
+    return gateRuntime(
+      runtime,
+      name === undefined ? undefined : { threadId: input.threadId, name },
+    );
   });
 
   return ProviderSessionManager.ProviderSessionManagerV2.of({
@@ -167,10 +260,18 @@ export const layerOver = <E, R>(
       const manager = yield* ProviderSessionManager.ProviderSessionManagerV2;
       const out = yield* Effect.serviceOption(NativeSessionOut);
       if (Option.isNone(out)) return manager;
-      return yield* makeGate(manager, {
-        get: out.value.get,
-        getTakeBack: out.value.getTakeBack,
-        drop: (threadId) => out.value.clear(threadId).pipe(Effect.ignore),
-      });
+      const known = yield* Effect.serviceOption(NativeSessionKnownNames);
+      const titleSync = yield* Effect.serviceOption(NativeSessionTitleSync);
+      return yield* makeGate(
+        manager,
+        {
+          get: out.value.get,
+          getTakeBack: out.value.getTakeBack,
+          drop: (threadId) => out.value.clear(threadId).pipe(Effect.ignore),
+        },
+        Option.isSome(known) && Option.isSome(titleSync)
+          ? { sync: titleSync.value.sync, learn: known.value.add }
+          : undefined,
+      );
     }),
   ).pipe(Layer.provide(inner));
