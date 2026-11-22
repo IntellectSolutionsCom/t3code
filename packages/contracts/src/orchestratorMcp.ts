@@ -369,6 +369,7 @@ const OrchestratorMcpProviderUsageLimits = Schema.Struct({
   windows: ForwardCompatibleArray(
     Schema.Struct({ ...ServerProviderUsageWindow.fields, remainingPercent: Schema.Number }),
   ),
+  zeroSpendCap: Schema.optional(Schema.Boolean),
   unavailable: Schema.optional(
     Schema.Struct({
       reason: Schema.Literals([

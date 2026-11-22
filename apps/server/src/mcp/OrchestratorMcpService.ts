@@ -74,7 +74,7 @@ import { backgroundWorkHoldsCompletion } from "@t3tools/shared/orchestrationV2Pe
 import { runRanAfter } from "@t3tools/shared/orchestrationV2ThreadError";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
-import { collectProviderUsageLimits } from "@t3tools/shared/usageLimits";
+import { collectProviderUsageLimits, remainingPercent } from "@t3tools/shared/usageLimits";
 import { formatThreadLink } from "@t3tools/shared/threadLinks";
 import { threadPullRequestUpdatedAtMs } from "@t3tools/shared/threadPullRequests";
 import {
@@ -272,8 +272,9 @@ function publicUsageLimits(
     checkedAt: limits.checkedAt,
     windows: limits.windows.map((window) => ({
       ...window,
-      remainingPercent: 100 - window.usedPercent,
+      remainingPercent: remainingPercent(window),
     })),
+    ...(limits.zeroSpendCap ? { zeroSpendCap: true } : {}),
     ...(limits.unavailable === undefined
       ? {}
       : { unavailable: { reason: limits.unavailable.reason } }),
@@ -2998,44 +2999,9 @@ const make = Effect.gen(function* () {
         onSome: (service) => service.current,
       });
       const now = yield* Clock.currentTimeMillis;
-      const reports = new Map<string, NonNullable<ReturnType<typeof collectProviderUsageLimits>>>();
-      for (const provider of providers) {
-        const driver = String(provider.driver);
-        if (reports.has(driver)) continue;
-        const report = collectProviderUsageLimits(provider.instanceId, providers, sources, now);
-        if (report) reports.set(driver, report);
-      }
-
-      const accounts: OrchestratorMcpUsageLimitsResult["providers"][number][] = [];
-      const representedNativeInstances = new Set<string>();
-      for (const report of reports.values()) {
-        for (const account of report.accounts) {
-          accounts.push({
-            id: account.id,
-            driver: account.driver,
-            label: account.label,
-            ...(account.instanceId === undefined ? {} : { providerInstanceId: account.instanceId }),
-            ...(account.sourceLabel === undefined ? {} : { sourceLabel: account.sourceLabel }),
-            limits: publicUsageLimits(account.limits),
-          });
-          if (account.instanceId !== undefined) {
-            representedNativeInstances.add(account.instanceId);
-          }
-        }
-      }
-
-      for (const provider of providers) {
-        if (representedNativeInstances.has(provider.instanceId)) continue;
-        // The collector merges every available instance of a driver by account.
-        if (
-          provider.installed &&
-          isProviderAvailable(provider) &&
-          provider.auth.status !== "unauthenticated" &&
-          provider.usageLimits !== undefined &&
-          reports.has(String(provider.driver))
-        )
-          continue;
-        accounts.push({
+      // Every instance probes for itself, so each one's own snapshot is its figure.
+      const accounts: OrchestratorMcpUsageLimitsResult["providers"][number][] = providers.map(
+        (provider) => ({
           id: provider.instanceId,
           driver: provider.driver,
           label: `${provider.displayName?.trim() || String(provider.driver)} [${provider.instanceId}]`,
@@ -3053,13 +3019,29 @@ const make = Effect.gen(function* () {
                       ? { unavailable: { reason: "unauthenticated" as const } }
                       : {}),
               },
-        });
+        }),
+      );
+      // The collector drops hub accounts a native instance already shows, unless its probe failed.
+      const instanceByDriver = new Map(
+        providers.map((provider) => [provider.driver, provider.instanceId]),
+      );
+      for (const instanceId of instanceByDriver.values()) {
+        const report = collectProviderUsageLimits(instanceId, providers, sources, now);
+        for (const account of report?.accounts ?? []) {
+          if (account.instanceId !== undefined) continue;
+          accounts.push({
+            id: account.id,
+            driver: account.driver,
+            label: account.label,
+            ...(account.sourceLabel === undefined ? {} : { sourceLabel: account.sourceLabel }),
+            limits: publicUsageLimits(account.limits),
+          });
+        }
       }
 
-      const nativeDrivers = new Set(providers.map((provider) => provider.driver));
       for (const source of sources) {
         for (const account of source.accounts) {
-          if (nativeDrivers.has(account.driver)) continue;
+          if (instanceByDriver.has(account.driver)) continue;
           accounts.push({
             id: `${source.id}:${account.id}`,
             driver: account.driver,
@@ -3076,8 +3058,18 @@ const make = Effect.gen(function* () {
           notices.add(`${account.label}: usage limits are not supported.`);
         } else if (account.limits.unavailable?.reason === "probeFailed") {
           notices.add(`${account.label}: usage limits could not be refreshed.`);
-        } else if (account.limits.windows.length === 0) {
+        } else if (account.limits.windows.length === 0 && !account.limits.zeroSpendCap) {
           notices.add(`${account.label}: no usage limits reported yet.`);
+        }
+        if (account.limits.zeroSpendCap) {
+          notices.add(`${account.label}: monthly spend cap is $0; no paid usage beyond the plan.`);
+        }
+        for (const window of account.limits.windows) {
+          if (window.resetsAt !== undefined && Date.parse(window.resetsAt) <= now) {
+            notices.add(
+              `${account.label} · ${window.label}: reset after this reading, so the figure is from before the reset.`,
+            );
+          }
         }
       }
       for (const source of sources) {

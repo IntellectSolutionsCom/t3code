@@ -12,6 +12,7 @@ import {
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as TestClock from "effect/testing/TestClock";
 
 import * as ProviderAdapterRegistry from "../orchestration-v2/ProviderAdapterRegistry.ts";
 import * as ThreadLaunchService from "../orchestration-v2/ThreadLaunchService.ts";
@@ -42,6 +43,7 @@ const provider = (input: {
   readonly usageLimits?: ServerProvider["usageLimits"];
   readonly enabled?: boolean;
   readonly email?: string;
+  readonly workspaceId?: string;
   readonly signedOut?: boolean;
 }): ServerProvider => ({
   instanceId: ProviderInstanceId.make(input.instanceId),
@@ -55,6 +57,7 @@ const provider = (input: {
   auth: {
     status: input.signedOut ? "unauthenticated" : "authenticated",
     ...(input.email ? { email: input.email } : {}),
+    ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
   },
   checkedAt,
   models: [],
@@ -141,6 +144,7 @@ it.effect("aggregates provider drivers, preserves probe timestamps and hides cre
     const service = yield* OrchestratorMcpService.OrchestratorMcpService.pipe(
       Effect.provide(layer),
     );
+    yield* TestClock.setTime(Date.parse(weekly.resetsAt));
 
     const result = yield* service.usageLimits({
       ...scope(new Set(["orchestration"])),
@@ -168,6 +172,9 @@ it.effect("aggregates provider drivers, preserves probe timestamps and hides cre
     });
     expect(result.notices).toContain("Claude [claude]: usage limits are not supported.");
     expect(result.notices).toContain("Codex [codex]: usage limits could not be refreshed.");
+    expect(result.notices).toContain(
+      "Codex [codex] · Weekly: reset after this reading, so the figure is from before the reset.",
+    );
     expect(result.notices).toContain("Backup Proxy: unable to read provider usage limits.");
     expect(JSON.stringify(result)).not.toContain("credential-fingerprint-sentinel");
     expect(JSON.stringify(result)).not.toContain("redemption-handle-sentinel");
@@ -188,7 +195,7 @@ it.effect("requires orchestration scope before reading provider usage", () =>
   }),
 );
 
-it.effect("deduplicates native instances and proxy accounts sharing the same login", () =>
+it.effect("lists each native instance and drops proxy accounts sharing a login", () =>
   Effect.gen(function* () {
     const email = "shared@example.com";
     const providers = [
@@ -228,10 +235,50 @@ it.effect("deduplicates native instances and proxy accounts sharing the same log
       ),
     );
     const result = yield* service.usageLimits(scope(new Set(["orchestration"])));
-    expect(result.providers).toHaveLength(1);
-    expect(result.providers[0]?.providerInstanceId).toBe("primary");
+    expect(result.providers.map((account) => account.providerInstanceId)).toEqual([
+      "primary",
+      "stale",
+    ]);
     expect(result.providers[0]?.limits.windows).toEqual([{ ...weekly, remainingPercent: 27 }]);
-    expect(result.notices).toEqual([]);
+    expect(result.providers[1]?.limits).toEqual({
+      checkedAt: "2026-10-30T09:00:00.000Z",
+      windows: [],
+      unavailable: { reason: "probeFailed" },
+    });
+    expect(result.notices).toEqual(["Codex [stale]: usage limits could not be refreshed."]);
+  }),
+);
+
+it.effect("keeps each instance's own figures when workspaces share one login", () =>
+  Effect.gen(function* () {
+    const email = "shared@example.com";
+    const instance = (instanceId: string, workspaceId: string, usedPercent: number) =>
+      provider({
+        instanceId,
+        driver: "codex",
+        email,
+        workspaceId,
+        usageLimits: { checkedAt, windows: [{ ...weekly, usedPercent }] },
+      });
+    const providers = [
+      instance("a", "one", 10),
+      instance("b", "one", 20),
+      instance("c", "two", 30),
+    ];
+    const service = yield* OrchestratorMcpService.OrchestratorMcpService.pipe(
+      Effect.provide(OrchestratorMcpService.layer.pipe(Layer.provide(dependencies(providers, [])))),
+    );
+    const result = yield* service.usageLimits(scope(new Set(["orchestration"])));
+    expect(
+      result.providers.map((account) => [
+        account.providerInstanceId,
+        account.limits.windows[0]?.usedPercent,
+      ]),
+    ).toEqual([
+      ["a", 10],
+      ["b", 20],
+      ["c", 30],
+    ]);
   }),
 );
 
@@ -248,6 +295,20 @@ it.effect(
         }),
         provider({ instanceId: "pending", driver: "grok" }),
         provider({
+          instanceId: "capped",
+          driver: "claude",
+          usageLimits: { checkedAt, windows: [], zeroSpendCap: true },
+        }),
+        provider({
+          instanceId: "capped-used",
+          driver: "claude",
+          usageLimits: {
+            checkedAt,
+            windows: [{ ...weekly, usedPercent: 112.6 }],
+            zeroSpendCap: true,
+          },
+        }),
+        provider({
           instanceId: "signed-out",
           driver: "codex",
           signedOut: true,
@@ -260,15 +321,28 @@ it.effect(
         ),
       );
       const result = yield* service.usageLimits(scope(new Set(["orchestration"])));
-      expect(result.providers.map((account) => account.id)).toEqual(["pending", "signed-out"]);
+      expect(result.providers.map((account) => account.id)).toEqual([
+        "pending",
+        "capped",
+        "capped-used",
+        "signed-out",
+      ]);
       expect(result.providers[0]?.limits).toEqual({ checkedAt, windows: [] });
-      expect(result.providers[1]?.limits).toEqual({
+      expect(result.providers[1]?.limits).toEqual({ checkedAt, windows: [], zeroSpendCap: true });
+      expect(result.providers[2]?.limits).toEqual({
+        checkedAt,
+        windows: [{ ...weekly, usedPercent: 112.6, remainingPercent: 0 }],
+        zeroSpendCap: true,
+      });
+      expect(result.providers[3]?.limits).toEqual({
         checkedAt,
         windows: [],
         unavailable: { reason: "unauthenticated" },
       });
       expect(result.notices).toEqual([
         "grok [pending]: no usage limits reported yet.",
+        "Claude [capped]: monthly spend cap is $0; no paid usage beyond the plan.",
+        "Claude [capped-used]: monthly spend cap is $0; no paid usage beyond the plan.",
         "Codex [signed-out]: no usage limits reported yet.",
       ]);
     }),

@@ -90,7 +90,7 @@ const OrchestratorCapabilitiesTool = Tool.make("orchestrator_capabilities", {
 
 const OrchestratorUsageLimitsTool = Tool.make("orchestrator_usage_limits", {
   description:
-    "Read provider account usage snapshots: percentages, resets, timestamps and unavailable reasons. Supports linked environments.",
+    "Read provider account usage snapshots: percentages, resets, timestamps and unavailable reasons. Supports linked environments. `checkedAt` is the last update of any window.",
   parameters: OrchestratorMcpUsageLimitsInput,
   success: OrchestratorMcpUsageLimitsResult,
   failure: OrchestratorMcpFailure,
