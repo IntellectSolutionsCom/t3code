@@ -33,7 +33,12 @@ it.effect.each([
   { name: "Codex restore to thread start", atStart: true, refused: true },
   { name: "Codex restore with an unknown start", refused: true },
   { name: "Codex restore after take-back", startedAt: between, refused: false },
-  { name: "Claude restore before take-back", driver: "claude", startedAt: before, refused: false },
+  {
+    name: "Claude restore before take-back",
+    driver: "claudeAgent",
+    startedAt: before,
+    refused: false,
+  },
   { name: "Codex fork before take-back", fork: true, startedAt: before, refused: true },
   { name: "Codex fork from the head", fork: true, refused: false },
   {
