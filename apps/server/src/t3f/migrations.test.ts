@@ -24,6 +24,7 @@ it.layer(SqlitePersistence.layerMemory)("fork migrations", (it) => {
         [2, "ThreadBadges"],
         [3, "NativeSessionOut"],
         [4, "NativeSessionTakenBackAt"],
+        [5, "NativeSessionKnownNames"],
       ]);
       assert.deepEqual(yield* ledger(sql, "t3f_migrations"), forkMigrationManifest);
       assert.deepEqual(yield* ledger(sql, "effect_sql_migrations"), migrationManifest);
@@ -40,6 +41,7 @@ it.layer(SqlitePersistence.layerMemory)("fork migrations", (it) => {
           "t3f_link_message_grants",
           "t3f_link_sessions",
           "t3f_migrations",
+          "t3f_native_session_names",
           "t3f_native_session_out",
           "t3f_thread_badges",
         ],
@@ -101,7 +103,10 @@ it.effect("migration 4 keeps the sessions already out", () =>
       VALUES ('thread', 'environment', 'codex', 'native', '2026-11-21T12:00:00.000Z')
     `;
 
-    assert.deepEqual(yield* runForkMigrations(), [[4, "NativeSessionTakenBackAt"]]);
+    assert.deepEqual(yield* runForkMigrations(), [
+      [4, "NativeSessionTakenBackAt"],
+      [5, "NativeSessionKnownNames"],
+    ]);
     assert.deepEqual(yield* sql`SELECT * FROM t3f_native_session_out`, [
       {
         thread_id: "thread",

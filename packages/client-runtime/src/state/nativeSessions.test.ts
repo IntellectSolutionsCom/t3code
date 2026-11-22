@@ -32,9 +32,8 @@ describe("the native session row", () => {
       const identify = yield* orUnsupported(
         Effect.die(`Unknown request tag: ${T3F_NATIVE_SESSION_WS_METHODS.identify}`),
       );
-      expect(nativeSessionRow({ title: "T", fallbackNativeId: "5a3356c8", identify })).toEqual({
+      expect(nativeSessionRow({ fallbackNativeId: "5a3356c8", identify })).toEqual({
         nativeId: "5a3356c8",
-        name: null,
         command: null,
         commandNote: null,
       });
@@ -45,17 +44,10 @@ describe("the native session row", () => {
     }),
   );
 
-  it.each([
-    { title: "Fix the flaky test", name: null },
-    { title: "Something else", name: "Fix the flaky test" },
-  ])("shows the session's name only when it differs from $title", ({ title, name }) => {
+  it("carries the session id and command, and no name", () => {
     expect(
-      nativeSessionRow({
-        title,
-        fallbackNativeId: null,
-        identify: { supported: true, session },
-      })?.name,
-    ).toBe(name);
+      nativeSessionRow({ fallbackNativeId: null, identify: { supported: true, session } }),
+    ).toEqual({ nativeId: "5a3356c8", command: session.command, commandNote: null });
   });
 });
 
@@ -80,14 +72,14 @@ describe("take back and send", () => {
       confirmed: null,
       tookBack: true,
       movedAway: false,
-      steps: ["take back", "refresh session", "send"],
+      steps: ["take back", "send"],
     },
     {
       driver: "claudeAgent",
       confirmed: true,
       tookBack: true,
       movedAway: false,
-      steps: ["confirm", "take back", "refresh session", "send"],
+      steps: ["confirm", "take back", "send"],
     },
     {
       driver: "claudeAgent",
@@ -109,7 +101,7 @@ describe("take back and send", () => {
       confirmed: null,
       tookBack: true,
       movedAway: true,
-      steps: ["take back", "refresh session"],
+      steps: ["take back"],
     },
   ])(
     "$driver, confirmed $confirmed, taken back $tookBack, moved away $movedAway: $steps",
@@ -130,9 +122,6 @@ describe("take back and send", () => {
           done.push("take back");
           if (movedAway) viewing = false;
           return tookBack ? AsyncResult.success({}) : AsyncResult.failure(Cause.fail("refused"));
-        },
-        refreshSession: () => {
-          done.push("refresh session");
         },
         send: async () => {
           done.push("send");

@@ -9,10 +9,8 @@ import {
   type TakeBackConfirmation,
   type TakeBackInput,
 } from "@t3tools/client-runtime/state/nativeSessions";
-import { RegistryContext } from "@effect/atom-react";
 import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
 import { msg, useGT } from "gt-react-native";
-import { useContext } from "react";
 import { Alert } from "react-native";
 
 import { connectionAtomRuntime } from "../connection/runtime";
@@ -24,28 +22,22 @@ import { useQuietThreadStructure } from "./use-thread-detail";
 
 export const nativeSessionEnvironment = createNativeSessionAtoms(connectionAtomRuntime);
 
-/** The identify query for the thread's current session, without reading it. */
-function useIdentifyAtom(ref: ScopedThreadRef | null) {
+/** The thread's own provider session, or null before its provider opens one. */
+export function useNativeSession(ref: ScopedThreadRef | null) {
   const projection = useQuietThreadStructure(ref)?.projection ?? null;
   const fallbackNativeId =
     projection === null
       ? null
       : activeNativeId(projection.thread.activeProviderThreadId, projection.providerThreads);
-  const atom =
+  const identify = useEnvironmentQuery(
     ref === null || fallbackNativeId === null
       ? null
       : nativeSessionEnvironment.identify({
           environmentId: ref.environmentId,
           input: { threadId: ref.threadId, nativeId: fallbackNativeId },
-        });
-  return { title: projection?.thread.title ?? "", fallbackNativeId, atom };
-}
-
-/** The thread's own provider session, or null before its provider opens one. */
-export function useNativeSession(ref: ScopedThreadRef | null) {
-  const { title, fallbackNativeId, atom } = useIdentifyAtom(ref);
-  const identify = useEnvironmentQuery(atom);
-  return nativeSessionRow({ title, fallbackNativeId, identify: identify.data });
+        }),
+  );
+  return nativeSessionRow({ fallbackNativeId, identify: identify.data });
 }
 
 /** Why "Move to terminal" is unavailable for the thread now, or null. */
@@ -94,18 +86,12 @@ export function useTakeBack(ref: ScopedThreadRef | null) {
     nativeSessionEnvironment.takeBack,
     gt("Could not move the session back"),
   );
-  const registry = useContext(RegistryContext);
-  const identify = useIdentifyAtom(ref).atom;
   if (ref === null || out === null) return null;
   const input: TakeBackInput = {
     out,
     confirm: confirmTakeBack,
     takeBack: () =>
       takeBack({ environmentId: ref.environmentId, input: { threadId: ref.threadId } }),
-    // A refresh, not a read: only a mounted row fetches again.
-    refreshSession: () => {
-      if (identify !== null) registry.refresh(identify);
-    },
   };
   return {
     out,

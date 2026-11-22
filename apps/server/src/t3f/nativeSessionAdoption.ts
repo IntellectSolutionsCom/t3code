@@ -21,6 +21,7 @@ import * as ProjectService from "../project/ProjectService.ts";
 import * as AcpRegistrySessions from "../provider/AcpRegistrySessions.ts";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import { NativeSessionKnownNames } from "./NativeSessionKnownNames.ts";
 import { nativeIdFileKey } from "./nativeSessionFiles.ts";
 
 /** Drivers whose sessions the transcript scanner reads. */
@@ -42,13 +43,18 @@ const ACP_LIST_TIMEOUT = "10 seconds";
 const listableAcpInstance = (instance: ProviderInstance) =>
   instance.enabled && instance.acpSessionManagement !== undefined;
 
-export const makeAdoption = Effect.gen(function* () {
+export const makeAdoption = Effect.fn("NativeSessions.makeAdoption")(function* (
+  explicitName: (
+    threadId: ThreadId,
+  ) => Effect.Effect<{ readonly nativeId: string; readonly native: string } | undefined>,
+) {
   const projects = yield* ProjectService.ProjectService;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const instances = yield* ProviderInstanceRegistry.ProviderInstanceRegistry;
   const scanner = yield* AgentSessionScanner.AgentSessionScanner;
   const importer = yield* AgentSessionImporter.AgentSessionImporter;
   const acpSessions = yield* AcpRegistrySessions.AcpRegistrySessions;
+  const knownNames = yield* NativeSessionKnownNames;
   const sql = yield* SqlClient.SqlClient;
   const fs = yield* FileSystem.FileSystem;
 
@@ -113,6 +119,12 @@ export const makeAdoption = Effect.gen(function* () {
     return (
       (yield* owners(driver, instanceId, nativeId)).get(yield* ownerKey(driver, nativeId)) ?? null
     );
+  });
+
+  // The loaded thread's title is derived, but the session holds its own name, which is not news later.
+  const knowLoadedName = Effect.fn("NativeSessions.knowLoadedName")(function* (threadId: ThreadId) {
+    const found = yield* explicitName(threadId);
+    if (found !== undefined) yield* knownNames.add(threadId, found.nativeId, found.native);
   });
 
   const scannedSessions = Effect.fn("NativeSessions.scannedSessions")(function* (
@@ -246,7 +258,14 @@ export const makeAdoption = Effect.gen(function* () {
         )
         .pipe(Effect.catch(storageError("The session could not be loaded.")));
       const adopted = yield* ownerOf(driver, input.providerInstanceId, input.nativeId);
-      if (adopted?.deleted === false) return { threadId: adopted.threadId, created: true };
+      if (adopted?.deleted === false) {
+        yield* knowLoadedName(adopted.threadId).pipe(
+          Effect.catch((cause) =>
+            Effect.logWarning("A loaded session's name could not be recorded.", { cause }),
+          ),
+        );
+        return { threadId: adopted.threadId, created: true };
+      }
       return yield* fail(
         "session_not_found",
         "No session with this id ran in the project's folder, or it holds no conversation.",
