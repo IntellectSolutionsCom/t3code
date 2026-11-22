@@ -29,7 +29,7 @@ interface NativeSessionState {
   readonly takenBackAt: string | null;
 }
 
-/** The current hand-out or last take-back for a thread's native session. */
+/** The current hand-out or when outside turns last entered the session, by take-back or detection. */
 export class NativeSessionOut extends Context.Service<
   NativeSessionOut,
   {
@@ -40,6 +40,7 @@ export class NativeSessionOut extends Context.Service<
       threadId: ThreadId,
       takenBackAt: string,
     ) => Effect.Effect<void, SqlError.SqlError>;
+    readonly notice: (mark: NativeSessionMark) => Effect.Effect<void, SqlError.SqlError>;
     /** Removes an active hand-out. */
     readonly clear: (
       threadId: ThreadId,
@@ -115,20 +116,28 @@ export const make = Effect.gen(function* () {
       }),
     );
 
-  const set = Effect.fn("NativeSessionOut.set")(function* (mark: NativeSessionMark) {
-    yield* SubscriptionRef.updateEffect(marks, (current) =>
-      sql`
-        INSERT INTO t3f_native_session_out (thread_id, environment_id, driver, native_id, handed_out_at)
-        VALUES (${mark.threadId}, ${environmentId}, ${mark.driver}, ${mark.nativeId}, ${mark.since})
+  const upsert = (mark: NativeSessionMark, takenBackAt: string | null) =>
+    SubscriptionRef.updateEffect(marks, (current) => {
+      if (takenBackAt !== null && current.get(mark.threadId)?.takenBackAt === null) {
+        return Effect.succeed(current);
+      }
+      return sql`
+        INSERT INTO t3f_native_session_out
+          (thread_id, environment_id, driver, native_id, handed_out_at, taken_back_at)
+        VALUES (${mark.threadId}, ${environmentId}, ${mark.driver}, ${mark.nativeId}, ${mark.since}, ${takenBackAt})
         ON CONFLICT (thread_id) DO UPDATE SET
           environment_id = excluded.environment_id,
           driver = excluded.driver,
           native_id = excluded.native_id,
           handed_out_at = excluded.handed_out_at,
-          taken_back_at = NULL
-      `.pipe(Effect.map(() => new Map(current).set(mark.threadId, { mark, takenBackAt: null }))),
-    );
-  }, Effect.uninterruptible);
+          taken_back_at = excluded.taken_back_at
+      `.pipe(Effect.map(() => new Map(current).set(mark.threadId, { mark, takenBackAt })));
+    }).pipe(Effect.uninterruptible);
+
+  const set = Effect.fn("NativeSessionOut.set")((mark: NativeSessionMark) => upsert(mark, null));
+  const notice = Effect.fn("NativeSessionOut.notice")((mark: NativeSessionMark) =>
+    upsert(mark, mark.since),
+  );
 
   const takeBack = Effect.fn("NativeSessionOut.takeBack")(function* (
     threadId: ThreadId,
@@ -175,6 +184,7 @@ export const make = Effect.gen(function* () {
     getTakeBack,
     set,
     takeBack,
+    notice,
     clear,
     marks: SubscriptionRef.changes(marks).pipe(
       Stream.map((current) =>
