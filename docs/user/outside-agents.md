@@ -6,7 +6,7 @@ check which providers and models are available. This covers Claude Code or
 Codex in your own terminal, ChatGPT, and bots that support MCP. Each agent signs
 in once, and you choose what it may do.
 
-Use `orchestrator_usage_limits` to read account usage percentages and reset times before choosing a provider. Each snapshot includes its original timestamp; limits may update asynchronously. Pass `environmentId` to read a linked environment.
+Use `orchestrator_usage_limits` to read account usage percentages and reset times before choosing a provider. Each snapshot includes its original timestamp; limits may update asynchronously. Pass `environmentId` to read a linked environment. `checkedAt` is the last update of any window.
 
 ## Add T3 Code to an assistant app
 
