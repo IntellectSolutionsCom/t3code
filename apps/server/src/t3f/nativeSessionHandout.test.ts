@@ -183,6 +183,7 @@ const makeMarks = Effect.gen(function* () {
           );
         }
       }),
+    notice: () => Effect.die("unexpected outside-turn notice"),
     set: (mark) =>
       SubscriptionRef.update(marks, (current) => new Map(current).set(mark.threadId, mark)),
     clear,

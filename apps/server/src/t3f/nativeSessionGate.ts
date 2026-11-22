@@ -4,6 +4,7 @@ import {
   type ProviderThreadId,
   type ThreadId,
 } from "@t3tools/contracts";
+import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -12,6 +13,8 @@ import * as Option from "effect/Option";
 
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import * as ProviderSessionManager from "../orchestration-v2/ProviderSessionManager.ts";
+import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecutor.ts";
+import { makeOutsideTurnPreflight } from "./nativeSessionOutsideTurns.ts";
 import { NativeSessionKnownNames } from "./NativeSessionKnownNames.ts";
 import { type NativeSessionMark, NativeSessionOut } from "./NativeSessionOut.ts";
 import { namedSessionId, NativeSessionTitleSync } from "./NativeSessionTitleSync.ts";
@@ -55,6 +58,7 @@ export const makeGate = Effect.fn("NativeSessionGate.make")(function* (
   manager: ProviderSessionManager.ProviderSessionManagerV2Shape,
   marks: NativeSessionGateMarks,
   titles?: NativeSessionGateTitles,
+  preflight?: Effect.Success<ReturnType<typeof makeOutsideTurnPreflight>>,
 ) {
   const projections = yield* ProjectionStore.ProjectionStoreV2;
   const markFor = (threadId: ThreadId | undefined) =>
@@ -224,7 +228,8 @@ export const makeGate = Effect.fn("NativeSessionGate.make")(function* (
         });
       }
     }
-    const before = yield* manager.get(input.providerSessionId);
+    const checked = yield* preflight?.(input) ?? Effect.undefined;
+    const before = checked ?? (yield* manager.get(input.providerSessionId));
     const runtime = yield* manager.open(input);
     // The manager can replace a live runtime, so a reused one is told by identity.
     if (titles === undefined || (Option.isSome(before) && before.value === runtime)) {
@@ -272,6 +277,20 @@ export const layerOver = <E, R>(
         Option.isSome(known) && Option.isSome(titleSync)
           ? { sync: titleSync.value.sync, learn: known.value.add }
           : undefined,
+        yield* makeOutsideTurnPreflight(manager, out.value),
       );
     }),
-  ).pipe(Layer.provide(inner));
+  ).pipe(
+    Layer.provide(inner),
+    Layer.provide(
+      Layer.mergeAll(
+        Layer.unwrap(
+          Effect.promise(() => import("../orchestration-v2/runtimeLayer.ts")).pipe(
+            Effect.map(({ layerEventSink }) => layerEventSink),
+          ),
+        ),
+        ThreadCommandExecutor.layer,
+        IdAllocator.layer,
+      ),
+    ),
+  );

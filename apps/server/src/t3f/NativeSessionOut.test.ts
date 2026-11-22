@@ -6,6 +6,13 @@ import * as Option from "effect/Option";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as Stream from "effect/Stream";
 
+import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import * as EventSink from "../orchestration-v2/EventSink.ts";
+import * as ProviderSessionManager from "../orchestration-v2/ProviderSessionManager.ts";
+import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecutor.ts";
+import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
+import { makeHandout } from "./nativeSessionHandout.ts";
+import * as NativeSessionTitleSync from "./NativeSessionTitleSync.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as NativeSessionOut from "./NativeSessionOut.ts";
@@ -14,7 +21,7 @@ const seed = Effect.fn("seed")(function* (input: {
   readonly thread: string;
   readonly nativeId: string;
   readonly deleted?: boolean;
-  readonly mark: {
+  readonly mark?: {
     readonly environment: string;
     readonly nativeId: string;
     readonly takenBackAt?: string;
@@ -36,6 +43,7 @@ const seed = Effect.fn("seed")(function* (input: {
     VALUES (${providerThread}, ${input.thread}, 'codex', 'idle', ${at},
       ${JSON.stringify({ nativeThreadRef: { nativeId: input.nativeId } })})
   `;
+  if (input.mark === undefined) return;
   yield* sql`
     INSERT INTO t3f_native_session_out
       (thread_id, environment_id, driver, native_id, handed_out_at, taken_back_at)
@@ -85,7 +93,17 @@ it.layer(SqlitePersistence.layerMemory)("NativeSessionOut", (it) => {
         mark: { environment: "here", nativeId: "n5", takenBackAt: first },
       });
 
+      yield* seed({ thread: "noticed", nativeId: "n6" });
+      const noticed = ThreadId.make("noticed");
+      yield* (yield* makeOut).notice({
+        threadId: noticed,
+        driver: ProviderDriverKind.make("codex"),
+        nativeId: "n6",
+        since: second,
+      });
       const out = yield* makeOut;
+      assert.isUndefined(yield* out.get(noticed));
+      assert.equal((yield* out.getTakeBack(noticed))?.takenBackAt, second);
       assert.equal((yield* out.get(ThreadId.make("kept")))?.nativeId, "n1");
       for (const thread of ["copied", "deleted", "moved"]) {
         assert.isUndefined(yield* out.get(ThreadId.make(thread)));
@@ -97,9 +115,48 @@ it.layer(SqlitePersistence.layerMemory)("NativeSessionOut", (it) => {
         yield* sql<{
           thread_id: string;
         }>`SELECT thread_id FROM t3f_native_session_out ORDER BY thread_id`,
-        [{ thread_id: "back" }, { thread_id: "kept" }],
+        [{ thread_id: "back" }, { thread_id: "kept" }, { thread_id: "noticed" }],
       );
     }),
+  );
+
+  it.effect.each(["get", "outThreads"] as const)(
+    "never reports a noticed session as out through %s",
+    (reader) =>
+      Effect.gen(function* () {
+        const out = yield* makeOut;
+        const threadId = ThreadId.make("noticed-reader");
+        yield* out.notice({
+          threadId,
+          driver: ProviderDriverKind.make("codex"),
+          nativeId: "native",
+          since: second,
+        });
+        assert.equal((yield* out.getTakeBack(threadId))?.takenBackAt, second);
+        if (reader === "get") {
+          assert.isUndefined(yield* out.get(threadId));
+          return;
+        }
+        const handout = yield* makeHandout.pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              Layer.succeed(NativeSessionOut.NativeSessionOut, out),
+              Layer.mock(ThreadManagementService.ThreadManagementService)({}),
+              ThreadCommandExecutor.layer,
+              Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({}),
+              NativeSessionTitleSync.layer,
+              Layer.mock(EventSink.EventSinkV2)({}),
+              IdAllocator.layer,
+            ),
+          ),
+        );
+        assert.notInclude(
+          Option.getOrThrow(yield* Stream.runHead(handout.outThreads)).threads.map(
+            ({ threadId }) => threadId,
+          ),
+          threadId,
+        );
+      }),
   );
 
   it.effect("records a take-back and replaces it after another hand-out", () =>
@@ -117,6 +174,8 @@ it.layer(SqlitePersistence.layerMemory)("NativeSessionOut", (it) => {
       `.pipe(Effect.map((rows) => rows[0]?.taken_back_at));
 
       yield* out.set(mark);
+      yield* out.notice({ ...mark, since: first });
+      assert.deepEqual(yield* out.get(mark.threadId), mark);
       yield* out.takeBack(mark.threadId, first);
       assert.isUndefined(yield* out.get(mark.threadId));
       assert.isFalse(
