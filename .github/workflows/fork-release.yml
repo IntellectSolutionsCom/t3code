@@ -220,7 +220,7 @@ jobs:
             apps/server/dist
             apps/desktop/dist-electron
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
 
       - name: Build resource monitor
         run: cargo build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target x86_64-unknown-linux-gnu
@@ -249,7 +249,7 @@ jobs:
           name: cli-linux-x64
           path: release-cli/t3-*-linux-x64.tar.gz
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
           compression-level: 0
 
       - name: Build desktop artifact
@@ -571,7 +571,7 @@ jobs:
           name: verify-win-x64
           path: verify/*
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
           compression-level: 1
 
       - name: Upload Windows release assets
