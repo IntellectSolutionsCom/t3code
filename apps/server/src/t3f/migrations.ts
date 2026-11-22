@@ -7,6 +7,7 @@ import Migration0001 from "./migrations/0001_LinkMessageGrants.ts";
 import Migration0002 from "./migrations/0002_ThreadBadges.ts";
 import Migration0003 from "./migrations/0003_NativeSessionOut.ts";
 import Migration0004 from "./migrations/0004_NativeSessionTakenBackAt.ts";
+import Migration0005 from "./migrations/0005_NativeSessionKnownNames.ts";
 
 /**
  * The fork's schema, on a ledger of its own so upstream's ledger and its checks never see it.
@@ -17,6 +18,7 @@ const forkMigrationEntries = [
   [2, "ThreadBadges", Migration0002],
   [3, "NativeSessionOut", Migration0003],
   [4, "NativeSessionTakenBackAt", Migration0004],
+  [5, "NativeSessionKnownNames", Migration0005],
 ] as const;
 
 export const forkMigrationManifest = forkMigrationEntries.map(([id, name]) => [id, name] as const);
