@@ -32,7 +32,7 @@ const refuseWhileOut = (mark: NativeSessionMark, providerThreadId: ProviderThrea
     cause: `Handed out at ${mark.since}`,
   });
 
-const exactRewindDrivers = new Set([ProviderDriverKind.make("claude")]);
+const exactRewindDrivers = new Set([ProviderDriverKind.make("claudeAgent")]);
 
 interface NativeSessionGateMarks {
   readonly get: (threadId: ThreadId) => Effect.Effect<NativeSessionMark | undefined>;
