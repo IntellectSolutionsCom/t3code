@@ -2,7 +2,7 @@ import { ProviderAdapterRollbackThreadError } from "@t3tools/provider-core/serve
 import * as Schema from "effect/Schema";
 
 export const crossedTakeBackMessage = (action: "restore" | "fork") =>
-  `This point is before the thread was moved back from the terminal. ${action === "restore" ? "Restoring" : "Forking"} here could keep turns this thread doesn't show. Fork from a turn made after that or start a new thread.`;
+  `This point is before this thread's session was last used in the terminal. ${action === "restore" ? "Restoring" : "Forking"} here could keep turns this thread doesn't show. Fork from a later turn or start a new thread.`;
 
 export class NativeSessionRestoreRefusedError extends ProviderAdapterRollbackThreadError {
   override get message(): string {

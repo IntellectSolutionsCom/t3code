@@ -349,9 +349,14 @@ Turns made in the terminal are not shown here. The agent keeps them while the
 provider still has the session. The mobile thread settings sheet and web
 command palette also offer the move actions.
 
-After moving back, some providers can restore or fork the same conversation
-only from a later turn. Fork from a turn made after moving back or start a new
-thread. A fork or provider switch that starts a fresh session carries only the
+For Codex and Claude, T3 Code can also notice turns made in the terminal
+since the thread's last message and show a notice when you send again. Close
+the terminal session before sending here. A session left open in the terminal
+can keep working from an older point in the conversation.
+
+After moving back, or after T3 Code notices turns made in the terminal, some
+providers can restore or fork the same conversation only from a later turn.
+Fork from a later turn or start a new thread. A fork or provider switch that starts a fresh session carries only the
 turns shown in T3 Code.
 
 To choose what the thread details card shows, right-click the card or open

@@ -1,6 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import {
+  EnvironmentId,
   type OrchestrationV2ProviderThread,
   type OrchestrationV2ThreadShell,
   type Project,
@@ -19,6 +20,8 @@ import * as Logger from "effect/Logger";
 import * as Path from "effect/Path";
 import * as SqlClient from "effect/sql/SqlClient";
 
+import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
+import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as EventSink from "../orchestration-v2/EventSink.ts";
 import * as ProviderSessionManager from "../orchestration-v2/ProviderSessionManager.ts";
 import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecutor.ts";
@@ -71,6 +74,7 @@ const fixture = (
 const layer = (input: {
   readonly fixture?: ReturnType<typeof fixture>;
   readonly home: string;
+  readonly out?: NativeSessionOut.NativeSessionOut["Service"];
   readonly active: OrchestrationV2ProviderThread | null;
   readonly earlier?: ReadonlyArray<OrchestrationV2ProviderThread>;
   readonly providerInstances?: Record<string, unknown>;
@@ -97,7 +101,9 @@ const layer = (input: {
         Layer.mock(AgentSessionImporter.AgentSessionImporter)({}),
         Layer.mock(AcpRegistrySessions.AcpRegistrySessions)({}),
         Layer.succeed(SqlClient.SqlClient, {} as never),
-        Layer.mock(NativeSessionOut.NativeSessionOut)({ get: () => Effect.undefined }),
+        input.out === undefined
+          ? Layer.mock(NativeSessionOut.NativeSessionOut)({ get: () => Effect.undefined })
+          : Layer.succeed(NativeSessionOut.NativeSessionOut, input.out),
         NativeSessionTitleSync.layer,
         Layer.succeed(
           NativeSessionKnownNames.NativeSessionKnownNames,
@@ -188,6 +194,32 @@ const writeTranscript = (configDir: string, title: string) =>
   });
 
 describe("identifying a thread's native session", () => {
+  it.effect("identifies a noticed turn without showing the session as out", () =>
+    withHome((home) =>
+      Effect.gen(function* () {
+        const active = providerThread({
+          driver: "claudeAgent",
+          instanceId: "claudeAgent",
+          nativeId: sessionId,
+        });
+        const out = yield* NativeSessionOut.make;
+        const since = "2026-11-21T12:00:00.000Z";
+        yield* out.notice({ threadId, driver: active.driver, nativeId: sessionId, since });
+        expect((yield* out.getTakeBack(threadId))?.takenBackAt).toBe(since);
+        expect((yield* identify({ home, active, out })).session?.out).toBeNull();
+      }).pipe(
+        Effect.provide(
+          Layer.merge(
+            SqlitePersistence.layerMemory,
+            Layer.mock(ServerEnvironment.ServerEnvironment)({
+              getEnvironmentId: Effect.succeed(EnvironmentId.make("here")),
+            }),
+          ),
+        ),
+      ),
+    ),
+  );
+
   it.effect("names a Claude session renamed in the terminal and sets its own config dir", () =>
     withHome((home) =>
       Effect.gen(function* () {
