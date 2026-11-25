@@ -692,6 +692,9 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
         prompt={draftMessage}
         surfaceColor={composerPanel}
         iconOnly={!compactEditor.isExpanded}
+        usageProvider={props.serverConfig?.providers.find(
+          (provider) => provider.instanceId === currentModelSelection.instanceId,
+        )}
         onPress={openSettings}
       />
     </View>

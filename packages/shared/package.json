@@ -263,6 +263,10 @@
       "types": "./src/edition.ts",
       "import": "./src/edition.ts"
     },
+    "./picker-usage": {
+      "types": "./src/pickerUsage.ts",
+      "import": "./src/pickerUsage.ts"
+    },
     "./keybindings": {
       "types": "./src/keybindings.ts",
       "import": "./src/keybindings.ts"

@@ -17,6 +17,7 @@ export type ModelRowProps = {
   readonly hiddenUpdatePending?: boolean;
   readonly isFirst: boolean;
   readonly isLast: boolean;
+  readonly usage?: ReactNode;
 };
 
 export type ChoiceRowProps = {
@@ -105,6 +106,7 @@ export function ModelRowContent(
               {props.option.subtitle}
             </Text>
           ) : null}
+          {props.usage}
         </View>
         {props.trailingSelection}
       </Pressable>

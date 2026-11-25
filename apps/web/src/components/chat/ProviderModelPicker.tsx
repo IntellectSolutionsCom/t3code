@@ -33,6 +33,7 @@ import { takeOpenTarget, useComposerMenuProps } from "./composerEventScope";
 import { shortcutLabelForCommand } from "../../keybindings";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { ProviderUsageArc } from "../../t3f/ProviderUsageArc";
 
 /** Holds the page still behind the open picker; its lifetime is the popup element's. */
 function lockBackgroundScroll(popup: HTMLElement | null) {
@@ -414,7 +415,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
             </span>
           ) : activeEntry && props.triggerLabel === undefined ? (
             // Narrow compacted composers hide the provider icon before truncating the name.
-            <span data-chat-provider-model-picker-icon className="contents">
+            <span data-chat-provider-model-picker-icon className="relative flex">
               <ProviderInstanceIcon
                 driverKind={activeEntry.driverKind}
                 displayName={activeEntry.displayName}
@@ -430,6 +431,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
                   size === "xs" && "shadow-none",
                 )}
               />
+              <ProviderUsageArc entry={activeEntry} model={props.model} />
             </span>
           ) : null}
           {props.isComposerOwned ? (

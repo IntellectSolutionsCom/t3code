@@ -81,6 +81,7 @@ import {
   withRememberedModelOptions,
 } from "../../state/use-model-option-memory";
 import { ChatGptSharingStatus } from "./ChatGptSharingStatus";
+import { ProviderUsageLines } from "../../t3f/ProviderUsageRing";
 import { environmentCatalog } from "../../connection/catalog";
 import { useEnvironmentQuery } from "../../state/query";
 import { scopedThreadKey } from "../../lib/scopedEntities";
@@ -762,6 +763,7 @@ function ThreadSettingsModelListRow(props: {
 }) {
   const session = useThreadSettingsSession();
   const onPress = () => session.pressModel(props.option);
+  const selected = session.isDisplayed(props.option);
 
   return (
     <ModelRow
@@ -778,7 +780,15 @@ function ThreadSettingsModelListRow(props: {
       }
       hiddenUpdatePending={session.pendingHiddenKeys.has(props.option.key)}
       option={props.option}
-      selected={session.isDisplayed(props.option)}
+      selected={selected}
+      usage={
+        selected && session.environmentId ? (
+          <ProviderUsageLines
+            environmentId={session.environmentId}
+            selection={props.option.selection}
+          />
+        ) : undefined
+      }
     />
   );
 }
