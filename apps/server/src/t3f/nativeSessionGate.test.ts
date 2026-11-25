@@ -512,6 +512,17 @@ it.effect.each([
     stale: true,
     calls: ["stat", "open", "adopt"],
   },
+  {
+    name: "Claude keeps a live session a background command woke",
+    driver: "claudeAgent",
+    live: true,
+    outside: {
+      content:
+        '<task-notification>\n<task-id>bifwzfwct</task-id>\n<status>completed</status>\n<summary>Background command "build" completed</summary>\n</task-notification>',
+      origin: { kind: "task-notification" },
+    },
+    calls: ["stat", "read", "open"],
+  },
 ])("$name", (scenario) =>
   Effect.gen(function* () {
     const driver = ProviderDriverKind.make(scenario.driver);
@@ -564,7 +575,8 @@ it.effect.each([
               type: "user",
               uuid: "outside",
               parentUuid: scenario.split ? "sibling" : "ours",
-              message: { content: "outside" },
+              message: { content: scenario.outside?.content ?? "outside" },
+              origin: scenario.outside?.origin,
             },
           ]
         : ["ours", "outside"].map((turn_id) => ({
@@ -712,6 +724,7 @@ it.effect.each([
     if (scenario.message === undefined) assert.isUndefined(yield* out.getTakeBack(threadId));
     else assert.equal((yield* out.getTakeBack(threadId))?.nativeId, nativeId);
     assert.isUndefined(yield* out.get(threadId));
-    if (scenario.release === "busy" || scenario.split) assert.strictEqual(current, runtime);
+    if (scenario.release === "busy" || (scenario.live && !scenario.calls.includes("release")))
+      assert.strictEqual(current, runtime);
   }).pipe(Effect.provide(outLayer)),
 );

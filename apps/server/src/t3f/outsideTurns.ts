@@ -1,3 +1,5 @@
+import { claudeUserText } from "../project/AgentSessionScanner.ts";
+
 type Comparison =
   | "unknown"
   | "none"
@@ -6,10 +8,6 @@ type Comparison =
       readonly firstId: string;
       readonly shape: "linear" | "split";
     };
-
-export function completeTail(text: string): string {
-  return text.slice(0, text.lastIndexOf("\n") + 1);
-}
 
 function object(value: unknown): Record<string, unknown> | undefined {
   return typeof value === "object" && value !== null
@@ -54,27 +52,37 @@ export function compareCodex(tail: string, anchor: string, known: ReadonlySet<st
       : "unknown";
 }
 
-function promptText(row: Record<string, unknown>) {
+function isOutsidePrompt(row: Record<string, unknown>, sent: ReadonlySet<string>) {
   if (
     row.type !== "user" ||
     row.isMeta === true ||
     row.isSidechain === true ||
     row.isCompactSummary === true
   )
-    return undefined;
+    return false;
+  const kind = object(row.origin)?.kind;
+  if (kind != null && kind !== "human") return false;
   const content = object(row.message)?.content;
+  let text: string;
   // A command run in the terminal, such as /rename, is recorded as a prompt but is not a turn.
-  if (typeof content === "string")
-    return content.startsWith("<command-name>") ? undefined : content.trim();
-  if (!Array.isArray(content)) return undefined;
-  const blocks = content.map(object);
-  if (blocks.some((block) => block?.type === "tool_result")) return undefined;
-  return blocks
-    .flatMap((block) =>
-      block?.type === "text" && typeof block.text === "string" ? [block.text] : [],
-    )
-    .join("\n")
-    .trim();
+  if (typeof content === "string") {
+    if (content.startsWith("<command-name>")) return false;
+    text = content.trim();
+  } else if (Array.isArray(content)) {
+    const blocks = content.map(object);
+    if (blocks.some((block) => block?.type === "tool_result")) return false;
+    text = blocks
+      .flatMap((block) =>
+        block?.type === "text" && typeof block.text === "string" ? [block.text] : [],
+      )
+      .join("\n")
+      .trim();
+  } else return false;
+  if (sent.has(text)) return false;
+  // A person's prompt may quote Claude Code's markup. Unmarked text is read as the import shows it,
+  // so Claude Code's own output is empty and a skill sent from here matches what was sent.
+  const shown = kind === "human" ? text : claudeUserText(text).text;
+  return shown !== "" && !sent.has(shown);
 }
 
 export function compareClaude(tail: string, cursor: string, sent: ReadonlySet<string>): Comparison {
@@ -91,8 +99,7 @@ export function compareClaude(tail: string, cursor: string, sent: ReadonlySet<st
     if (!linear.has(cursor)) continue;
     const descends = typeof parentUuid === "string" && linear.has(parentUuid);
     if (descends) linear.add(uuid);
-    const text = promptText(row);
-    if (text && !sent.has(text)) {
+    if (isOutsidePrompt(row, sent)) {
       outside.add(uuid);
       if (!descends) shape = "split";
     }

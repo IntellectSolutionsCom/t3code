@@ -16,7 +16,10 @@ import * as Schema from "effect/Schema";
 
 import { resolveClaudeHomePath } from "../provider/Drivers/ClaudeHome.ts";
 import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
-import { completeTail } from "./outsideTurns.ts";
+
+export function completeTail(text: string): string {
+  return text.slice(0, text.lastIndexOf("\n") + 1);
+}
 
 const CODEX_THREAD_ID_PATTERN =
   /-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:_([0-9a-f-]{36}))?\.jsonl(?:\.zst)?$/i;

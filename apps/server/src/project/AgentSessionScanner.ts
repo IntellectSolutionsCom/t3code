@@ -429,7 +429,10 @@ function claudeCommand(text: string): { readonly text: string; readonly titleTex
 }
 
 /** What a Claude user turn shows the user typed, and the part of it that may name the thread. */
-function claudeUserText(text: string): { readonly text: string; readonly titleText: string } {
+export function claudeUserText(text: string): {
+  readonly text: string;
+  readonly titleText: string;
+} {
   if (CLAUDE_UI_OUTPUT.test(text)) return { text: "", titleText: "" };
   const shellInput = /^<bash-input>([\s\S]*)<\/bash-input>$/.exec(text)?.[1];
   if (shellInput !== undefined) return { text: `!${shellInput}`, titleText: "" };
