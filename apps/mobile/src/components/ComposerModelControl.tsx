@@ -1,4 +1,4 @@
-import type { ModelSelection, ProviderDriverKind } from "@t3tools/contracts";
+import type { ModelSelection, ProviderDriverKind, ServerProvider } from "@t3tools/contracts";
 import { useGT, useMessages } from "gt-react-native";
 import {
   buildTraitsTriggerDisplay,
@@ -9,6 +9,7 @@ import { resolveProviderOptionDescriptors } from "../lib/providerOptions";
 import { AppText as Text } from "./ui/AppText";
 import { ComposerInlineControl } from "./ComposerToolbar";
 import { ProviderIcon, ProviderInstanceIcon, providerInstanceNameLabel } from "./ProviderIcon";
+import { ProviderUsageRing } from "../t3f/ProviderUsageRing";
 
 export function ComposerModelControl(props: {
   readonly modelOption: ModelOption | null;
@@ -20,6 +21,7 @@ export function ComposerModelControl(props: {
   readonly disabled?: boolean;
   readonly size?: "regular" | "large";
   readonly iconOnly?: boolean;
+  readonly usageProvider?: ServerProvider;
   readonly onPress: () => void;
 }) {
   const gt = useGT();
@@ -65,25 +67,31 @@ export function ComposerModelControl(props: {
       size={props.size}
       disabled={props.disabled}
       emphasized
-      renderIcon={(size) =>
-        badge?.showBadge ? (
-          <ProviderInstanceIcon
-            iconUrl={props.modelOption?.providerIconUrl}
-            provider={props.modelOption?.providerDriver}
-            displayName={badge.displayName}
-            accentColor={badge.accentColor}
-            showBadge
-            surfaceColor={props.surfaceColor}
-            size={size}
-          />
-        ) : (
-          <ProviderIcon
-            iconUrl={props.modelOption?.providerIconUrl}
-            provider={props.modelOption?.providerDriver}
-            size={size}
-          />
-        )
-      }
+      renderIcon={(size) => (
+        <ProviderUsageRing
+          provider={props.usageProvider}
+          model={props.selection?.model}
+          size={size}
+        >
+          {badge?.showBadge ? (
+            <ProviderInstanceIcon
+              iconUrl={props.modelOption?.providerIconUrl}
+              provider={props.modelOption?.providerDriver}
+              displayName={badge.displayName}
+              accentColor={badge.accentColor}
+              showBadge
+              surfaceColor={props.surfaceColor}
+              size={size}
+            />
+          ) : (
+            <ProviderIcon
+              iconUrl={props.modelOption?.providerIconUrl}
+              provider={props.modelOption?.providerDriver}
+              size={size}
+            />
+          )}
+        </ProviderUsageRing>
+      )}
       label={providerNameLabel ?? shortLabel}
       labelEllipsizeMode={providerNameLabel ? "middle" : undefined}
       iconOnly={props.iconOnly}
