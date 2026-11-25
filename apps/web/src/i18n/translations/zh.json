@@ -25,6 +25,7 @@
   "986b0873f913a840": "{organization} 的策略不允许使用 webhook 任务。",
   "eebc538e25b09fe2": "{organization} 的策略不允许导入浏览器 Cookie。",
   "7642a133db05f164": "{organization} 的策略不允许在其他设备上打开此机器的本地服务器。",
+  "e0856d6a402ad821": "{organization} 的策略不允许使用项目的工作树布局命令。",
   "39f6771b49f9b3b6": "使用默认值",
   "45bb0e90e1c42046": "在你回来后",
   "d8fa0a55446bbb0d": "缓存过期前（测试版）",
@@ -71,6 +72,7 @@
   "cd03eb1b84271c02": "智能体",
   "bfe1a60f3f9c60fb": "第 {turn} 轮 · {what}",
   "dfdaa6255a416140": "{turns, plural, one {最近 {turns} 轮的概要} other {最近 {turns} 轮的概要}}，{textTurns, plural, =0 {不含消息文本} one {包含最后一轮的消息文本} other {包含最近 {textTurns} 轮的消息文本}}{truncated, select, yes {，已缩短以符合长度限制} other {}}",
+  "260c6b45f52d2f27": "添加你在最近 {textTurns} 轮中的消息和智能体回复的文本。",
   "afac52a5cc2dc801": "无法发送你的回答。请重试。",
   "79d776428f4d0650": "无法加载文件。请重新连接后重试。",
   "3ea34cbb1ca5ba9b": "预览已取消。",
@@ -385,6 +387,8 @@
   "24d802debbab31e0": "{rerun, plural, other {已重新运行 {rerun} 项检查，{refused} 项被拒绝}}",
   "8146ee71f7426683": "{count, plural, other {已审查 {count} 个 PR}}",
   "638678077ba2e050": "{count, plural, other {尝试审查 {count} 个 PR}}",
+  "f218a4ca6e1387ed": "{count, plural, one {Read provider usage limits {count} time} other {Read provider usage limits {count} times}}",
+  "a70f5d6a76f92a1d": "{count, plural, one {Tried to read provider usage limits {count} time} other {Tried to read provider usage limits {count} times}}",
   "420bea546d5f8802": "已复制会话",
   "2efb2dd3bf170f67": "无法复制会话",
   "6c03545936b55e0b": "已复制 PR 链接",
@@ -758,6 +762,10 @@
   "3eb9a01099aaf799": "{count} 秒",
   "3618302947c280f0": "{count} 分钟",
   "a856dc3afb8272cb": "{hours} 小时 {minutes} 分钟",
+  "2f4e36a1d15422a8": "{reason} Don't run the copied command until the thread is moved to the terminal.",
+  "335d679c07c6abaf": "Move back from the terminal?",
+  "83db6464f60d9f8f": "Close the session in the terminal first. Turns made there stay with the agent but are not shown here.",
+  "7d65291b0cfd85b3": "Move back",
   "a38af621f8debde9": "此环境没有登录状态。",
   "824399675009e523": "来源环境未连接。",
   "c67f4c995f7463d0": "无项目会话的文件夹尚未同步到此设备。请重试。",
@@ -1128,6 +1136,18 @@
   "3e5da15fb9653bc6": "此环境未接受你的连接。请重新连接后重试。",
   "7f2181cbb5edc3f3": "无法验证你的权限。正在自动重试。",
   "ad92fdc08320b1cf": "正在检查权限…",
+  "dc5ac4461e6429a2": "Close button",
+  "886868aa2f1fe782": "What the window's close button does on Linux and Windows. Ctrl+Q always quits while the window is open.",
+  "325b0c35844a559f": "Ask every time",
+  "9f4654669a8340f4": "Quit T3 Code",
+  "5363d911b044fb4c": "Keep running in the background",
+  "c68b895b0eeef9c0": "Quit T3 Code?",
+  "2eb4d6d964192fba": "Do you want to quit?",
+  "1e206bde896b7686": "Quitting stops T3 Code and every running thread on this computer.\nKeep running closes the window; click the T3 Code icon in the system tray, or open T3 Code again, to bring it back.",
+  "0782c285e7cd175f": "Remember my decision",
+  "00ad8aeed0a6c461": "取消",
+  "65763fd9556fa033": "Keep running",
+  "3874c9f538653a6d": "Quit",
   "f6ab22e5444020e0": "文档模板",
   "309d81912bc47f9e": "演示文稿模板",
   "79bced3a61829a4e": "电子表格模板",
@@ -1148,6 +1168,11 @@
   "a147a2509d4fcfd5": "项目",
   "6c45a87bca570dfb": "环境",
   "3f94d5ffb713b480": "ID 或链接",
+  "ebb26f93fb83a71b": "{label}：剩余 {left}%",
+  "c29a3a293c3f98c3": "Resets in {duration}",
+  "243c9baf49b79b29": "Read just now",
+  "8bb3a7d55a69875a": "Read {duration} ago",
+  "d8b107b7688d8acd": "5-hour: {left}% left",
   "84574fdbc300e71f": "{name}（设置，收尾时）",
   "8113ce8cc5b8714a": "{name}（设置）",
   "305480cd87405b73": "{name}（收尾时）",
@@ -1342,9 +1367,9 @@
   "a9b663922945a4fa": "此连接无法在此环境中打开编辑器。",
   "868596d482a1a2bd": "打开",
   "f58caaa68c09fbeb": "打开方式",
+  "75b6d7c3bc9c72da": "无法在 {editor} 中打开",
   "415d9fed5542d278": "无法打开文件",
   "1d1bbe5b700afe63": "无法在文件管理器中显示文件",
-  "75b6d7c3bc9c72da": "无法在 {editor} 中打开",
   "31dc19d033af2774": "无法打开链接。",
   "029d8d0201aed231": "无法打开系统设置。",
   "9af3083226778d3c": "Open VSX 返回了格式错误的主题详情。",
@@ -1524,6 +1549,8 @@
   "4eb599c7f36c99ba": "主题文件不是有效的 JSON。",
   "29a5ff50ce55c4f9": "VS Code 主题",
   "10348092dfed8b11": "该 VS Code 主题没有“editor.background”颜色，无法据此生成配色。",
+  "206811f6f441bfc7": "此项目用自己的命令准备工作树，但目前写入的内容尚未有人批准。此连接无法批准：请在可以使用终端的客户端中批准。",
+  "b8087c9a70c26da9": "无法批准工作树布局命令。",
   "6dff8d487001c6cf": "响应式",
   "f5f61c338cc5aeb5": "浏览器设备工具栏",
   "3b4eb5b5ec5e60cb": "浏览器设备预设",
@@ -1780,6 +1807,8 @@
   "ba8337dca3232880": "打开运行",
   "30fa4a764d11ae42": "无法下载 {name}",
   "4952f87dc98191a7": "附件不可用。",
+  "a6caf66ad28e6e7f": "This thread has the most pins it can hold",
+  "b4cd58c6b4ce9b8c": "Unpin a message to pin another. A thread keeps up to {count}.",
   "2fd6d178493fb407": "无法中断当前这一轮。",
   "7841f029ad83593d": "无法添加到对话",
   "86a59f2432768c7f": "输入框正忙，请在就绪后重试。",
@@ -1847,6 +1876,7 @@
   "cce3d80a2ddf1125": "由智能体排查 T3 Code 的问题并协助提交 issue",
   "44e13c9deb30e03c": "在当前会话中查找",
   "2a5cc71a171eca12": "在浏览器页面中查找",
+  "f600a25a6e7bff39": "Show pinned messages",
   "f496ce44f0581269": "复制提示词链接",
   "8956e2bf9ebef228": "复制包含仓库与模型的提示词链接",
   "9e9201570bcc2be8": "复制 PR 链接",
@@ -1979,13 +2009,16 @@
   "7af7f00b85cc2930": "确认操作",
   "8b418a02b73f49b8": "此操作需要你的确认。",
   "e74139c17fab1fa1": "确认",
+  "4a18481bea4b4ad5": "有新设备登录了 {environmentLabel}",
+  "4144ab6aa487528a": "{device} 已通过 {product} 连接。不是你本人？请检查。",
+  "a10cfdb27152c757": "{count, plural, other {{count} 台设备}}已通过 {product} 连接。不是你本人？请检查。",
+  "4672f332c89dbcd9": "查看",
   "775a3e99e2638341": "有设备想要连接到 {environmentLabel}",
   "a8befcb9f1c61f60": "{device}。仅当设备上显示的验证码为 {code} 时才批准。",
   "ac48cc297029db41": "批准",
   "c12ca3fea745def0": "无法批准设备",
   "af63f05ed2f5eeb3": "拒绝",
   "b735bab216b27041": "无法拒绝设备",
-  "4672f332c89dbcd9": "查看",
   "913fc23f62321556": "请选择将来的有效日期和时间。",
   "9485a52216cfc0d5": "请输入大于零的时长。",
   "9bc551235d78e133": "定时方式",
@@ -2282,6 +2315,41 @@
   "8fffd1cf07b7fbc6": "快捷键配置无效",
   "9e4394e5b89e57a1": "正在恢复你的会话…",
   "5579a5d039c6962c": "{count, plural, other {正在从旧版本迁移 {total} 个会话。迁移期间你可以继续工作。}}",
+  "7635bef1a86f132a": "Untitled session",
+  "b16fa0543646824e": "{provider} (no answer in time)",
+  "a89deb6ac6ffec10": "{provider} (failed)",
+  "85dcd20169d7353a": "Load a session into a thread",
+  "851fc9eae83499ad": [
+    "Provider sessions that ran in ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " in the last 30 days, including ones started outside ",
+    {
+      "i": 2,
+      "k": "_gt_value_2",
+      "v": "v"
+    },
+    "."
+  ],
+  "ee736e7c2555de83": "Reading sessions…",
+  "088a3c43a5e83433": "No provider sessions ran in this folder in the last 30 days.",
+  "185b1f0dcf2e5aa5": "Open thread",
+  "e580c507bc4cf87e": "Its thread was deleted",
+  "5a0125dd9241cdec": "加载中…",
+  "9557032a128c7f4b": "Load",
+  "83e2c02c591df703": [
+    "Could not list the sessions of",
+    " ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "."
+  ],
   "8117d2b1eaef9f82": [
     "此环境由 ",
     {
@@ -2306,7 +2374,6 @@
   "41ef5fd3a5051f37": "打开共享与访问",
   "5f1f54e42cd5b57a": "上一个工作树",
   "b11375ba00e506b5": "正在克隆 {name}",
-  "00ad8aeed0a6c461": "取消",
   "f10d1278b1a29dae": "无法取消克隆",
   "046759be4571cf85": "已克隆 {name}",
   "0d58d5a2c67ecc21": "打开项目",
@@ -2527,6 +2594,7 @@
   "e54720cac68f2adb": "所有项目",
   "ac47f86df1c31a4a": "复制分支名失败",
   "4e6305459e784fea": "复制会话 ID 失败",
+  "2e091eb91efe6823": "Load a session into a thread…",
   "5a79b7c910831c76": "会话标题不能为空",
   "5c14b37b13312503": "重命名会话失败",
   "fc97f746bdabe59f": "收尾会话失败",
@@ -2702,6 +2770,24 @@
   "a707abf0a4a73ffa": "关闭终端（{shortcut}）",
   "9206ecf328948f90": "关闭终端",
   "9b1326a11cfe3308": "此会话还没有终端。",
+  "49eda70cfd56e621": "在工作树线程启动时以及其文件夹被恢复时运行",
+  "188ccaa1199f5611": "在线程的工作树被移除时运行",
+  "7e8476e7306acabe": "允许此项目运行其工作树命令吗？",
+  "8e11914556fd8b13": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " 使用 ",
+    {
+      "t": "code",
+      "i": 2,
+      "c": "t3.json"
+    },
+    " 中自己的命令来准备工作树线程。这些命令在此环境的机器上以你的权限运行，不受任何代理沙盒限制。命令内容每次更改时都会再次询问你。"
+  ],
+  "46807acd02a4ff72": "批准并继续",
   "2ac142f34e5dabc2": "新工作树中的仓库：{selection}",
   "c514773a8031f00b": "筛选仓库",
   "e32b730f6d27753f": "选择此会话要处理的仓库",
@@ -2713,6 +2799,17 @@
   "5c6a6009aedbf1d0": "全选",
   "24c98c5086b8e76e": "全不选",
   "94ebdc088ba805b3": "{status}：{title}",
+  "99a2e3640006bfae": "Session id copied",
+  "a849f652c814c048": "Command copied",
+  "03eba73d4cd1e865": "Could not copy the session id",
+  "ee055febba11120e": "Could not copy the command",
+  "5351d847a484b4d6": "Could not move the session to the terminal",
+  "2d85ed59268246fe": "Move the session back",
+  "cf5fce12811698ee": "Unpauses this thread; send from here again",
+  "f8d99d287779e79e": "Move the session to terminal",
+  "978702c26da709b6": "Pauses this thread here and copies the command",
+  "0e4838cf26934024": "Copy session id",
+  "4d4e0c8b477e7af3": "Copy session command",
   "4f63d64b0b8340cb": "审查评论",
   "09f0553bf8679460": "{count, plural, other {{count} 个元素}}",
   "f11e9800c4f3f7cb": "{count, plural, other {{count} 个区域}}",
@@ -2741,9 +2838,9 @@
   "db7b3a938c45e56c": "更新 {version} 已可下载",
   "9a951140b69ba740": "正在下载更新（{percent}%）",
   "7fdece033260e9fb": "正在下载更新",
+  "52e1d4a487c0cf4b": "安装 {version} 失败。点击重试。",
   "09ef51903e99e876": "更新已下载。点击重启并安装。",
   "d62631cab06d2b80": "更新 {version} 已下载。点击重启并安装。",
-  "52e1d4a487c0cf4b": "安装 {version} 失败。点击重试。",
   "78a04e0e625c0990": "更新失败",
   "c24de5eb69373a55": "此 {build} 版本会忽略 {track} 版本。请在设置中检查更新通道以完成切换。",
   "b02ae45a6109c93b": "已是最新版本",
@@ -2826,6 +2923,7 @@
   "6dd1f458bcd6a2ea": "正在重新生成…",
   "de30fdae5b3fea98": "重新生成标题",
   "dffd2e20f7ff5aa1": "标为未读",
+  "5794a3bc1e2fbfe5": "Thread settings…",
   "3364346f40934e88": "显示所有项目",
   "666f3ac177c116b6": "按 {project} 筛选",
   "1385e2d8bd696370": "转换为项目",
@@ -3111,6 +3209,7 @@
   "b08d105dd2553f8d": "该项目未出现在桌面应用中。",
   "7a4b3f3b83e121d7": "{organization} 已关闭匿名使用数据。",
   "d85822b18e9475df": "由 {organization} 管理。",
+  "915249aff565bfec": "Could not move the session back",
   "a6dd531d58080010": "连接此服务器以检查版本。",
   "314cdccee9c14774": "此服务器不支持查询仓库。请先更新，再切换通道。",
   "22da1d00403ab2fd": "无法检查此环境的 npm 仓库。请检查连接和仓库设置。",
@@ -3129,6 +3228,18 @@
   "1e358a7392662403": "无效的终端启动参数",
   "78afe8f657a424b5": "此环境无法报告用量。",
   "7e007018635dcd2b": "此连接无法更改会话或项目。",
+  "8bb9c664fe25784c": "Could not save the badge.",
+  "f3b20953d956bb29": "Choose a symbol above, or type or paste one emoji.",
+  "c9d69b000e7abc14": "Type or paste an emoji",
+  "11f733184d6914f2": "Up to 24 characters",
+  "02975f31dd989537": "Thread settings",
+  "f80878cb4341bfbe": "A badge puts one emoji and a short label beside the thread's title.",
+  "8e7c2856e42069c8": "Symbol",
+  "c587dc03a5a5c831": "Label",
+  "f3a763fb0693816b": "Clear badge",
+  "ece5e10bd5b5769d": "Saving...",
+  "8c0b7f243491f2b0": "Save",
+  "279ab25bdca98778": "Thread settings",
   "87e3e1be8d076ca6": "无法访问此环境。请重试。",
   "74a8fc3d3e10acaf": "此登录链接不完整",
   "820397d04d4ea2df": "请关闭此页面，然后从你的智能体重新发起登录。",
@@ -3312,6 +3423,8 @@
     },
     " 个字符。"
   ],
+  "9ae30bb4c1aac34c": "Could not open the pinned message",
+  "480b8d08f974703a": "Click the pin to try again.",
   "c86597c99c507722": "无法打开引用的回复",
   "2d52b83b33b6d842": "请再次点击引用重试。",
   "a1b2db80983184df": "引用的原文已变化",
@@ -3330,9 +3443,6 @@
   "b90e87f4b7125237": "详情",
   "16dc67f5429d8bae": "后台任务",
   "2188eee8f81b0f51": "打开子智能体",
-  "ec9e0be8ec693302": "折叠全部文件夹",
-  "b791dd86f7991cc0": "展开全部文件夹",
-  "55b936e3014e16c8": "打开差异",
   "28bb7ce40dfd349a": "终端输出无法添加到问题回答中。",
   "801cb8edea94b8f6": "先回答或关闭问题，再将其添加到聊天中。",
   "aa5507f20d94d5a9": "请更新此服务器，才能在回答问题时发送文件",
@@ -3553,6 +3663,7 @@
   "fbd5c722b3e55fbe": "上一题",
   "d5aaded9f81a6501": "更新排队消息",
   "f06102ac2fb07b35": "压缩后发送",
+  "8e2f8c2f0f079286": "Move back and send",
   "d5e7f90a46e86219": "加入队列",
   "f8aa79d1e6673127": "引导当前执行",
   "9cbfd0a9836230fb": "发送消息",
@@ -3647,10 +3758,10 @@
   "4e0710d19dfc2e7e": "将这份报告发送给 T3 团队？",
   "87d0ae0723ba75d1": "只有这些内容会从你的机器发送出去。点击“发送”前，不会发送任何内容。",
   "bf19826f81484328": "包含对话",
-  "260c6b45f52d2f27": "添加你在最近 {textTurns} 轮中的消息和智能体回复的文本。",
   "ddb7e6f8ce99e657": "只有能在这台机器上运行智能体的人，才能发送或拒绝这份报告。",
   "03c1eb603c112f47": "不发送",
   "653405e4ed498d9f": "发送",
+  "76cf478e5674fd12": "{count, plural, other {{count} 处匹配}}",
   "262955d6eb632f9b": "复制访客链接时剪贴板 API 不可用。",
   "f1a4f2b04cdbb4ef": "无法将访客链接复制到剪贴板。",
   "cf3490a604e44d31": "无法创建访客链接。",
@@ -3798,14 +3909,6 @@
     " 应用已关闭"
   ],
   "dff97202cbdaec5b": "显示应用",
-  "705cf2b2ee4e0e42": [
-    {
-      "i": 1,
-      "k": "_gt_value_1",
-      "v": "v"
-    },
-    " 应用离开了其页面，已被停止"
-  ],
   "796b81c4875c4feb": [
     {
       "i": 1,
@@ -3819,6 +3922,14 @@
       "v": "v"
     },
     " 服务器。请更新服务器后再使用。"
+  ],
+  "705cf2b2ee4e0e42": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " 应用离开了其页面，已被停止"
   ],
   "5ef18e4d39b398bf": [
     "无法加载 ",
@@ -3951,7 +4062,6 @@
   "a06eb47a82969918": "子智能体",
   "d567966a45ff32be": "子智能体工作",
   "4740c38b2edd194d": "只读。这些子智能体无法接收消息。",
-  "5a0125dd9241cdec": "加载中…",
   "292cccd1075abd6e": "提供方没有记录这次调用启动了哪些子智能体。",
   "893bb44a7b9c9094": "刷新",
   "9c1ae7fa9c9b2d0d": "更早的步骤未显示。",
@@ -3989,6 +4099,14 @@
   "d47ad54e98d33190": "右侧面板不可用",
   "7e4b0afa9879fd43": "恢复面板大小",
   "8381e38420ae57f3": "最大化面板",
+  "95c76b172f0bbfe1": "Pinned messages",
+  "661dce83a7f6f5d0": "Go to pinned message {position} of {total}: {label} (no longer in this thread)",
+  "49fef6b4b39a0943": "Go to pinned message {position} of {total}: {label}",
+  "c973d06f95b98ca3": "{position} of {total}",
+  "77522f77e907e053": "Unpin message",
+  "e2785467ac011d2a": "Unpin {label}",
+  "a30c0c3311abd999": "Pinned messages",
+  "c53a88456d6e8be1": "No longer in this thread",
   "7d49da3c635828ce": "复制计划时剪贴板 API 不可用。",
   "ef0e4fcee07194f4": "无法将计划复制到剪贴板。",
   "7e2c4488f8ea9b23": "无法复制计划",
@@ -4284,7 +4402,6 @@
   "4214d97447ddd9e9": "上下文：已使用 {usedTokens} token",
   "66be4fb43249bbd2": "{used} / {max} token",
   "ee3ae58c8b38a425": "剩余 {left}%",
-  "ebb26f93fb83a71b": "{label}：剩余 {left}%",
   "1b16346722b65812": "窗口剩余 {timeLeft}%",
   "728c6cc1431e76c8": "{duration} 后重置 · {time}",
   "23622878aeee86d9": "已登录的账号",
@@ -4321,6 +4438,15 @@
   "70821a606b7a7b4f": "停止整个工作流",
   "14172f88d51d8511": "失败",
   "2a61b633ec5035a5": "还没有智能体",
+  "d48721fbbc5cd372": "Not moved to the terminal",
+  "ad12784bbeea8dee": "Run on {environment}:\n{command}",
+  "99dc95d977560cb1": "Native session",
+  "bf3bed54c7e2a209": "Move to terminal",
+  "88666c0cb0a2d073": "Pauses this thread here and copies the command:\n{command}",
+  "a131f15e22be8bb8": "Pauses this thread here and copies the command to run on {environment}:\n{command}",
+  "418ad144e678495c": "In terminal · paused here",
+  "32441d85d8403ba4": "复制命令",
+  "b766cc53e7022a84": "Move back",
   "c206140543c3ed2a": "正在启动",
   "9c7fbfd113775555": "运行中",
   "2761dfae1e729195": "排队中",
@@ -4570,6 +4696,7 @@
       "c": "”"
     }
   ],
+  "91aadfc843c600de": "验证 Google 账户",
   "a2aaca7ff8310186": "打开对话",
   "a3048aaa541b7744": "活动",
   "4a3cbccb2beedeb0": "图片",
@@ -4647,7 +4774,6 @@
   "7f0f9b1ee42892db": "输出已不可用。",
   "e470bb79fa74a6ae": "工具输出图片",
   "e8c80b6d40c0944c": "搜索结果",
-  "76cf478e5674fd12": "{count, plural, other {{count} 处匹配}}",
   "8d1906900b5c95c7": [
     "退出码 ",
     {
@@ -4656,6 +4782,7 @@
       "v": "v"
     }
   ],
+  "55b936e3014e16c8": "打开差异",
   "83c29850641c8935": "排队中",
   "8402f099f88fd0e0": "运行中",
   "c5f5b73e92221a6a": "等待中",
@@ -4781,8 +4908,13 @@
   "246274846dd07daa": "请先加载更早的轮次，再点击引用重试。已保存的引用内容不变。",
   "d9649e703b414b67": "引用的回复不可用",
   "b6d2a7ac2a8eac1e": "它可能已被删除。选中的文字仍保存在你的引用中。",
+  "f0765bae34c2159f": "Could not load the pinned message",
+  "c4e1e385fd1279c3": "Load earlier turns, then click the pin to try again.",
+  "8b45788b2497b005": "The pinned message is no longer in this thread",
+  "0950e3d00f5f129f": "It may have been reverted or removed.",
   "be69a90d3d68d0d6": "这个引用指向的不是助手回复",
   "fc7d59b60c3b7d46": "选中的文字仍保存在你的引用中。",
+  "7b40c9109e6dafc0": "Unpin",
   "8520b1297f0efd9b": "大约 {tokens} token 时会自动压缩。",
   "e4b9b6e99d9b6da1": "上下文会在需要时自动压缩。",
   "57e30468577bb989": "正在等待服务器，之后才能发送文件附件",
@@ -4803,6 +4935,8 @@
   "43a6b223ae5160ed": "关联到会话",
   "986951276ab5723d": "取消与会话的关联",
   "911464a3d04a2927": "（访客）",
+  "67398f179e3810e6": "Could not save pins",
+  "8226783c0e8f99ca": "This browser refused to store them. Its storage may be full or blocked.",
   "25af91477adfb3bf": "保存前请重试或移除上传失败的附件。",
   "5fbeffb697c7b33c": "需审批",
   "dd48edd43c854b53": "执行命令和修改文件前询问。",
@@ -4953,6 +5087,8 @@
   "a1fc6c6518ebebeb": "你较新的草稿没有变化。等输入框为空时，可以恢复这条发送失败的提示词。",
   "d1d06de18b2ac726": "恢复提示词",
   "060c27e1964f6e42": "请回到原来的草稿，先发送或清空当前提示词，再进行恢复。",
+  "8880bdb453a2d0b0": "In terminal · paused here since {time}",
+  "6b4f34a09fba0a18": "Move it back to send from here.",
   "4d64b04f9bcfc2e2": "准备附件期间回答已更改，请检查后重新发送。",
   "5d92daec8fde9379": "请等待附件上传完成，或移除上传失败的附件。",
   "a430c357cb87ebd5": "无法提交输入。",
@@ -5537,6 +5673,8 @@
   "1601d7e39a52c48f": "重试加载差异",
   "b7b137472adb6989": "部分差异预览",
   "f0d79aa56f06663f": "此文件过大，无法完整显示。统计包含全部改动。",
+  "ec9e0be8ec693302": "折叠全部文件夹",
+  "b791dd86f7991cc0": "展开全部文件夹",
   "7fdde2b893ba1b9d": "已删除",
   "e58ce271d835b447": "已添加",
   "07b9970b662ab70d": "显示 Mermaid 源码",
@@ -6251,15 +6389,15 @@
   ],
   "216ab7514aea1d61": "不使用智能体直接开始",
   "501ce2d99da8bfd1": "设置一个智能体即可开始。",
-  "71f3822326109c8e": [
-    "T3 Code 会收集匿名使用数据以改进应用。如需退出，请参阅",
+  "6a82c4adaccb38aa": [
+    "No usage data is sent unless you switch it on. See the",
     " ",
     {
       "t": "a",
       "i": 1,
-      "c": "隐私政策"
+      "c": "privacy policy"
     },
-    "。"
+    "."
   ],
   "b33f35083757b42c": [
     "请参阅",
@@ -6663,8 +6801,6 @@
   "1b381201aba745c2": "未报告任何检查",
   "a6d75a4380173c60": "打开检查：{summary}",
   "be3d1766bad18693": "检查：{summary}",
-  "425e4a3d6c5c2867": "{count, plural, other {{count} 个失败}}",
-  "fd63b391898889f9": "{count, plural, other {{count} 个等待操作}}",
   "cb116c139cdace98": "未报告任何检查",
   "60b56e201607c7ec": "检查详情已过期。刷新 pull request 以更新。",
   "e74cd4e960cbb5e5": "包含截断行的文件中无法查看未更改的行。",
@@ -6679,8 +6815,8 @@
   "e545fcdb83e2c36a": "添加到审查",
   "2250f241daadd71b": "添加给智能体",
   "be9b06fae29cc07a": "全部提交",
-  "5ef391d5403d7bdd": "{count, plural, other {显示更多（剩余 {count} 个）}}",
   "ccd5fc4db08374d7": "{count, plural, other {已隐藏 {count} 个测试文件}}",
+  "5ef391d5403d7bdd": "{count, plural, other {显示更多（剩余 {count} 个）}}",
   "c12871955b159db4": "已在 {app} 中查看",
   "98b353c208fd7977": "已查看",
   "d65b870952bbe4f0": "这些勾选保存在此处，而非托管平台",
@@ -7048,19 +7184,27 @@
     }
   ],
   "ce703d4ba40dc9b4": "正在合并堆叠…",
+  "8a883c4fbc127b68": "正在启用堆叠自动合并…",
   "ac7feb9c583b02a0": "正在对堆叠变基…",
   "cb0f63bbb0b68d94": "无法合并堆叠",
+  "5fb2a26ae31e8983": "无法启用堆叠自动合并",
   "c8a943fa15a56b2b": "无法对堆叠变基",
   "ec22caeb8b949ed1": "托管平台拒绝了变基。变基在应用提交时遇到冲突就会停止。",
   "ead3e2bac1a8d231": "堆叠合并请求已完成",
+  "986d0dcbf4dd0098": "已启用堆叠自动合并",
   "d7079b5ac269c65e": "堆叠已变基",
   "5631b32be0ce48d3": "{host} 已合并该堆叠，或已将其加入合并队列。",
+  "f3ed1f63c8a3eef2": "满足要求后，{host} 会合并截至 #{number} 的堆叠。",
+  "bd536a0a1754f6cb": "无法取消堆叠自动合并",
+  "bb90ac3b2f3a72d5": "主机拒绝取消自动合并。请刷新后重试。",
   "2d3b55018a54287e": "正在与托管平台核对堆叠…",
   "eea55205e46d2e3d": "堆叠 {number}，第 {position} 层，共 {size} 层",
   "b6f729119107a145": "{count, plural, other {将堆叠合并至 '#'{number} 并并入 {base}（{count} 个 {term, select, mr {MR} cr {change request} other {PR}}）}}",
   "d4bfcdc6bb7676a3": "{count, plural, other {合并 {count} 个 {term, select, mr {merge request} cr {change request} other {pull request}}？}}",
+  "9c28753c777c37b7": "{count, plural, other {自动合并 {count} 个 {term, select, mr {merge request} cr {change request} other {pull request}}？}}",
   "b9f2a24a3757f6c9": "{count, plural, other {变基 {count} 个 {term, select, mr {merge request} cr {change request} other {pull request}}？}}",
   "d1bcf19eb2753fff": "使用 {method} 将 #{number} 及其下方未合并的各层合并到 {base}。{host} 会在合并或排队前检查它们的规则，并在合并后对剩余堆叠执行变基。",
+  "a86b49982e18784d": "当 #{number} 及其下方未合并的各层都满足 {host} 的要求时，使用 {method} 将它们合并到 {base}。这可能会立即发生。",
   "31d2f22f5a282719": "将远端分支自下而上变基到 {base}。这会重写分支历史，并可能重新运行检查。如果某一层失败，之前的更新会保留。",
   "a0adf78733c368ae": "合并堆叠",
   "140dc384c58b74f3": "对堆叠变基",
@@ -7096,8 +7240,19 @@
     },
     "）"
   ],
+  "b1afda5c964deee4": [
+    "自动合并堆叠（",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "）"
+  ],
+  "33d18dda74f6d7b3": "取消堆叠自动合并",
   "30440f98e929440a": "对堆叠变基",
   "13718a03e3144142": "要合并的每一层都必须处于开放状态，且已准备好接受审查。",
+  "012c67c7f1a99e33": "自动合并堆叠",
   "4aafe1baf113088a": "合并堆叠",
   "0292da19054f2a04": "正在加载堆叠…",
   "583869e6df57abeb": "此 pull request 已不在堆叠中。",
@@ -7325,6 +7480,9 @@
   "9b0647af63a7d8c1": "已批准较早的更改",
   "abe99679224fea5e": "已对较早的更改请求修改",
   "6b31ad910278ff72": "对较早更改的审查已忽略",
+  "425e4a3d6c5c2867": "{count, plural, other {{count} 个失败}}",
+  "fd63b391898889f9": "{count, plural, other {{count} 个等待操作}}",
+  "948185631ef288e6": "{count, plural, other {{count} 个运行中}}",
   "aaf22207b2f18c45": "{workflows, plural, other {{workflows} 个工作流}}和 {checks, plural, other {{checks} 项检查}}等待操作",
   "c51411813ebafcc1": "{count, plural, other {{count} 个工作流等待批准}}",
   "4946778c8e18a1db": "{count, plural, other {{count} 项检查等待操作}}",
@@ -7562,6 +7720,7 @@
   "e4e5b75bba51396c": "Bearer 令牌（可选）",
   "e62cedcbcdbafc75": "管理密钥",
   "f1b3d0634ec035cb": "标签（可选）",
+  "b35256ca61016104": "添加来源",
   "52814dd6f7d0a15c": "添加中转站",
   "27b770d3402abfa2": "高级",
   "584595dfcadab699": "背景图",
@@ -7571,6 +7730,7 @@
   "d5dc7576fd468be7": "适中",
   "3141408bf3874e64": "宽",
   "831badd18b64547e": "全宽",
+  "6287212fed0deec6": "与聊天一致",
   "a96255594ebf2ce3": "文字",
   "1ee44eb65708a8aa": "条形",
   "7670f789e0d8672a": "仅内置主题支持背景图，因此当前主题显示版本标签。",
@@ -7588,12 +7748,11 @@
   "03338c6aec8edacd": "设置大屏幕上消息和输入框的最大宽度。",
   "92785adb251da88c": "重置聊天宽度为默认值",
   "4d457bcce0c0e272": "聊天宽度",
-  "7d7f65967cc821e3": "HTML 预览宽度",
+  "81f3a196537bbee0": "适中（默认）",
   "70ce0af7f78d5957": "让聊天中的 HTML 预览比消息更宽，消息仍保持居中。",
   "f2b119bf02ae2558": "重置 HTML 预览宽度为默认值",
-  "6287212fed0deec6": "与聊天一致",
+  "7d7f65967cc821e3": "HTML 预览宽度",
   "dc8e85ea0364649c": "与聊天一致（默认）",
-  "81f3a196537bbee0": "适中（默认）",
   "e79e5388f669495f": "在输入框中用名称（如 High）或条形显示推理强度。",
   "7f0365c7e4e8bcbf": "重置推理强度显示为默认值",
   "14bf40f765172a50": "推理强度显示",
@@ -8310,7 +8469,6 @@
   "98d92702c1426703": "会重启该设备上的 T3 Code，大约离线 {minutes} 分钟。",
   "184b96013883725b": "上次尝试失败：{reason}",
   "974953ec2f4fd3e4": "回收",
-  "32441d85d8403ba4": "复制命令",
   "8ed537ee14e5afe9": [
     "回收 ",
     {
@@ -8396,7 +8554,6 @@
   "e6886a7f77b73a8e": "{platform} 不可用",
   "b0b7610d9860d18d": "此机器尚未配置。",
   "f5b66c481aa3e4df": "编辑",
-  "b35256ca61016104": "添加来源",
   "3b20ef0670ae4b0b": "通过 SSH 连接的机器",
   "121ccffacb6b8c6d": "Expo 模拟器",
   "130b55a1410a8030": "Simlock 池（早期测试）",
@@ -8537,6 +8694,38 @@
   "a0115a6c72e4a254": "模拟器会话费用计入项目的 Expo 账户。“来自会话的项目”会读取项目应用配置中的 extra.eas.projectId。",
   "0e195fc3051aab63": "Expo 模拟器需要付费 Expo 账号。模拟器会话最长运行 115 分钟，空闲达到指定时长后会提前停止，因此空闲时长必须短于模拟器会话时长。",
   "51871067d54921fa": "保存会重启此主机并停止其正在运行的模拟器会话。",
+  "6c241023135acb0f": "This machine cannot be reached right now.",
+  "c2af7450cbf6bb82": "This connection cannot view linked machines.",
+  "2273b11c04e7559f": "This machine cannot allow messages from links.",
+  "a62fb7b63a17668d": "It runs a version without this setting.",
+  "96947010edfdf64e": "Could not load linked machines",
+  "20c2b8833ec70b38": "Loading linked machines",
+  "d94071bbcc711acf": "No machine is linked here below full access",
+  "8081e7fda371863f": "Turn on Linked environments in Settings → Labs on both machines. On the other one, choose Link under Settings → Environments, pick this machine and an access level below full access.",
+  "25d9993c7097cf05": "Allow {label} to message any thread here",
+  "58fc176bd48477db": "Window",
+  "e121e81e349d2b6b": "Reset close button behavior to default",
+  "90b8851e7a476814": "Close button behavior",
+  "4e84990e2f0a9f27": "Lets agents on a machine linked here below full access send messages to any thread here. A message can start an idle thread, which then acts with that thread's own permissions.",
+  "840a0c508c683bb5": "Changing these needs a connection that may manage clients and operate threads here.",
+  "c902735edaeca92b": "Agents connected before this version can be confirmed by sending one message or renewing the link.",
+  "25ddaad83a82743e": [
+    "Linked machines below full access can be allowed to send messages to your threads in",
+    " ",
+    {
+      "t": "Link",
+      "i": 1,
+      "c": [
+        "Settings → ",
+        {
+          "i": 2,
+          "k": "_gt_value_2",
+          "v": "v"
+        }
+      ]
+    },
+    "."
+  ],
   "1d6c983879a0dfa5": "连接此环境后即可更改图标。",
   "cd60131716f88bfa": "你在此环境中的连接无权更改其设置。",
   "fff2176c30964955": "已检测到",
@@ -8790,9 +8979,13 @@
   "ed83b25c71c98a20": "为每个项目选择一个或多个 {tracker} {scope}。它们的 issue 会列在仓库自身的 issue 旁；除非另有指定，智能体会在第一个中创建新 issue。",
   "19c2d5e81ff8f89a": "{project} 的 {tracker} {scope}",
   "68e061510b765772": "未绑定",
+  "99d51127f573296b": "其他账号",
+  "8ec2c57414669b79": "连接第二个 {tracker} 工作区或用户。",
+  "99963c0142e17f00": "用于新的 {tracker} 账号。",
   "a2d95d39d3398bda": "凭据被拒绝",
   "9eae463720500113": "存储在服务器上。",
   "b6e27ab2537ef874": "创建一个",
+  "6d8e4ebc889bace9": "添加账号",
   "13ef526271b0f5d4": "清除所有条件",
   "d1938a629f039515": "移除条件",
   "84a605b241ce65b7": "移除条件组及其条件",
@@ -8938,6 +9131,10 @@
   "f0e853acd2006d53": "关联环境",
   "ef10c2dff987f3ea": "从此服务器 T3 主目录下 workflows 文件夹中的文件运行多步骤工作流。可从命令面板打开。关闭期间，该文件夹中的内容都不会运行；运行会等到重新开启后继续。",
   "2dadb2359422121c": "工作流",
+  "933dabf0700708af": "每个工作流在历史中保留的已跳过运行数量。较早的已跳过运行会被删除；执行过操作的运行始终保留。",
+  "f172d7e5deb24f75": "将保留的已跳过运行数重置为默认值",
+  "ba94015389f327bc": "保留的已跳过运行",
+  "d52b3d6bf9f2a013": "各不相同",
   "13e86eb5d8287a71": "Claude 或 Codex 完成一轮回复后，在空输入框中预测下一条消息。按 Tab 使用它。每次预测都会在你的套餐上产生一次额外的缓存请求。需要 Codex 0.165+。Claude 会话在重启后更新。",
   "d4b2a2ec812aafb0": "建议下一条提示词",
   "298c7150a7621c80": "Simlock 设备主机",
@@ -8945,7 +9142,6 @@
   "f9904f78d3003f58": "快速创建工作树",
   "9c2f647882522302": "所选机器使用的智能体反馈模式不同。",
   "31bbf7bf8c0a5279": "智能体反馈",
-  "d52b3d6bf9f2a013": "各不相同",
   "ec7623deed751c05": [
     "与访客共享会话，访客可在浏览器中实时观看并发送需经你批准的消息。需要 T3 Connect：请登录并在",
     " ",
@@ -8984,6 +9180,7 @@
     },
     "中添加。此为 alpha 功能，可能会变更或失效。T3 Code 从不安装 Simlock。"
   ],
+  "4d621ea1f96979cf": "If that machine runs {appName}, it can still let agents here send messages to any of its threads, under Settings → {editionName} there.",
   "3836976622328d61": "这里的智能体在另一环境中的权限",
   "b20c269e7ad96f42": "智能体在另一环境中的权限不会高于它在这里的运行模式。未授予完全访问权限时，它只能更改通过此连接启动的会话，不能更改该机器自身的会话、项目或设置。",
   "4474db19bf5700c9": "其他地址…",
@@ -9283,6 +9480,28 @@
   "d2ad2df4c015f417": "分组规则决定每个工作副本如何加入侧边栏中的项目组。修改规则可能会将工作副本移到其他项目。",
   "0bdf6ae2117b6c23": "找不到某项设置？在上方保持选中此项目，然后前往其他设置页面。",
   "3310e10f1efdc9bd": "选择图标",
+  "a9cb97fca6a6576b": "创建命令",
+  "90f45a354884ccdd": "移除命令",
+  "0cdc8cdbed3e5eae": "工作树布局",
+  "c17b25519e2b194e": "无法加载工作树布局命令",
+  "78e308ada516928b": "无法批准该命令",
+  "a0c772d32a233da6": "无法撤销批准",
+  "5ccd5614c65f8d1f": "撤销对 {kind} 命令的批准",
+  "80c3794a5fa12f3a": "批准 {kind} 命令",
+  "f206891e124c77b0": [
+    "此项目的 ",
+    {
+      "t": "code",
+      "i": 1,
+      "c": "t3.json"
+    },
+    " 使用自己的命令来准备工作树线程。这些命令在此环境的机器上以你的权限运行，并且只按此处批准的内容运行：内容发生更改的命令需要重新批准。"
+  ],
+  "8e73b883d41d4102": "关闭",
+  "f6a91589456cca50": "已批准",
+  "c92657bb7f2293ff": "待批准",
+  "f1e5c1be1ac92361": "批准",
+  "fcb5f3c4d4753326": "此连接无法批准命令。请使用可以使用终端的客户端。",
   "65ccf4f8e049003e": "选择一个项目，管理其名称、图标、工作副本和操作。",
   "067beea7d8f6e2c9": "显示所有环境",
   "1bf6da50131340d4": "强调色色相",
@@ -10270,7 +10489,7 @@
   "c424bee294b9f778": "此环境由 {organization} 管理，部分设置和功能遵循其策略。",
   "82d9538af590f58c": "查看你的智能体、导入项目并设置手机。",
   "6a48fd0a37e725a1": "法律信息",
-  "d6d3ea46ac979e1c": "我们如何处理你的数据，包括 T3 Code 收集的匿名使用数据。",
+  "ac998b4a1d7ed0af": "How we handle your data, including usage data, which is sent only when switched on.",
   "e741b1ab9396053a": "我们如何处理你的数据。{telemetryOff}",
   "0bffbbf4d7f780c0": "T3 Code 使用的依赖项、素材和可选工具的声明。",
   "e39a57514be028e9": "查看",
@@ -11161,7 +11380,6 @@
   "b0d0aebadc521ed1": "删除保存超过设定天数的浏览器截图和录制。旧的截图和录制链接将无法打开。",
   "fe4208562792c313": "删除旧轮转日志",
   "8debac9c8e9cff47": "删除超过设定天数且不再写入的轮转日志文件。保留当前日志。",
-  "8e73b883d41d4102": "关闭",
   "80d58a3fd4e4212a": "项目",
   "de770505be25f1ff": "文件夹",
   "ada7b9a4d96959d2": "会话",
@@ -11751,6 +11969,7 @@
   "14914b47296ba6b7": "多个主机匹配这个 SSH 目标。请选择要编辑其主机的环境。",
   "e3ec7b94218b8fe7": "Expo 模拟器",
   "608db1513cc8c165": "最多同时 {sessions, plural, other {{sessions} 个模拟器会话}}，每个在 {maxMinutes} 分钟后或空闲 {idleMinutes} 分钟后停止",
+  "2a3b9f4b7d8ec39c": "Messages from linked machines",
   "28a4cd11ce51865e": "自定义 API 端点",
   "49c009661b1e91d6": "正在检查提供方状态",
   "9c52dc73cc75980f": "正在等待服务器返回安装和认证信息。",
@@ -11895,9 +12114,6 @@
   "6826fa9579c22035": "测试版 共享 访客 邀请 链接 队友 观看 t3 connect 隧道",
   "f10c06cba0cdf7fe": "测试版 关联 另一台机器 vps 对等 智能体 在那里工作 委派",
   "bc0b409d89ce086e": "测试版 工作流 workflow 持久 运行 自动化 步骤 计划 webhook 文件夹",
-  "933dabf0700708af": "每个工作流在历史中保留的已跳过运行数量。较早的已跳过运行会被删除；执行过操作的运行始终保留。",
-  "f172d7e5deb24f75": "将保留的已跳过运行数重置为默认值",
-  "ba94015389f327bc": "保留的已跳过运行",
   "4b2669dcdb7d3776": "工作流 历史 保留 删除 旧的 已跳过 运行 webhook workflow history retention skipped runs",
   "4a21cf825a2045b0": "测试版 tab 自动补全 预测 下一条消息 claude codex 幽灵文本",
   "fea2dc36585c4a20": "Simlock 设备主机（早期测试）",
@@ -12189,14 +12405,12 @@
   "c1a9fe8e24876f1d": "{count, plural, other {{count} 个正在运行的会话将被中断。}}",
   "ecdf5f108ecc71d0": "{count, plural, other {{count} 个可在重启后恢复。}}",
   "0576c87870fb6389": "更新",
-  "948185631ef288e6": "{count, plural, other {{count} 个运行中}}",
   "3d9a2f6b9c114039": "智能体提供方",
   "f4baf8deafbb227d": "已跳过",
   "f938bb483eb3d189": "最后重启",
+  "f13e08bd3614112e": "请在该机器上更新 T3 Code",
   "9bca02be2b4d612a": "未连接",
   "2dcc418b6a13b83c": "需要手动更新",
-  "f13e08bd3614112e": "请在该机器上更新 T3 Code",
-  "3c3348c36a2695af": "请在该机器上更改更新通道",
   "fa8faa732a2688ef": "使用 {channel} 通道",
   "e65649675cb4cbaa": "已关闭",
   "a1e7c08d9ef315c7": "仍在加载",
@@ -12213,6 +12427,7 @@
   "3ac986d604a2ad62": "此应用无法切换：其服务器未连接，因此无法检查其数据库。",
   "3bbb6e9ade0cf7e1": "在那里运行 `{command}`",
   "e7194946af611278": "运行的是预览版",
+  "3c3348c36a2695af": "请在该机器上更改更新通道",
   "f5eac23351c99297": "需要在那台 Mac 上切换 Mac 应用",
   "d7444fbde9a80f04": "<1分钟",
   "09c1af20e9323765": "{seconds} 秒后重启",
@@ -12567,9 +12782,14 @@
   "dd7a1e58c2553933": "{duration} 后唤醒",
   "95cc952724dd7310": "即将唤醒",
   "3cc34921c0128593": "运行中",
-  "e777db2880f53a46": "无人回答",
   "dc90739d391a5e67": "你的回答：{choice}",
+  "4e96712d839ccbff": "{who}的回答：{choice}",
+  "e777db2880f53a46": "无人回答",
+  "201490988858b511": "已由 {by} 撤回",
   "389f2563b5b763fd": "快速步骤",
+  "99451a5d2d40440f": "已由 {by} 撤回。",
+  "3ee30a50b70fffab": "已由 {by} 撤回：{reason}",
+  "92e129bf413a1220": "已撤回",
   "a41c8d758121ad81": "已休眠",
   "9db248b770096984": "已等待",
   "c76124517af28686": "已运行 {duration}",
@@ -12604,6 +12824,46 @@
   "8bffb377e2a6a7de": "其版本已不再注册",
   "f92d9132f7b85d1a": "正在加载步骤…",
   "6ebc59f64c761a49": "暂无内容。",
+  "19097cfb8f5a79cf": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "的回答：",
+    {
+      "t": "span",
+      "i": 2,
+      "c": {
+        "i": 3,
+        "k": "_gt_value_3",
+        "v": "v"
+      }
+    }
+  ],
+  "e7bbf693910057bf": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "的回答：",
+    {
+      "t": "span",
+      "i": 2,
+      "c": {
+        "i": 3,
+        "k": "_gt_value_3",
+        "v": "v"
+      }
+    },
+    ": ",
+    {
+      "i": 4,
+      "k": "_gt_value_4",
+      "v": "v"
+    }
+  ],
   "a759dccd157d7dae": [
     "你的回答：",
     {
@@ -12634,6 +12894,14 @@
       "v": "v"
     }
   ],
+  "3759768c5d342c22": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "回答"
+  ],
   "c98009be9a273b31": "打开运行",
   "c8eb9be36d4d51ad": [
     {
@@ -12658,6 +12926,14 @@
   ],
   "02dfe6c63fd0b8a1": "添加理由",
   "19abd94828a3bdbc": "先问问智能体",
+  "e114d37b32ab0dc7": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "需要填写理由。"
+  ],
   "a18721fa8f328361": "等你处理",
   "bbf24e7920c1e86b": "运行中",
   "8d6e18d2ad832db6": "全部",
@@ -12672,13 +12948,22 @@
   "b6409289e0c9a4dd": "工作流",
   "035cb02ca1ae4952": "全部 {count} 个工作流",
   "8eeb9cb07d7c59e1": "问题类型",
-  "e4d1316c85ed7066": "没有此类型的问题在等你。",
   "e2131cbec8accfe3": "所有类型",
   "46d614fa7b4bf1e5": "工作流运行",
   "1c635faa2fb45b8b": "尚未运行过。",
+  "e4d1316c85ed7066": "没有此类型的问题在等你。",
   "156ff7b625287a1e": "隐藏已跳过",
   "69b985b97ab45e6b": "显示 {count} 个已跳过",
   "2400254d362de84d": "正在加载工作流运行…",
+  "cae5c3205c01d062": [
+    {
+      "t": "span",
+      "i": 1,
+      "c": "有工作流文件存在问题。"
+    },
+    "上一个可加载的版本会继续运行。"
+  ],
+  "ed8ce6ebc73dc12d": "打开文件",
   "145e1f7503ba3b2c": [
     "此环境中没有该链接对应的运行。",
     " ",
@@ -12705,15 +12990,6 @@
       "c": "阅读指南"
     }
   ],
-  "cae5c3205c01d062": [
-    {
-      "t": "span",
-      "i": 1,
-      "c": "有工作流文件存在问题。"
-    },
-    "上一个可加载的版本会继续运行。"
-  ],
-  "ed8ce6ebc73dc12d": "打开文件",
   "5d8d278ff828102d": "全部工作流",
   "3b0f1659172107e4": "所有类型",
   "39459da07479f482": "智能体",
@@ -12859,135 +13135,5 @@
   "27d76249d09eb69f": "审查导览已就绪",
   "faa3bb26abb39c93": "审查导览生成失败",
   "b7df38b7d8792d78": "打开导览",
-  "9e91e9a77b664e4e": "无法开始生成审查导览",
-  "99d51127f573296b": "其他账号",
-  "8ec2c57414669b79": "连接第二个 {tracker} 工作区或用户。",
-  "99963c0142e17f00": "用于新的 {tracker} 账号。",
-  "6d8e4ebc889bace9": "添加账号",
-  "8a883c4fbc127b68": "正在启用堆叠自动合并…",
-  "5fb2a26ae31e8983": "无法启用堆叠自动合并",
-  "986d0dcbf4dd0098": "已启用堆叠自动合并",
-  "f3ed1f63c8a3eef2": "满足要求后，{host} 会合并截至 #{number} 的堆叠。",
-  "bd536a0a1754f6cb": "无法取消堆叠自动合并",
-  "bb90ac3b2f3a72d5": "主机拒绝取消自动合并。请刷新后重试。",
-  "9c28753c777c37b7": "{count, plural, other {自动合并 {count} 个 {term, select, mr {merge request} cr {change request} other {pull request}}？}}",
-  "a86b49982e18784d": "当 #{number} 及其下方未合并的各层都满足 {host} 的要求时，使用 {method} 将它们合并到 {base}。这可能会立即发生。",
-  "b1afda5c964deee4": [
-    "自动合并堆叠（",
-    {
-      "i": 1,
-      "k": "_gt_value_1",
-      "v": "v"
-    },
-    "）"
-  ],
-  "33d18dda74f6d7b3": "取消堆叠自动合并",
-  "012c67c7f1a99e33": "自动合并堆叠",
-  "4a18481bea4b4ad5": "有新设备登录了 {environmentLabel}",
-  "4144ab6aa487528a": "{device} 已通过 {product} 连接。不是你本人？请检查。",
-  "a10cfdb27152c757": "{count, plural, other {{count} 台设备}}已通过 {product} 连接。不是你本人？请检查。",
-  "e0856d6a402ad821": "{organization} 的策略不允许使用项目的工作树布局命令。",
-  "206811f6f441bfc7": "此项目用自己的命令准备工作树，但目前写入的内容尚未有人批准。此连接无法批准：请在可以使用终端的客户端中批准。",
-  "b8087c9a70c26da9": "无法批准工作树布局命令。",
-  "49eda70cfd56e621": "在工作树线程启动时以及其文件夹被恢复时运行",
-  "188ccaa1199f5611": "在线程的工作树被移除时运行",
-  "7e8476e7306acabe": "允许此项目运行其工作树命令吗？",
-  "8e11914556fd8b13": [
-    {
-      "i": 1,
-      "k": "_gt_value_1",
-      "v": "v"
-    },
-    " 使用 ",
-    {
-      "t": "code",
-      "i": 2,
-      "c": "t3.json"
-    },
-    " 中自己的命令来准备工作树线程。这些命令在此环境的机器上以你的权限运行，不受任何代理沙盒限制。命令内容每次更改时都会再次询问你。"
-  ],
-  "46807acd02a4ff72": "批准并继续",
-  "a9cb97fca6a6576b": "创建命令",
-  "90f45a354884ccdd": "移除命令",
-  "78e308ada516928b": "无法批准该命令",
-  "a0c772d32a233da6": "无法撤销批准",
-  "0cdc8cdbed3e5eae": "工作树布局",
-  "c17b25519e2b194e": "无法加载工作树布局命令",
-  "5ccd5614c65f8d1f": "撤销对 {kind} 命令的批准",
-  "80c3794a5fa12f3a": "批准 {kind} 命令",
-  "f206891e124c77b0": [
-    "此项目的 ",
-    {
-      "t": "code",
-      "i": 1,
-      "c": "t3.json"
-    },
-    " 使用自己的命令来准备工作树线程。这些命令在此环境的机器上以你的权限运行，并且只按此处批准的内容运行：内容发生更改的命令需要重新批准。"
-  ],
-  "f6a91589456cca50": "已批准",
-  "c92657bb7f2293ff": "待批准",
-  "f1e5c1be1ac92361": "批准",
-  "fcb5f3c4d4753326": "此连接无法批准命令。请使用可以使用终端的客户端。",
-  "4e96712d839ccbff": "{who}的回答：{choice}",
-  "19097cfb8f5a79cf": [
-    {
-      "i": 1,
-      "k": "_gt_value_1",
-      "v": "v"
-    },
-    "的回答：",
-    {
-      "t": "span",
-      "i": 2,
-      "c": {
-        "i": 3,
-        "k": "_gt_value_3",
-        "v": "v"
-      }
-    }
-  ],
-  "e7bbf693910057bf": [
-    {
-      "i": 1,
-      "k": "_gt_value_1",
-      "v": "v"
-    },
-    "的回答：",
-    {
-      "t": "span",
-      "i": 2,
-      "c": {
-        "i": 3,
-        "k": "_gt_value_3",
-        "v": "v"
-      }
-    },
-    ": ",
-    {
-      "i": 4,
-      "k": "_gt_value_4",
-      "v": "v"
-    }
-  ],
-  "3759768c5d342c22": [
-    {
-      "i": 1,
-      "k": "_gt_value_1",
-      "v": "v"
-    },
-    "回答"
-  ],
-  "e114d37b32ab0dc7": [
-    {
-      "i": 1,
-      "k": "_gt_value_1",
-      "v": "v"
-    },
-    "需要填写理由。"
-  ],
-  "91aadfc843c600de": "验证 Google 账户",
-  "201490988858b511": "已由 {by} 撤回",
-  "99451a5d2d40440f": "已由 {by} 撤回。",
-  "3ee30a50b70fffab": "已由 {by} 撤回：{reason}",
-  "92e129bf413a1220": "已撤回"
+  "9e91e9a77b664e4e": "无法开始生成审查导览"
 }
