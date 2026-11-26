@@ -27,10 +27,10 @@ export function ProviderUsageArc(props: {
           viewBox="0 0 20 20"
           className={cn("size-5 -rotate-90", usage.warn ? "text-warning" : "text-foreground")}
         >
-          <circle {...circle} strokeOpacity={0.12} />
+          <circle {...circle} strokeOpacity={usage.warn ? 0.35 : 0.12} />
           <circle
             {...circle}
-            strokeOpacity={0.85}
+            strokeOpacity={usage.warn ? 1 : 0.85}
             pathLength={100}
             strokeDasharray={`${usage.weekly.left} 100`}
           />
