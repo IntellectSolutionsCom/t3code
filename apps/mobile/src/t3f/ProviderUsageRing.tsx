@@ -42,11 +42,11 @@ export function ProviderUsageRing(props: {
         colorClassName={usage.warn ? "accent-warning-foreground" : "accent-foreground"}
         style={{ position: "absolute", left: -2, top: -2, transform: [{ rotate: "-90deg" }] }}
       >
-        <Circle {...circle} strokeWidth={STROKE} strokeOpacity={0.12} />
+        <Circle {...circle} strokeWidth={STROKE} strokeOpacity={usage.warn ? 0.35 : 0.12} />
         <Circle
           {...circle}
           strokeWidth={STROKE}
-          strokeOpacity={0.85}
+          strokeOpacity={usage.warn ? 1 : 0.85}
           strokeDasharray={[(length * usage.weekly.left) / 100, length]}
         />
       </ThemedSvg>
